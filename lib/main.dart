@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/auth_page.dart';
 import 'pages/camera_list_page.dart';
 import 'pages/camera_endpoint_page.dart';
@@ -108,6 +109,38 @@ class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
   String _cameraRole = 'monitor'; // monitor 或 camera
 
+  @override
+  void initState() {
+    super.initState();
+    _loadCameraRole();
+  }
+
+  Future<void> _loadCameraRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    final role = prefs.getString('camera_role') ?? 'monitor';
+    if (role == 'camera') {
+      setState(() {
+        _cameraRole = 'camera';
+      });
+    }
+  }
+
+  Future<void> _switchToMonitor() async {
+    setState(() {
+      _cameraRole = 'monitor';
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('camera_role', 'monitor');
+  }
+
+  Future<void> _switchToCamera() async {
+    setState(() {
+      _cameraRole = 'camera';
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('camera_role', 'camera');
+  }
+
   final List<Widget> _pages = [
     const CameraListPage(),
     const ExplorePage(),
@@ -124,6 +157,12 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_cameraRole == 'camera') {
+      return CameraEndpointPage(
+        onSwitchToMonitor: _switchToMonitor,
+      );
+    }
+
     return Scaffold(
       appBar: _buildAppBar(),
       body: IndexedStack(
@@ -182,27 +221,10 @@ class _MainPageState extends State<MainPage> {
               value: _cameraRole,
               onSelected: (role) {
                 if (role == 'monitor') {
-                  setState(() {
-                    _cameraRole = 'monitor';
-                  });
-                  return;
+                  _switchToMonitor();
+                } else {
+                  _switchToCamera();
                 }
-                setState(() {
-                  _cameraRole = 'camera';
-                });
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CameraEndpointPage(
-                      onSwitchToMonitor: () {
-                        Navigator.pop(context);
-                        setState(() {
-                          _cameraRole = 'monitor';
-                        });
-                      },
-                    ),
-                  ),
-                );
               },
             ),
           ),

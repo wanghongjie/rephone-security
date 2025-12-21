@@ -38,8 +38,10 @@ class Session {
 }
 
 class Signaling {
-  Signaling(this._host, this._context, {this.userEmail});
+  Signaling(this._host, this._context,
+      {this.userEmail, this.useLocalMedia = true});
 
+  final bool useLocalMedia;
   JsonEncoder _encoder = JsonEncoder();
   JsonDecoder _decoder = JsonDecoder();
   String _selfId = randomNumeric(6);
@@ -348,7 +350,7 @@ class Signaling {
     required String media,
   }) async {
     var newSession = session ?? Session(sid: sessionId, pid: peerId);
-    if (media != 'data')
+    if (media != 'data' && useLocalMedia)
       _localStream =
           await createStream(media, context: _context);
     print(_iceServers);
@@ -372,9 +374,11 @@ class Signaling {
               onAddRemoteStream?.call(newSession, event.streams[0]);
             }
           };
-          _localStream!.getTracks().forEach((track) async {
-            _senders.add(await pc.addTrack(track, _localStream!));
-          });
+          if (_localStream != null) {
+            _localStream!.getTracks().forEach((track) async {
+              _senders.add(await pc.addTrack(track, _localStream!));
+            });
+          }
           break;
       }
 
@@ -481,8 +485,20 @@ class Signaling {
 
   Future<void> _createOffer(Session session, String media) async {
     try {
+      Map<String, dynamic> constraints = {};
+      if (media == 'data') {
+        constraints = _dcConstraints;
+      } else if (!useLocalMedia) {
+        constraints = {
+          'mandatory': {
+            'OfferToReceiveAudio': true,
+            'OfferToReceiveVideo': true,
+          },
+          'optional': [],
+        };
+      }
       RTCSessionDescription s =
-          await session.pc!.createOffer(media == 'data' ? _dcConstraints : {});
+          await session.pc!.createOffer(constraints);
       await session.pc!.setLocalDescription(_fixSdp(s));
       _send('offer', {
         'to': session.pid,
@@ -555,11 +571,11 @@ class Signaling {
   }
 
   Future<void> _closeSession(Session session) async {
-    _localStream?.getTracks().forEach((element) async {
-      await element.stop();
-    });
-    await _localStream?.dispose();
-    _localStream = null;
+    // _localStream?.getTracks().forEach((element) async {
+    //   await element.stop();
+    // });
+    // await _localStream?.dispose();
+    // _localStream = null;
 
     await session.pc?.close();
     await session.dc?.close();

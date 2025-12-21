@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
@@ -18,6 +19,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
   MediaStream? _localStream;
   final _localRenderer = RTCVideoRenderer();
   bool _isVideoActive = false;
+  bool _isMicMuted = true; // 默认关闭麦克风
   
   // WebRTC signaling
   Signaling? _signaling;
@@ -83,6 +85,14 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
       setState(() {
         _isVideoActive = true;
       });
+
+      // 默认静音
+      if (_isMicMuted) {
+        final audioTracks = stream.getAudioTracks();
+        if (audioTracks.isNotEmpty) {
+          audioTracks[0].enabled = false;
+        }
+      }
     };
 
     _signaling!.onCallStateChange = (Session session, CallState state) {
@@ -173,6 +183,16 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
     }
   }
 
+  void _toggleMic() {
+    _signaling?.muteMic();
+    setState(() {
+      _isMicMuted = !_isMicMuted;
+    });
+  }
+
+  void _switchCamera() {
+    _signaling?.switchCamera();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +210,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
             alignment: Alignment.centerLeft,
             child: _CameraRoleMenu(
               value: _role,
-              onSelected: (role) {
+              onSelected: (role) async {
                 if (role == 'monitor') {
                   widget.onSwitchToMonitor();
                   return;
@@ -198,6 +218,8 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
                 setState(() {
                   _role = 'camera';
                 });
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('camera_role', 'camera');
               },
             ),
           ),
@@ -219,11 +241,43 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
           // 视频预览
           Expanded(
             child: _isVideoActive
-                ? Container(
-                    width: double.infinity,
-                    height: double.infinity,
-                    decoration: const BoxDecoration(color: Colors.black),
-                    child: RTCVideoView(_localRenderer, mirror: true),
+                ? Stack(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        height: double.infinity,
+                        decoration: const BoxDecoration(color: Colors.black),
+                        child: RTCVideoView(_localRenderer, mirror: true),
+                      ),
+                      Positioned(
+                        bottom: 30,
+                        left: 0,
+                        right: 0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            FloatingActionButton(
+                              heroTag: 'mic_btn',
+                              onPressed: _toggleMic,
+                              backgroundColor:
+                                  _isMicMuted ? Colors.red : Colors.white,
+                              child: Icon(
+                                _isMicMuted ? Icons.mic_off : Icons.mic,
+                                color:
+                                    _isMicMuted ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            FloatingActionButton(
+                              heroTag: 'cam_btn',
+                              onPressed: _switchCamera,
+                              backgroundColor: Colors.white,
+                              child: const Icon(Icons.switch_camera,
+                                  color: Colors.black),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   )
                 : const Center(
                     child: CircularProgressIndicator(),
@@ -312,4 +366,3 @@ class _CameraRoleMenu extends StatelessWidget {
     );
   }
 }
-
