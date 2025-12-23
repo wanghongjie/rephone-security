@@ -39,17 +39,43 @@ class Session {
 
 class Signaling {
   Signaling(this._host, this._context,
-      {this.userEmail, this.useLocalMedia = true});
+      {this.userEmail, this.useLocalMedia = true, String? deviceType}) {
+    _deviceType = deviceType ?? (useLocalMedia ? 'camera' : 'monitor');
+    // _selfId 将在 connect() 时通过 _initializeDeviceId() 初始化
+  }
 
   final bool useLocalMedia;
   JsonEncoder _encoder = JsonEncoder();
   JsonDecoder _decoder = JsonDecoder();
-  String _selfId = randomNumeric(6);
+  String _selfId = ''; // 将在connect()时初始化
   SimpleWebSocket? _socket;
   BuildContext? _context;
   var _host;
   var _port = 8086;
   String? userEmail;
+  String? _deviceType;
+  bool _deviceIdInitialized = false;
+  
+  /// 初始化设备ID
+  Future<void> _initializeDeviceId(String deviceType) async {
+    if (_deviceIdInitialized) {
+      return; // 已经初始化过了
+    }
+    
+    _deviceType = deviceType;
+    try {
+      _selfId = await DeviceInfo.getOrCreateDeviceId(deviceType);
+      _deviceIdInitialized = true;
+      print('Signaling: Initialized device ID for $deviceType: $_selfId');
+    } catch (e) {
+      print('Signaling: Failed to initialize device ID, using random: $e');
+      // Fallback to random ID if device ID generation fails
+      if (_selfId.isEmpty) {
+        _selfId = randomNumeric(6);
+      }
+      _deviceIdInitialized = true;
+    }
+  }
   var _turnCredential;
   Map<String, Session> _sessions = {};
   MediaStream? _localStream;
@@ -340,10 +366,15 @@ class Signaling {
   }
 
   Future<void> connect() async {
+    // 确保设备ID已初始化
+    if (!_deviceIdInitialized || _selfId.isEmpty) {
+      await _initializeDeviceId(_deviceType ?? (useLocalMedia ? 'camera' : 'monitor'));
+    }
+    
     var url = 'https://$_host:$_port/ws';
     _socket = SimpleWebSocket(url);
 
-    print('connect to $url');
+    print('connect to $url with device ID: $_selfId');
 
     if (_turnCredential == null) {
       try {

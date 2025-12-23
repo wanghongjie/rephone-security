@@ -38,6 +38,7 @@ dependencies:
   flutter_webrtc: 0.12.8
   shared_preferences: ^2.2.0
   http: 0.13.3
+  device_info_plus: ^10.1.0
 
 dev_dependencies:
   flutter_test:

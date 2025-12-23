@@ -145,7 +145,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
   }
 
   void _connectSignaling() async {
-    _signaling = Signaling(defaultAuthHost, context, userEmail: _currentUserEmail);
+    _signaling = Signaling(defaultAuthHost, context, 
+        userEmail: _currentUserEmail, 
+        deviceType: 'camera');
     
     // 设置回调函数在连接之前
     _signaling!.onSignalingStateChange = (SignalingState state) {

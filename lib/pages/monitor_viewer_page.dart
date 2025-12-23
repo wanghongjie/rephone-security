@@ -50,7 +50,9 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
   void _connectSignaling() async {
     _signaling = Signaling(defaultAuthHost, context,
-        userEmail: _currentUserEmail, useLocalMedia: false);
+        userEmail: _currentUserEmail, 
+        useLocalMedia: false,
+        deviceType: 'monitor');
 
     // 设置回调函数在连接之前
     _signaling!.onSignalingStateChange = (SignalingState state) {
