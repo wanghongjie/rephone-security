@@ -3,6 +3,9 @@ package com.rephone.security
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkRequest
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -10,6 +13,7 @@ import androidx.core.app.NotificationCompat
 
 class CameraForegroundService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private val CHANNEL_ID = "camera_service_channel"
     private val NOTIFICATION_ID = 1
 
@@ -17,6 +21,7 @@ class CameraForegroundService : Service() {
         super.onCreate()
         createNotificationChannel()
         acquireWakeLock()
+        registerNetworkCallback()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -30,7 +35,40 @@ class CameraForegroundService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        unregisterNetworkCallback()
         releaseWakeLock()
+    }
+    
+    private fun registerNetworkCallback() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val networkRequest = NetworkRequest.Builder()
+                .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                .build()
+            
+            networkCallback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    super.onAvailable(network)
+                    android.util.Log.d("CameraService", "Network available")
+                }
+                
+                override fun onLost(network: Network) {
+                    super.onLost(network)
+                    android.util.Log.d("CameraService", "Network lost")
+                }
+            }
+            
+            connectivityManager.registerNetworkCallback(networkRequest, networkCallback!!)
+        }
+    }
+    
+    private fun unregisterNetworkCallback() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && networkCallback != null) {
+            val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            connectivityManager.unregisterNetworkCallback(networkCallback!!)
+            networkCallback = null
+        }
     }
 
     private fun createNotificationChannel() {

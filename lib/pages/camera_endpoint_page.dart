@@ -48,6 +48,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
   
   Future<void> _checkAndRequestNotificationPermission() async {
     try {
+      // 请求忽略电池优化（重要：保持网络连接）
+      await _serviceChannel.invokeMethod('requestIgnoreBatteryOptimizations');
+      
       // 检查通知权限
       final hasPermission = await _serviceChannel.invokeMethod<bool>('checkNotificationPermission') ?? false;
       
@@ -66,8 +69,8 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('通知权限已授予，前台服务已启动'),
-                duration: Duration(seconds: 2),
+                content: Text('权限已授予，前台服务已启动\n建议在设置中关闭电池优化以保证连接稳定'),
+                duration: Duration(seconds: 4),
               ),
             );
           }
@@ -84,6 +87,14 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
       } else {
         // 已有权限，直接启动服务
         await _startForegroundService();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('前台服务已启动\n建议在设置中关闭电池优化以保证连接稳定'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
       }
     } catch (e) {
       print('Camera: Permission check error: $e');

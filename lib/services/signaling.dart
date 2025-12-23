@@ -56,6 +56,15 @@ class Signaling {
   List<MediaStream> _remoteStreams = <MediaStream>[];
   List<RTCRtpSender> _senders = <RTCRtpSender>[];
   VideoSource _videoSource = VideoSource.Camera;
+  
+  // Keepalive and reconnect
+  Timer? _keepaliveTimer;
+  Timer? _reconnectTimer;
+  bool _isReconnecting = false;
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 5;
+  static const Duration _keepaliveInterval = Duration(seconds: 30);
+  static const Duration _reconnectDelay = Duration(seconds: 3);
 
   Function(SignalingState state)? onSignalingStateChange;
   Function(Session session, CallState state)? onCallStateChange;
@@ -99,8 +108,70 @@ class Signaling {
   };
 
   close() async {
+    _stopKeepalive();
+    _stopReconnect();
     await _cleanSessions();
     _socket?.close();
+  }
+  
+  void _startKeepalive() {
+    _stopKeepalive();
+    _keepaliveTimer = Timer.periodic(_keepaliveInterval, (timer) {
+      if (_socket != null) {
+        try {
+          _send('keepalive', {});
+          print('Keepalive sent');
+        } catch (e) {
+          print('Keepalive error: $e');
+          timer.cancel();
+          _scheduleReconnect();
+        }
+      }
+    });
+  }
+  
+  void _stopKeepalive() {
+    _keepaliveTimer?.cancel();
+    _keepaliveTimer = null;
+  }
+  
+  void _scheduleReconnect() {
+    if (_isReconnecting || _reconnectAttempts >= _maxReconnectAttempts) {
+      print('Max reconnect attempts reached or already reconnecting');
+      return;
+    }
+    
+    _isReconnecting = true;
+    _reconnectAttempts++;
+    print('Scheduling reconnect attempt $_reconnectAttempts/$_maxReconnectAttempts');
+    
+    _reconnectTimer = Timer(_reconnectDelay, () {
+      _reconnect();
+    });
+  }
+  
+  void _stopReconnect() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _isReconnecting = false;
+    _reconnectAttempts = 0;
+  }
+  
+  Future<void> _reconnect() async {
+    if (_reconnectAttempts > _maxReconnectAttempts) {
+      print('Max reconnect attempts reached');
+      _isReconnecting = false;
+      return;
+    }
+    
+    print('Reconnecting... attempt $_reconnectAttempts');
+    try {
+      await connect();
+    } catch (e) {
+      print('Reconnect failed: $e');
+      _isReconnecting = false;
+      _scheduleReconnect();
+    }
   }
 
   void switchCamera() {
@@ -298,6 +369,8 @@ class Signaling {
 
     _socket?.onOpen = () {
       print('onOpen');
+      _reconnectAttempts = 0;
+      _isReconnecting = false;
       onSignalingStateChange?.call(SignalingState.ConnectionOpen);
       final userAgent = userEmail != null 
           ? DeviceInfo.getUserAgentWithEmail(userEmail!)
@@ -307,6 +380,8 @@ class Signaling {
         'id': _selfId,
         'user_agent': userAgent
       });
+      // 启动 keepalive 心跳
+      _startKeepalive();
     };
 
     _socket?.onMessage = (message) {
@@ -316,7 +391,10 @@ class Signaling {
 
     _socket?.onClose = (int? code, String? reason) {
       print('Closed by server [$code => $reason]!');
+      _stopKeepalive();
       onSignalingStateChange?.call(SignalingState.ConnectionClosed);
+      // 自动重连
+      _scheduleReconnect();
     };
 
     await _socket?.connect();
