@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/signaling.dart';
@@ -27,6 +28,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
   List<dynamic> _peers = [];
   bool _isConnected = false;
   String? _currentUserEmail;
+  
+  // Foreground service channel
+  static const MethodChannel _serviceChannel = MethodChannel('camera_service');
 
   @override
   void initState() {
@@ -38,13 +42,89 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
   void _loadUserInfo() async {
     final user = await SessionManager.getUser();
     _currentUserEmail = user?.email;
+    await _checkAndRequestNotificationPermission();
     _connectSignaling();
+  }
+  
+  Future<void> _checkAndRequestNotificationPermission() async {
+    try {
+      // 检查通知权限
+      final hasPermission = await _serviceChannel.invokeMethod<bool>('checkNotificationPermission') ?? false;
+      
+      if (!hasPermission) {
+        // 请求通知权限
+        await _serviceChannel.invokeMethod('requestNotificationPermission');
+        
+        // 等待用户响应（权限对话框可能需要时间）
+        await Future.delayed(const Duration(seconds: 1));
+        
+        // 再次检查权限状态
+        final granted = await _serviceChannel.invokeMethod<bool>('checkNotificationPermission') ?? false;
+        
+        if (granted) {
+          await _startForegroundService();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('通知权限已授予，前台服务已启动'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('需要通知权限以保持相机在后台运行，请在设置中授予权限'),
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
+        }
+      } else {
+        // 已有权限，直接启动服务
+        await _startForegroundService();
+      }
+    } catch (e) {
+      print('Camera: Permission check error: $e');
+      // Android 12以下不需要运行时权限，直接启动服务
+      if (mounted) {
+        await _startForegroundService();
+      }
+    }
+  }
+  
+  Future<void> _startForegroundService() async {
+    try {
+      await _serviceChannel.invokeMethod('startForegroundService');
+      print('Camera: Foreground service started');
+    } catch (e) {
+      print('Camera: Failed to start foreground service: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('启动前台服务失败: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+  
+  Future<void> _stopForegroundService() async {
+    try {
+      await _serviceChannel.invokeMethod('stopForegroundService');
+      print('Camera: Foreground service stopped');
+    } catch (e) {
+      print('Camera: Failed to stop foreground service: $e');
+    }
   }
 
   @override
   void dispose() {
     _signaling?.close();
     _stopVideo();
+    _stopForegroundService();
     _localRenderer.dispose();
     super.dispose();
   }
