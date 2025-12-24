@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'email_auth_flow.dart';
+import 'qr_code_scanner_page.dart';
 
 class AuthPage extends StatelessWidget {
   const AuthPage({super.key});
@@ -69,9 +70,14 @@ class AuthPage extends StatelessWidget {
               Center(
                 child: TextButton(
                   onPressed: () {
-                    Navigator.pushReplacementNamed(context, '/home');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const QRCodeScannerPage(),
+                      ),
+                    );
                   },
-                  child: const Text('暂不登录，先去首页看看'),
+                  child: const Text('扫码绑定'),
                 ),
               ),
             ],

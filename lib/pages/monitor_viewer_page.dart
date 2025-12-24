@@ -5,9 +5,14 @@ import '../services/session_manager.dart';
 import '../config/server_config.dart';
 
 class MonitorViewerPage extends StatefulWidget {
-  const MonitorViewerPage({super.key, required this.cameraName});
+  const MonitorViewerPage({
+    super.key, 
+    required this.cameraName,
+    required this.cameraDeviceId,
+  });
 
   final String cameraName;
+  final String cameraDeviceId; // 相机端设备ID
 
   @override
   State<MonitorViewerPage> createState() => _MonitorViewerPageState();
@@ -65,7 +70,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
     _signaling!.onPeersUpdate = (event) {
       print('Monitor peers updated: $event');
-      final previousPeers = List<dynamic>.from(_peers);
       setState(() {
         _selfId = event['self'];
         _peers = event['peers'];
@@ -98,7 +102,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
         }
       }
       
-      // 自动发起连接到相机端
+      // 自动发起连接到指定的相机端
       if (_peers.isNotEmpty && !_inCall && _connectedCameraId == null) {
         Future.delayed(const Duration(milliseconds: 500), () {
           _callCamera();
@@ -174,20 +178,25 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
   void _callCamera() {
     if (_signaling != null && _peers.isNotEmpty) {
-      // 找到第一个非自己的peer（相机端）
+      // 根据传入的相机设备ID查找对应的peer
       final cameraPeer = _peers.firstWhere(
-        (peer) => peer['id'] != _selfId,
+        (peer) => peer['id'] == widget.cameraDeviceId,
         orElse: () => null,
       );
       
       if (cameraPeer != null) {
         _connectedCameraId = cameraPeer['id'];
+        print('Monitor: Calling camera with ID: ${widget.cameraDeviceId}');
         _signaling!.invite(cameraPeer['id'], 'video', false);
       } else {
+        print('Monitor: Camera ${widget.cameraDeviceId} not found in peers list');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未找到在线的相机端')),
+          SnackBar(
+            content: Text('相机端 ${widget.cameraName} 不在线'),
+            duration: const Duration(seconds: 2),
+          ),
         );
-        // 如果没有找到相机端，返回上一页
+        // 如果指定的相机端不在线，返回上一页
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
             Navigator.pop(context);

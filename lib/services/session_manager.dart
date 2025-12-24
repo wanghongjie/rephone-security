@@ -57,10 +57,50 @@ class SessionManager {
       await prefs.remove(_keyLoggedIn);
       await prefs.remove(_keyEmail);
       await prefs.remove(_keyUserId);
+      await prefs.remove('device_role');
     } catch (e) {
       _fallbackLoggedIn = false;
       _fallbackEmail = null;
       _fallbackUserId = null;
+    }
+  }
+
+  /// 保存相机端用户（扫码绑定时使用）
+  /// 使用同一个邮箱存储，通过 device_role 区分角色
+  static Future<void> saveCameraUser(String email) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // 使用统一的邮箱存储
+      await prefs.setBool(_keyLoggedIn, true);
+      await prefs.setString(_keyEmail, email);
+      await prefs.setString('device_role', 'camera');
+      // 临时用户ID，实际应该从登录接口获取
+      await prefs.setInt(_keyUserId, 0);
+    } catch (e) {
+      // Fallback
+      _fallbackLoggedIn = true;
+      _fallbackEmail = email;
+      _fallbackUserId = 0;
+    }
+  }
+
+  /// 设置设备角色（camera 或 monitor）
+  static Future<void> setDeviceRole(String role) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('device_role', role);
+    } catch (e) {
+      // Fallback ignored
+    }
+  }
+
+  /// 获取设备角色（camera 或 monitor）
+  static Future<String?> getDeviceRole() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('device_role');
+    } catch (e) {
+      return null;
     }
   }
 }
