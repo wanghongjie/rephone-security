@@ -22,6 +22,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
   bool _inCall = false;
   Session? _session;
   String? _currentUserEmail;
+  String? _connectedCameraId; // 当前连接的相机端ID
 
   @override
   void initState() {
@@ -64,6 +65,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
     _signaling!.onPeersUpdate = (event) {
       print('Monitor peers updated: $event');
+      final previousPeers = List<dynamic>.from(_peers);
       setState(() {
         _selfId = event['self'];
         _peers = event['peers'];
@@ -73,8 +75,31 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
         }
       });
       
+      // 检查相机端是否离线
+      if (_connectedCameraId != null) {
+        final cameraStillOnline = _peers.any((peer) => peer['id'] == _connectedCameraId);
+        if (!cameraStillOnline) {
+          // 相机端已离线，返回上一页
+          print('Monitor: Camera $_connectedCameraId went offline, returning to previous page');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('相机端已离线'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                Navigator.pop(context);
+              }
+            });
+          }
+          return;
+        }
+      }
+      
       // 自动发起连接到相机端
-      if (_peers.isNotEmpty && !_inCall) {
+      if (_peers.isNotEmpty && !_inCall && _connectedCameraId == null) {
         Future.delayed(const Duration(milliseconds: 500), () {
           _callCamera();
         });
@@ -92,6 +117,8 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
         case CallState.CallStateConnected:
           setState(() {
             _inCall = true;
+            // 记录连接的相机端ID
+            _connectedCameraId = session.pid;
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('视频连接成功')),
@@ -102,10 +129,22 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
             _inCall = false;
             _session = null;
             _remoteRenderer.srcObject = null;
+            _connectedCameraId = null;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('视频通话已结束')),
-          );
+          // 如果是相机端主动断开，返回上一页
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('相机端已断开连接'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                Navigator.pop(context);
+              }
+            });
+          }
           break;
         case CallState.CallStateInvite:
           ScaffoldMessenger.of(context).showSnackBar(
@@ -142,11 +181,18 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       );
       
       if (cameraPeer != null) {
+        _connectedCameraId = cameraPeer['id'];
         _signaling!.invite(cameraPeer['id'], 'video', false);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('未找到在线的相机端')),
         );
+        // 如果没有找到相机端，返回上一页
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.pop(context);
+          }
+        });
       }
     }
   }
