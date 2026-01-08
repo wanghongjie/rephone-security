@@ -17,7 +17,6 @@ class CameraEndpointPage extends StatefulWidget {
 
 class _CameraEndpointPageState extends State<CameraEndpointPage> {
   String _role = 'camera';
-  MediaStream? _localStream;
   final _localRenderer = RTCVideoRenderer();
   bool _isVideoActive = false;
   bool _isMicMuted = true; // 默认关闭麦克风
@@ -266,7 +265,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
 
   void _stopVideo() async {
     try {
-      await _localStream?.dispose();
       _localRenderer.srcObject = null;
       setState(() {
         _isVideoActive = false;

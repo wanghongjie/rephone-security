@@ -1,5 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:gallery_saver/gallery_saver.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
@@ -29,6 +35,15 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
   String? _currentUserEmail;
   String? _connectedCameraId; // 当前连接的相机端ID
 
+  // Recording
+  MediaStream? _remoteStream;
+  MediaRecorder? _mediaRecorder;
+  String? _recordingPath;
+
+  bool get _isRecording => _mediaRecorder != null;
+  bool _isSavingToGallery = false;
+  int? _androidSdkInt;
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +59,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
   @override
   void dispose() {
+    _stopRecording(showToast: false);
     _hangUp();
     _signaling?.close();
     _remoteRenderer.dispose();
@@ -129,10 +145,12 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
           );
           break;
         case CallState.CallStateBye:
+          _stopRecording(showToast: false);
           setState(() {
             _inCall = false;
             _session = null;
             _remoteRenderer.srcObject = null;
+            _remoteStream = null;
             _connectedCameraId = null;
           });
           // 如果是相机端主动断开，返回上一页
@@ -162,12 +180,15 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
     _signaling!.onAddRemoteStream = (session, stream) {
       print('Monitor remote stream added');
+      _remoteStream = stream;
       _remoteRenderer.srcObject = stream;
       setState(() {});
     };
 
     _signaling!.onRemoveRemoteStream = (session, stream) {
       print('Monitor remote stream removed');
+      _stopRecording(showToast: false);
+      _remoteStream = null;
       _remoteRenderer.srcObject = null;
       setState(() {});
     };
@@ -207,8 +228,223 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
   }
 
   void _hangUp() {
+    _stopRecording(showToast: false);
     if (_session != null) {
       _signaling?.bye(_session!.sid);
+    }
+  }
+
+  Future<void> _startRecording() async {
+    if (_isRecording) return;
+    final stream = _remoteStream;
+    if (stream == null || stream.getVideoTracks().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('没有可录制的视频流')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final recorder = MediaRecorder();
+      final dir = await getApplicationDocumentsDirectory();
+      final path =
+          '${dir.path}/rephone_${widget.cameraDeviceId}_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+      await recorder.start(
+        path,
+        videoTrack: stream.getVideoTracks().first,
+      );
+
+      setState(() {
+        _mediaRecorder = recorder;
+        _recordingPath = path;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('开始录制')),
+        );
+      }
+    } catch (e) {
+      try {
+        await _mediaRecorder?.stop();
+      } catch (_) {}
+      setState(() {
+        _mediaRecorder = null;
+        _recordingPath = null;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('开始录制失败: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _stopRecording({bool showToast = true}) async {
+    final recorder = _mediaRecorder;
+    if (recorder == null) return;
+    final savedPath = _recordingPath;
+
+    try {
+      await recorder.stop();
+    } catch (_) {
+      // ignore
+    }
+
+    setState(() {
+      _mediaRecorder = null;
+      _recordingPath = null;
+    });
+
+    if (!mounted) return;
+
+    if (showToast) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('录制已保存: ${savedPath ?? ''}')),
+      );
+    }
+
+    // Only show the action sheet when user explicitly stopped recording.
+    if (showToast && savedPath != null) {
+      await _showPostRecordingActionsSheet(savedPath);
+    }
+  }
+
+  Future<void> _showPostRecordingActionsSheet(String path) async {
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  '录制完成',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: _isSavingToGallery
+                      ? null
+                      : () async {
+                          Navigator.pop(context);
+                          await _saveVideoToGallery(path);
+                        },
+                  icon: _isSavingToGallery
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.photo_library_outlined),
+                  label:
+                      Text(_isSavingToGallery ? '保存中...' : '保存到相册'),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: null, // TODO: implement share
+                  icon: const Icon(Icons.share_outlined),
+                  label: const Text('分享（待实现）'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _saveVideoToGallery(String path) async {
+    if (_isSavingToGallery) return;
+    setState(() {
+      _isSavingToGallery = true;
+    });
+
+    try {
+      final permissionOk = await _requestGalleryPermissionIfNeeded();
+      if (!permissionOk) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('未获得相册权限，无法保存到相册')),
+          );
+        }
+        return;
+      }
+
+      final ok = await GallerySaver.saveVideo(
+        path,
+        albumName: 'RePhone Security',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ok == true ? '已保存到相册' : '保存到相册失败')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存到相册失败: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingToGallery = false;
+        });
+      } else {
+        _isSavingToGallery = false;
+      }
+    }
+  }
+
+  Future<bool> _requestGalleryPermissionIfNeeded() async {
+    if (Platform.isIOS) {
+      // iOS: request "add only" first if available, fallback to full photos.
+      final addOnly = await Permission.photosAddOnly.request();
+      if (addOnly.isGranted || addOnly.isLimited) return true;
+
+      final photos = await Permission.photos.request();
+      return photos.isGranted || photos.isLimited;
+    }
+
+    if (Platform.isAndroid) {
+      // Android 10+ (API 29+) typically doesn't need runtime permission to save
+      // media to gallery via MediaStore. Android 9 and below needs storage.
+      final sdk = await _getAndroidSdkInt();
+      if (sdk != null && sdk <= 28) {
+        final storage = await Permission.storage.request();
+        return storage.isGranted || storage.isLimited;
+      }
+      return true;
+    }
+
+    return true;
+  }
+
+  Future<int?> _getAndroidSdkInt() async {
+    if (!Platform.isAndroid) return null;
+    if (_androidSdkInt != null) return _androidSdkInt;
+    try {
+      final info = await DeviceInfoPlugin().androidInfo;
+      _androidSdkInt = info.version.sdkInt;
+      return _androidSdkInt;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -218,6 +454,17 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       appBar: AppBar(
         title: Text('监控 - ${widget.cameraName}'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          if (_inCall && _remoteStream != null)
+            IconButton(
+              tooltip: _isRecording ? '结束录制' : '开始录制',
+              onPressed: _isRecording ? _stopRecording : _startRecording,
+              icon: Icon(
+                _isRecording ? Icons.stop : Icons.fiber_manual_record,
+                color: _isRecording ? Colors.white : Colors.red,
+              ),
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -238,7 +485,31 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
               width: double.infinity,
               decoration: const BoxDecoration(color: Colors.black),
               child: _inCall && _remoteRenderer.srcObject != null
-                  ? RTCVideoView(_remoteRenderer)
+                  ? Stack(
+                      children: [
+                        RTCVideoView(_remoteRenderer),
+                        if (_isRecording)
+                          Positioned(
+                            top: 12,
+                            right: 12,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.8),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'REC',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    )
                   : Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
