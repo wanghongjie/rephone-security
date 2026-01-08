@@ -58,6 +58,7 @@ class SessionManager {
       await prefs.remove(_keyEmail);
       await prefs.remove(_keyUserId);
       await prefs.remove('device_role');
+      await prefs.remove('camera_role');
     } catch (e) {
       _fallbackLoggedIn = false;
       _fallbackEmail = null;

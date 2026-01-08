@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/session_manager.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -8,14 +9,23 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final UserProfile _userProfile = UserProfile(
-    name: '张三',
-    email: 'zhangsan@example.com',
-    phone: '+86 138****8888',
-    avatar: null,
-    membershipLevel: '基础版',
-    joinDate: DateTime(2023, 6, 15),
-  );
+  String? _currentUserEmail;
+  final String _membershipLevel = '基础版';
+  bool _isLoggingOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserInfo();
+  }
+
+  Future<void> _loadUserInfo() async {
+    final user = await SessionManager.getUser();
+    if (!mounted) return;
+    setState(() {
+      _currentUserEmail = user?.email;
+    });
+  }
 
   final List<SettingItem> _settingItems = [
     SettingItem(
@@ -77,8 +87,6 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             _buildUserProfile(),
             const SizedBox(height: 24),
-            _buildQuickActions(),
-            const SizedBox(height: 24),
             _buildSettingsList(),
             const SizedBox(height: 24),
             _buildLogoutButton(),
@@ -105,61 +113,21 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: Column(
         children: [
-          GestureDetector(
-            onTap: _changeAvatar,
-            child: Stack(
-              children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: Colors.white,
-                  backgroundImage: _userProfile.avatar != null
-                      ? NetworkImage(_userProfile.avatar!)
-                      : null,
-                  child: _userProfile.avatar == null
-                      ? Icon(
-                          Icons.person,
-                          size: 40,
-                          color: Colors.grey[400],
-                        )
-                      : null,
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.camera_alt,
-                      size: 16,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          const Icon(
+            Icons.mail_outline,
+            color: Colors.white,
+            size: 28,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
-            _userProfile.name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _userProfile.email,
+            _currentUserEmail ?? '未登录',
             style: const TextStyle(
               color: Colors.white70,
-              fontSize: 14,
+              fontSize: 16,
             ),
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
@@ -167,7 +135,7 @@ class _ProfilePageState extends State<ProfilePage> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              _userProfile.membershipLevel,
+              _membershipLevel,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,
@@ -180,69 +148,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildQuickActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildQuickActionCard(
-            icon: Icons.qr_code_scanner,
-            title: '扫码添加',
-            onTap: () => _onQuickAction('扫码添加设备'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildQuickActionCard(
-            icon: Icons.share,
-            title: '分享应用',
-            onTap: () => _onQuickAction('分享应用'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildQuickActionCard(
-            icon: Icons.feedback,
-            title: '意见反馈',
-            onTap: () => _onQuickAction('意见反馈'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickActionCard({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                size: 24,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildSettingsList() {
     return Column(
@@ -317,50 +222,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _changeAvatar() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('拍照'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('打开相机')),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('从相册选择'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('打开相册')),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.cancel),
-              title: const Text('取消'),
-              onTap: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _onQuickAction(String action) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('执行操作: $action')),
-    );
-  }
-
   void _onSettingTap(SettingItem item) {
     if (item.onTap != null) {
       item.onTap!();
@@ -383,13 +244,13 @@ class _ProfilePageState extends State<ProfilePage> {
             child: const Text('取消'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('已退出登录')),
-              );
-              // TODO: 实现退出登录逻辑
-            },
+            onPressed: _isLoggingOut
+                ? null
+                : () async {
+                    // Close the dialog first.
+                    Navigator.pop(context);
+                    await _logout();
+                  },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
@@ -400,24 +261,27 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-}
 
-class UserProfile {
-  final String name;
-  final String email;
-  final String phone;
-  final String? avatar;
-  final String membershipLevel;
-  final DateTime joinDate;
-
-  UserProfile({
-    required this.name,
-    required this.email,
-    required this.phone,
-    this.avatar,
-    required this.membershipLevel,
-    required this.joinDate,
-  });
+  Future<void> _logout() async {
+    if (_isLoggingOut) return;
+    setState(() {
+      _isLoggingOut = true;
+    });
+    try {
+      await SessionManager.clear();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已退出登录')),
+      );
+      // Go to login page and clear navigation stack.
+      Navigator.of(context).pushNamedAndRemoveUntil('/auth', (route) => false);
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoggingOut = false;
+      });
+    }
+  }
 }
 
 class SettingItem {
