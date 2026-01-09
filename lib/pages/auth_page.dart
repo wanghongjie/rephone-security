@@ -36,23 +36,6 @@ class AuthPage extends StatelessWidget {
               ),
               const SizedBox(height: 28),
               _AuthButton(
-                label: '使用 Google 账号继续',
-                icon: Icons.g_mobiledata,
-                background: Colors.white,
-                foreground: Colors.black,
-                borderColor: Colors.grey[300],
-                onPressed: () => _handleAuth(context, 'Google'),
-              ),
-              const SizedBox(height: 12),
-              _AuthButton(
-                label: '使用 Apple 账号继续',
-                icon: Icons.apple,
-                background: Colors.black,
-                foreground: Colors.white,
-                onPressed: () => _handleAuth(context, 'Apple'),
-              ),
-              const SizedBox(height: 12),
-              _AuthButton(
                 label: '使用电子邮件登录',
                 icon: Icons.alternate_email,
                 background: theme.colorScheme.primary,
@@ -68,16 +51,29 @@ class AuthPage extends StatelessWidget {
               ),
               const Spacer(),
               Center(
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const QRCodeScannerPage(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '如果作为相机端可以直接扫描监控端的二维码',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
                       ),
-                    );
-                  },
-                  child: const Text('扫码绑定'),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const QRCodeScannerPage(),
+                          ),
+                        );
+                      },
+                      child: const Text('扫码绑定'),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -85,13 +81,6 @@ class AuthPage extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  void _handleAuth(BuildContext context, String provider) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$provider 登录示例，成功后进入首页')),
-    );
-    Navigator.pushReplacementNamed(context, '/home');
   }
 }
 

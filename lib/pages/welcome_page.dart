@@ -46,8 +46,8 @@ class WelcomePage extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.network(
-                        'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80',
+                      Image.asset(
+                        'assets/images/welcome_family_care.png',
                         fit: BoxFit.cover,
                       ),
                       Container(
