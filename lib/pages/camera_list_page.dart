@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'monitor_viewer_page.dart';
 import '../services/bind_api.dart';
 import '../services/session_manager.dart';
@@ -20,16 +22,62 @@ class _CameraListPageState extends State<CameraListPage> {
   String? _currentUserEmail;
   bool _isQRCodePageOpen = false; // 跟踪二维码页面是否打开
 
+  // Banner ad
+  BannerAd? _bannerAd;
+  bool _isBannerAdReady = false;
+
   @override
   void initState() {
     super.initState();
+    _loadBannerAd();
     _loadUserInfo();
   }
 
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _bannerAd?.dispose();
     super.dispose();
+  }
+
+  void _loadBannerAd() {
+    // NOTE:
+    // - These are Google's official Banner TEST ad unit IDs.
+    // - Replace with your own Banner ad unit IDs when ready.
+    final adUnitId = Platform.isAndroid
+        ? 'ca-app-pub-3940256099942544/9214589741'
+        : 'ca-app-pub-3940256099942544/2435281174';
+
+    final ad = BannerAd(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      size: AdSize.banner,
+      listener: BannerAdListener(
+        onAdLoaded: (ad) {
+          if (!mounted) {
+            ad.dispose();
+            return;
+          }
+          setState(() {
+            _bannerAd = ad as BannerAd;
+            _isBannerAdReady = true;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          if (!mounted) return;
+          setState(() {
+            _bannerAd = null;
+            _isBannerAdReady = false;
+          });
+          // Keep quiet in UI; log only.
+          // ignore: avoid_print
+          print('BannerAd failed to load: code=${error.code}, message=${error.message}, domain=${error.domain}');
+        },
+      ),
+    );
+
+    ad.load();
   }
 
   void _loadUserInfo() async {
@@ -131,18 +179,34 @@ class _CameraListPageState extends State<CameraListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final content = _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _cameras.isEmpty
+            ? _buildEmptyState()
+            : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _cameras.length,
+                itemBuilder: (context, index) {
+                  return _buildCameraCard(_cameras[index]);
+                },
+              );
+
     return Scaffold(
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _cameras.isEmpty
-              ? _buildEmptyState()
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _cameras.length,
-                  itemBuilder: (context, index) {
-                    return _buildCameraCard(_cameras[index]);
-                  },
-                ),
+      body: Column(
+        children: [
+          if (_isBannerAdReady && _bannerAd != null)
+            SafeArea(
+              bottom: false,
+              child: Container(
+                alignment: Alignment.center,
+                width: _bannerAd!.size.width.toDouble(),
+                height: _bannerAd!.size.height.toDouble(),
+                child: AdWidget(ad: _bannerAd!),
+              ),
+            ),
+          Expanded(child: content),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addCamera,
         child: const Icon(Icons.add),

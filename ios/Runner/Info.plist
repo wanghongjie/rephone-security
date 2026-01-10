@@ -45,6 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- AdMob App ID -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-6709616886871539~9167487469</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>需要将录制的视频保存到相册</string>
 	<key>NSPhotoLibraryUsageDescription</key>

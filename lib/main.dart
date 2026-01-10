@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'pages/auth_page.dart';
 import 'pages/camera_list_page.dart';
 import 'pages/camera_endpoint_page.dart';
@@ -11,6 +12,15 @@ import 'services/session_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize the Mobile Ads SDK.
+  await MobileAds.instance.initialize();
+  // Mark devices as test devices to avoid policy violations during development.
+  // Add more IDs if you test on multiple devices.
+  await MobileAds.instance.updateRequestConfiguration(
+    RequestConfiguration(
+      testDeviceIds: <String>['32269ED36C964717F118F673D33C50C3'],
+    ),
+  );
   runApp(const RePhoneSecurityApp());
 }
 
