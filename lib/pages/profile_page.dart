@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/session_manager.dart';
+import 'about_page.dart';
+import 'help_center_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -29,52 +31,16 @@ class _ProfilePageState extends State<ProfilePage> {
 
   final List<SettingItem> _settingItems = [
     SettingItem(
-      icon: Icons.account_circle,
-      title: '账户信息',
-      subtitle: '编辑个人资料',
-      onTap: null,
-    ),
-    SettingItem(
-      icon: Icons.security,
-      title: '安全设置',
-      subtitle: '密码、双重验证',
-      onTap: null,
-    ),
-    SettingItem(
-      icon: Icons.notifications,
-      title: '通知设置',
-      subtitle: '推送、邮件通知',
-      onTap: null,
-    ),
-    SettingItem(
-      icon: Icons.privacy_tip,
-      title: '隐私设置',
-      subtitle: '数据使用、权限管理',
-      onTap: null,
-    ),
-    SettingItem(
-      icon: Icons.family_restroom,
-      title: '家庭共享',
-      subtitle: '管理家庭成员',
-      onTap: null,
-    ),
-    SettingItem(
-      icon: Icons.storage,
-      title: '存储管理',
-      subtitle: '云存储使用情况',
-      onTap: null,
-    ),
-    SettingItem(
       icon: Icons.help,
       title: '帮助中心',
       subtitle: '常见问题、联系客服',
-      onTap: null,
+      onTap: null, // wired in build to keep context available
     ),
     SettingItem(
       icon: Icons.info,
       title: '关于我们',
       subtitle: '版本信息、用户协议',
-      onTap: null,
+      onTap: null, // wired in build to keep context available
     ),
   ];
 
@@ -223,13 +189,27 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _onSettingTap(SettingItem item) {
+    if (item.title == '帮助中心') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const HelpCenterPage()),
+      );
+      return;
+    }
+    if (item.title == '关于我们') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AboutPage()),
+      );
+      return;
+    }
     if (item.onTap != null) {
       item.onTap!();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('打开 ${item.title}')),
-      );
+      return;
     }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('打开 ${item.title}')),
+    );
   }
 
   void _showLogoutDialog() {
