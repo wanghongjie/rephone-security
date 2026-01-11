@@ -107,50 +107,59 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('设备设置'),
-        backgroundColor: theme.colorScheme.inversePrimary,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context, _buildUpdatedCamera()),
+    // Ensure we always return the latest edited values to the previous page,
+    // including when user uses system back / gesture back.
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        Navigator.pop(context, _buildUpdatedCamera());
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('设备设置'),
+          backgroundColor: theme.colorScheme.inversePrimary,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context, _buildUpdatedCamera()),
+          ),
         ),
-      ),
-      body: ListView(
-        children: [
-          const SizedBox(height: 8),
-          ListTile(
-            leading: const Icon(Icons.videocam_outlined),
-            title: const Text('相机名称'),
-            subtitle: Text(_name),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _isSaving ? null : () => _editField(_CameraField.name),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.place_outlined),
-            title: const Text('相机位置'),
-            subtitle: Text(_location),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _isSaving ? null : () => _editField(_CameraField.location),
-          ),
-          const Divider(height: 1),
-          if (_isSaving)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  SizedBox(width: 12),
-                  Text('保存中...'),
-                ],
-              ),
+        body: ListView(
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.videocam_outlined),
+              title: const Text('相机名称'),
+              subtitle: Text(_name),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _isSaving ? null : () => _editField(_CameraField.name),
             ),
-        ],
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.place_outlined),
+              title: const Text('相机位置'),
+              subtitle: Text(_location),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _isSaving ? null : () => _editField(_CameraField.location),
+            ),
+            const Divider(height: 1),
+            if (_isSaving)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 12),
+                    Text('保存中...'),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
