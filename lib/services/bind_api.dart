@@ -12,6 +12,7 @@ class DeviceBinding {
     required this.cameraDeviceId,
     this.cameraName,
     this.cameraLocation,
+    required this.cameraOnline,
     required this.status,
     required this.createdAt,
     required this.updatedAt,
@@ -23,6 +24,7 @@ class DeviceBinding {
   final String cameraDeviceId;
   final String? cameraName;
   final String? cameraLocation;
+  final bool cameraOnline; // 相机是否在线(0离线/1在线)
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -72,6 +74,18 @@ class DeviceBinding {
         return value.toString();
       }
 
+      bool parseOnline(dynamic value) {
+        if (value == null) return false;
+        if (value is bool) return value;
+        if (value is int) return value == 1;
+        if (value is num) return value.toInt() == 1;
+        if (value is String) {
+          final v = value.trim().toLowerCase();
+          return v == '1' || v == 'true' || v == 'yes';
+        }
+        return false;
+      }
+
       return DeviceBinding(
         id: id,
         monitorEmail: json['monitor_email'] as String? ?? '',
@@ -79,6 +93,7 @@ class DeviceBinding {
         cameraDeviceId: json['camera_device_id'] as String? ?? '',
         cameraName: parseOptionalString(json['camera_name']),
         cameraLocation: parseOptionalString(json['camera_location']),
+        cameraOnline: parseOnline(json['camera_online']),
         status: json['status'] as String? ?? 'active',
         createdAt: parseDateTime(json['created_at']),
         updatedAt: parseDateTime(json['updated_at']),
@@ -99,6 +114,7 @@ class DeviceBinding {
       'camera_device_id': cameraDeviceId,
       'camera_name': cameraName,
       'camera_location': cameraLocation,
+      'camera_online': cameraOnline ? 1 : 0,
       'status': status,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -313,6 +329,42 @@ class BindApi {
     }
     
     throw BindApiException('响应格式错误: 期望 Map 或 List，实际类型 ${res.data.runtimeType}');
+  }
+
+  /// 更新相机端设备信息（名称/位置）
+  /// 接口: POST /api/device/update-camera-info
+  Future<void> updateCameraInfo({
+    required String cameraDeviceId,
+    required String cameraName,
+    required String cameraLocation,
+  }) async {
+    final res = await _post('update-camera-info', {
+      'camera_device_id': cameraDeviceId,
+      'camera_name': cameraName,
+      'camera_location': cameraLocation,
+    });
+    if (res.statusCode >= 400) {
+      throw BindApiException(_extractMessage(res.data, '更新设备信息失败'));
+    }
+    if (res.data is Map && (res.data['success'] == false)) {
+      throw BindApiException(_extractMessage(res.data, '更新设备信息失败'));
+    }
+  }
+
+  /// 删除相机设备
+  /// 接口: POST /api/device/delete-camera
+  Future<void> deleteCamera({
+    required String cameraDeviceId,
+  }) async {
+    final res = await _post('delete-camera', {
+      'camera_device_id': cameraDeviceId,
+    });
+    if (res.statusCode >= 400) {
+      throw BindApiException(_extractMessage(res.data, '删除设备失败'));
+    }
+    if (res.data is Map && (res.data['success'] == false)) {
+      throw BindApiException(_extractMessage(res.data, '删除设备失败'));
+    }
   }
 }
 

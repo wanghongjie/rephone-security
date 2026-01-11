@@ -3,9 +3,11 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'monitor_viewer_page.dart';
+import 'camera_settings_page.dart';
 import '../services/bind_api.dart';
 import '../services/session_manager.dart';
 import 'qr_code_generator_page.dart';
+import '../models/camera_device.dart';
 
 class CameraListPage extends StatefulWidget {
   const CameraListPage({super.key});
@@ -25,6 +27,9 @@ class _CameraListPageState extends State<CameraListPage> {
   // Banner ad
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
+
+  // Delete in-flight
+  final Set<String> _deletingCameraIds = <String>{};
 
   @override
   void initState() {
@@ -113,7 +118,7 @@ class _CameraListPageState extends State<CameraListPage> {
             id: binding.cameraDeviceId,
             name: binding.cameraName ?? '未命名设备',
             location: binding.cameraLocation ?? '未知位置',
-            isOnline: false, // TODO: 从设备状态接口获取在线状态
+            isOnline: binding.cameraOnline,
             lastSeen: binding.updatedAt,
             bindingId: binding.id,
           );
@@ -361,14 +366,29 @@ class _CameraListPageState extends State<CameraListPage> {
         _viewCamera(camera);
         break;
       case 'settings':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${camera.name} 设置')),
-        );
+        _openSettings(camera);
         break;
       case 'delete':
         _deleteCamera(camera);
         break;
     }
+  }
+
+  void _openSettings(CameraDevice camera) {
+    Navigator.push<CameraDevice>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CameraSettingsPage(camera: camera),
+      ),
+    ).then((updated) {
+      if (updated == null) return;
+      if (!mounted) return;
+      setState(() {
+        _cameras = _cameras
+            .map((c) => c.id == updated.id ? updated : c)
+            .toList(growable: false);
+      });
+    });
   }
 
   void _deleteCamera(CameraDevice camera) {
@@ -384,19 +404,39 @@ class _CameraListPageState extends State<CameraListPage> {
           ),
           ElevatedButton(
             onPressed: () async {
-              // TODO: 调用删除绑定接口
-              // await _bindApi.deleteBinding(camera.bindingId);
-              
-              setState(() {
-                _cameras.remove(camera);
-              });
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('已删除 ${camera.name}')),
-              );
-              
-              // 重新加载列表
-              await _loadBindings(showLoading: false);
+              if (_deletingCameraIds.contains(camera.id)) return;
+              setState(() {
+                _deletingCameraIds.add(camera.id);
+              });
+              try {
+                await _bindApi.deleteCamera(cameraDeviceId: camera.id);
+                if (!mounted) return;
+                setState(() {
+                  _cameras.removeWhere((c) => c.id == camera.id);
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('已删除 ${camera.name}'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+                // 重新加载列表（以服务端为准）
+                await _loadBindings(showLoading: false);
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('删除失败: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              } finally {
+                if (!mounted) return;
+                setState(() {
+                  _deletingCameraIds.remove(camera.id);
+                });
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -408,22 +448,4 @@ class _CameraListPageState extends State<CameraListPage> {
       ),
     );
   }
-}
-
-class CameraDevice {
-  final String id;
-  final String name;
-  final String location;
-  final bool isOnline;
-  final DateTime lastSeen;
-  final int? bindingId; // 绑定关系ID
-
-  CameraDevice({
-    required this.id,
-    required this.name,
-    required this.location,
-    required this.isOnline,
-    required this.lastSeen,
-    this.bindingId,
-  });
 }
