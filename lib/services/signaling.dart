@@ -223,6 +223,15 @@ class Signaling {
     }
   }
 
+  /// Explicitly enable/disable microphone track in the local stream.
+  /// `enabled=true` means mic ON (audio track enabled).
+  void setMicEnabled(bool enabled) {
+    if (_localStream == null) return;
+    final tracks = _localStream!.getAudioTracks();
+    if (tracks.isEmpty) return;
+    tracks[0].enabled = enabled;
+  }
+
   void invite(String peerId, String media, bool useScreen) async {
     var sessionId = _selfId + '-' + peerId;
     Session session = await _createSession(null,
@@ -230,7 +239,9 @@ class Signaling {
         sessionId: sessionId,
         media: media);
     _sessions[sessionId] = session;
-    if (media == 'data') {
+    // Create a data channel for both pure-data sessions and regular media calls,
+    // so we can send control messages alongside video.
+    if (session.dc == null) {
       _createDataChannel(session);
     }
     _createOffer(session, media);
@@ -590,6 +601,17 @@ class Signaling {
     RTCDataChannel channel =
         await session.pc!.createDataChannel(label, dataChannelDict);
     _addDataChannel(session, channel);
+  }
+
+  /// Send a text message over the session's data channel (if available).
+  void sendData(String sessionId, String message) {
+    final session = _sessions[sessionId];
+    final dc = session?.dc;
+    if (dc == null) {
+      print('Signaling.sendData: data channel not ready for sessionId=$sessionId');
+      return;
+    }
+    dc.send(RTCDataChannelMessage(message));
   }
 
   Future<void> _createOffer(Session session, String media) async {

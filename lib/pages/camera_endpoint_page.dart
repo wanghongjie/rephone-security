@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
@@ -220,6 +221,39 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
         default:
           break;
       }
+    };
+
+    // DataChannel: receive messages from monitor while video is live.
+    _signaling!.onDataChannel = (session, dc) {
+      print('Camera: DataChannel opened: ${dc.label}');
+    };
+    _signaling!.onDataChannelMessage = (session, dc, data) {
+      final msg = data.isBinary ? '[binary ${data.binary.length} bytes]' : data.text;
+      print('Camera: DataChannel message: $msg');
+      if (!data.isBinary) {
+        try {
+          final decoded = jsonDecode(data.text);
+          if (decoded is Map && decoded['type'] == 'camera_mic') {
+            final enabled = decoded['enabled'] == true;
+            _signaling?.setMicEnabled(enabled);
+            setState(() {
+              _isMicMuted = !enabled;
+            });
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(enabled ? '监控端已开启相机端声音' : '监控端已关闭相机端声音')),
+              );
+            }
+            return;
+          }
+        } catch (_) {
+          // fallthrough: treat as plain text
+        }
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('监控端消息: $msg')),
+      );
     };
 
     // 连接到服务器

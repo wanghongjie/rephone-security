@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -34,6 +35,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
   Session? _session;
   String? _currentUserEmail;
   String? _connectedCameraId; // 当前连接的相机端ID
+  bool _cameraMicEnabled = false; // 监控端控制：相机端麦克风是否开启
 
   // Recording
   MediaStream? _remoteStream;
@@ -232,6 +234,28 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     if (_session != null) {
       _signaling?.bye(_session!.sid);
     }
+  }
+
+  void _toggleCameraMic() {
+    final sid = _session?.sid;
+    if (sid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('尚未建立连接，无法控制相机端声音')),
+      );
+      return;
+    }
+    final nextEnabled = !_cameraMicEnabled;
+    final payload = jsonEncode({
+      'type': 'camera_mic',
+      'enabled': nextEnabled,
+    });
+    _signaling?.sendData(sid, payload);
+    setState(() {
+      _cameraMicEnabled = nextEnabled;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(nextEnabled ? '已请求开启相机端声音' : '已请求关闭相机端声音')),
+    );
   }
 
   Future<void> _startRecording() async {
@@ -455,6 +479,14 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
         title: Text('监控 - ${widget.cameraName}'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          if (_inCall)
+            IconButton(
+              tooltip: _cameraMicEnabled ? '关闭相机端声音' : '开启相机端声音',
+              onPressed: _toggleCameraMic,
+              icon: Icon(
+                _cameraMicEnabled ? Icons.volume_up : Icons.volume_off,
+              ),
+            ),
           if (_inCall && _remoteStream != null)
             IconButton(
               tooltip: _isRecording ? '结束录制' : '开始录制',
