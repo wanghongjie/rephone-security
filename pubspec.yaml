@@ -48,6 +48,7 @@ dependencies:
   google_mobile_ads: any
   qr_flutter: ^4.1.0
   mobile_scanner: ^5.2.3
+  webview_flutter: ^4.10.0
 
 dev_dependencies:
   flutter_test:

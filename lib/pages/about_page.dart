@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'webview_page.dart';
 
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
+
+  static const String _termsUrl = 'http://47.86.29.177:5173/terms.html';
+  static const String _privacyUrl = 'http://47.86.29.177:5173/privacy.html';
 
   @override
   Widget build(BuildContext context) {
@@ -39,32 +43,46 @@ class AboutPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          ExpansionTile(
-            title: const Text('服务条款'),
-            subtitle: const Text('占位内容，后续替换为 H5'),
-            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            children: const [
-              Text(
-                '这里是服务条款的占位内容。\n\n'
-                '后续会替换为线上 H5 页面并支持版本更新。\n\n'
-                '当前版本仅用于展示结构与入口。',
-                style: TextStyle(height: 1.5),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ExpansionTile(
-            title: const Text('隐私协议'),
-            subtitle: const Text('占位内容，后续替换为 H5'),
-            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            children: const [
-              Text(
-                '这里是隐私协议的占位内容。\n\n'
-                '后续会替换为线上 H5 页面，并明确说明数据收集、使用与存储策略。\n\n'
-                '当前版本仅用于展示结构与入口。',
-                style: TextStyle(height: 1.5),
-              ),
-            ],
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.description_outlined),
+                  title: const Text('服务条款'),
+                  subtitle: const Text('点击查看'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WebViewPage(
+                          title: '服务条款',
+                          url: _termsUrl,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.privacy_tip_outlined),
+                  title: const Text('隐私协议'),
+                  subtitle: const Text('点击查看'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WebViewPage(
+                          title: '隐私协议',
+                          url: _privacyUrl,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ],
       ),

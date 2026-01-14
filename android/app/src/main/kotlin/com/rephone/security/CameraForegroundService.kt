@@ -78,7 +78,7 @@ class CameraForegroundService : Service() {
                 "相机服务",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "保持相机在后台持续采集视频"
+                description = "保持相机在后台持续采集视频与音频"
                 setShowBadge(false)
             }
             val notificationManager = getSystemService(NotificationManager::class.java)
@@ -95,7 +95,7 @@ class CameraForegroundService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("相机端运行中")
-            .setContentText("正在持续采集视频，锁屏后仍可接收监控请求")
+            .setContentText("正在持续采集视频/音频，锁屏后仍可接收监控请求")
             .setSmallIcon(android.R.drawable.ic_menu_camera)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
