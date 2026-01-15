@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/feedback_api.dart';
+import '../services/session_manager.dart';
+import '../utils/device_info.dart';
 
 class HelpCenterPage extends StatefulWidget {
   const HelpCenterPage({super.key});
@@ -11,24 +14,54 @@ class HelpCenterPage extends StatefulWidget {
 class _HelpCenterPageState extends State<HelpCenterPage> {
   static const String _supportEmail = 'dahongwudi123@gmail.com';
 
-  final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
+  final TextEditingController _contactController = TextEditingController();
   bool _submitting = false;
+  String? _email;
+  String? _deviceId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContextInfo();
+  }
+
+  Future<void> _loadContextInfo() async {
+    try {
+      final user = await SessionManager.getUser();
+      // Prefer stored device_role if available, otherwise use monitor.
+      final role = await SessionManager.getDeviceRole() ?? 'monitor';
+      final did = await DeviceInfo.getOrCreateDeviceId(role);
+      if (!mounted) return;
+      setState(() {
+        _email = user?.email;
+        _deviceId = did;
+      });
+    } catch (_) {
+      // ignore: best-effort only
+    }
+  }
 
   @override
   void dispose() {
-    _titleController.dispose();
     _contentController.dispose();
+    _contactController.dispose();
     super.dispose();
   }
 
   Future<void> _submitFeedback() async {
-    final title = _titleController.text.trim();
     final content = _contentController.text.trim();
+    final contact = _contactController.text.trim();
 
-    if (title.isEmpty || content.isEmpty) {
+    if (content.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请填写意见标题和反馈内容')),
+        const SnackBar(content: Text('请填写反馈内容')),
+      );
+      return;
+    }
+    if (content.length > 5000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('反馈内容过长（最多 5000 字符）')),
       );
       return;
     }
@@ -37,14 +70,18 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
       _submitting = true;
     });
     try {
-      // TODO: 后续接入反馈接口 / 或 H5。
-      await Future<void>.delayed(const Duration(milliseconds: 500));
+      final id = await FeedbackApi().submit(
+        email: _email,
+        deviceId: _deviceId,
+        content: content,
+        contact: contact.isEmpty ? null : contact,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('感谢反馈，我们会尽快处理')),
+        SnackBar(content: Text('感谢反馈，我们会尽快处理${id != null ? '（ID: $id）' : ''}')),
       );
-      _titleController.clear();
       _contentController.clear();
+      _contactController.clear();
     } finally {
       if (!mounted) return;
       setState(() {
@@ -80,20 +117,22 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
           ),
           const SizedBox(height: 12),
           TextField(
-            controller: _titleController,
-            textInputAction: TextInputAction.next,
+            controller: _contentController,
+            maxLines: 7,
+            maxLength: 5000,
             decoration: const InputDecoration(
-              labelText: '意见标题',
+              labelText: '反馈内容',
+              hintText: '请描述你遇到的问题、期望的功能或改进建议…',
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
-            controller: _contentController,
-            maxLines: 6,
+            controller: _contactController,
+            textInputAction: TextInputAction.done,
             decoration: const InputDecoration(
-              labelText: '反馈内容',
-              hintText: '请描述你遇到的问题、期望的功能或改进建议…',
+              labelText: '联系方式（可选）',
+              hintText: '微信 / 手机号（可选）',
               border: OutlineInputBorder(),
             ),
           ),
