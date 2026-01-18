@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'email_auth_flow.dart';
 import 'qr_code_scanner_page.dart';
+import 'webview_page.dart';
 
 class AuthPage extends StatelessWidget {
   const AuthPage({super.key});
+
+  static const String _termsUrl = 'https://rephone-h5.pages.dev/terms.html';
+  static const String _privacyUrl = 'https://rephone-h5.pages.dev/privacy.html';
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +52,75 @@ class AuthPage extends StatelessWidget {
                     ),
                   );
                 },
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 4,
+                  runSpacing: 2,
+                  children: [
+                    Text(
+                      '登录即代表您同意',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const WebViewPage(
+                              title: '服务条款',
+                              url: _termsUrl,
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text('服务条款'),
+                    ),
+                    Text(
+                      '和',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const WebViewPage(
+                              title: '隐私协议',
+                              url: _privacyUrl,
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text('隐私政策'),
+                    ),
+                    Text(
+                      '。',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const Spacer(),
               Center(

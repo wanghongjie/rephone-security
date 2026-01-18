@@ -4,8 +4,8 @@ import 'webview_page.dart';
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
 
-  static const String _termsUrl = 'http://47.86.29.177:5173/terms.html';
-  static const String _privacyUrl = 'http://47.86.29.177:5173/privacy.html';
+  static const String _termsUrl = 'https://rephone-h5.pages.dev/terms.html';
+  static const String _privacyUrl = 'https://rephone-h5.pages.dev/privacy.html';
 
   @override
   Widget build(BuildContext context) {
