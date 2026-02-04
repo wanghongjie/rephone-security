@@ -60,6 +60,13 @@ class MainActivity: FlutterActivity() {
                         result.error("PERMISSION_ERROR", "Failed to request battery optimization: ${e.message}", null)
                     }
                 }
+                "isIgnoringBatteryOptimizations" -> {
+                    try {
+                        result.success(isIgnoringBatteryOptimizations())
+                    } catch (e: Exception) {
+                        result.error("CHECK_ERROR", "Failed to check battery optimization: ${e.message}", null)
+                    }
+                }
                 else -> {
                     result.notImplemented()
                 }
@@ -128,6 +135,14 @@ class MainActivity: FlutterActivity() {
                 startActivity(intent)
             }
         }
+    }
+
+    private fun isIgnoringBatteryOptimizations(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            return powerManager.isIgnoringBatteryOptimizations(packageName)
+        }
+        return true
     }
 
     override fun onDestroy() {

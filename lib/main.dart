@@ -126,8 +126,7 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _loadCameraRole() async {
-    final prefs = await SharedPreferences.getInstance();
-    final role = prefs.getString('camera_role') ?? 'monitor';
+    final role = await SessionManager.getDeviceRole() ?? 'monitor';
     if (role == 'camera') {
       setState(() {
         _cameraRole = 'camera';
@@ -139,16 +138,14 @@ class _MainPageState extends State<MainPage> {
     setState(() {
       _cameraRole = 'monitor';
     });
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('camera_role', 'monitor');
+    await SessionManager.setDeviceRole('monitor');
   }
 
   Future<void> _switchToCamera() async {
     setState(() {
       _cameraRole = 'camera';
     });
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('camera_role', 'camera');
+    await SessionManager.setDeviceRole('camera');
   }
 
   final List<Widget> _pages = [

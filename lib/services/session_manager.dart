@@ -44,6 +44,10 @@ class SessionManager {
       await prefs.setBool(_keyLoggedIn, true);
       await prefs.setString(_keyEmail, user.email);
       await prefs.setInt(_keyUserId, user.id);
+      // 登录时默认设置为监控端
+      if (!prefs.containsKey('device_role')) {
+        await prefs.setString('device_role', 'monitor');
+      }
     } catch (e) {
       _fallbackLoggedIn = true;
       _fallbackEmail = user.email;
