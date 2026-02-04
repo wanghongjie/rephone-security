@@ -15,7 +15,21 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
+import android.util.Log
+
 class MainActivity: FlutterActivity() {
+    private val TAG = "StartupProfile"
+
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        Log.i(TAG, "MainActivity.onCreate: " + System.currentTimeMillis())
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.i(TAG, "MainActivity.onResume: " + System.currentTimeMillis())
+    }
+
     private val CHANNEL = "camera_service"
     private var wakeLock: PowerManager.WakeLock? = null
     private val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001

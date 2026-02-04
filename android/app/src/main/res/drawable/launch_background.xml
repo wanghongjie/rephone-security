@@ -3,16 +3,13 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
-            <gradient
-                android:startColor="#0F172A"
-                android:endColor="#1E293B"
-                android:angle="45" />
+            <solid android:color="@android:color/white"/>
         </shape>
     </item>
 
     <item>
         <bitmap
             android:gravity="center"
-            android:src="@mipmap/ic_launcher" />
+            android:src="@drawable/welcome_family_care" />
     </item>
 </layer-list>

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'pages/auth_page.dart';
@@ -12,16 +13,23 @@ import 'services/session_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Initialize the Mobile Ads SDK.
-  await MobileAds.instance.initialize();
-  // Mark devices as test devices to avoid policy violations during development.
-  // Add more IDs if you test on multiple devices.
-  await MobileAds.instance.updateRequestConfiguration(
-    RequestConfiguration(
-      testDeviceIds: <String>['32269ED36C964717F118F673D33C50C3'],
-    ),
-  );
+  // 设置沉浸式状态栏
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent, // 状态栏透明
+    statusBarIconBrightness: Brightness.dark, // Android 状态栏图标黑色
+    statusBarBrightness: Brightness.light, // iOS 状态栏文字黑色
+  ));
+
   runApp(const RePhoneSecurityApp());
+  
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    await MobileAds.instance.initialize();
+    await MobileAds.instance.updateRequestConfiguration(
+      RequestConfiguration(
+        testDeviceIds: <String>['32269ED36C964717F118F673D33C50C3'],
+      ),
+    );
+  });
 }
 
 class RePhoneSecurityApp extends StatelessWidget {
