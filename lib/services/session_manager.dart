@@ -6,6 +6,7 @@ class SessionManager {
   static const _keyLoggedIn = 'logged_in';
   static const _keyEmail = 'user_email';
   static const _keyUserId = 'user_id';
+  static const _keyDeviceRole = 'device_role';
   static bool _fallbackLoggedIn = false;
   static String? _fallbackEmail;
   static int? _fallbackUserId;
@@ -45,8 +46,8 @@ class SessionManager {
       await prefs.setString(_keyEmail, user.email);
       await prefs.setInt(_keyUserId, user.id);
       // 登录时默认设置为监控端
-      if (!prefs.containsKey('device_role')) {
-        await prefs.setString('device_role', 'monitor');
+      if (!prefs.containsKey(_keyDeviceRole)) {
+        await prefs.setString(_keyDeviceRole, 'monitor');
       }
     } catch (e) {
       _fallbackLoggedIn = true;
@@ -61,7 +62,7 @@ class SessionManager {
       await prefs.remove(_keyLoggedIn);
       await prefs.remove(_keyEmail);
       await prefs.remove(_keyUserId);
-      await prefs.remove('device_role');
+      await prefs.remove(_keyDeviceRole);
       await prefs.remove('camera_role');
     } catch (e) {
       _fallbackLoggedIn = false;
@@ -78,7 +79,7 @@ class SessionManager {
       // 使用统一的邮箱存储
       await prefs.setBool(_keyLoggedIn, true);
       await prefs.setString(_keyEmail, email);
-      await prefs.setString('device_role', 'camera');
+      await prefs.setString(_keyDeviceRole, 'camera');
       // 临时用户ID，实际应该从登录接口获取
       await prefs.setInt(_keyUserId, 0);
     } catch (e) {
@@ -93,7 +94,7 @@ class SessionManager {
   static Future<void> setDeviceRole(String role) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('device_role', role);
+      await prefs.setString(_keyDeviceRole, role);
     } catch (e) {
       // Fallback ignored
     }
@@ -103,7 +104,7 @@ class SessionManager {
   static Future<String?> getDeviceRole() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getString('device_role');
+      return prefs.getString(_keyDeviceRole);
     } catch (e) {
       return null;
     }

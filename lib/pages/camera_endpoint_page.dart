@@ -21,6 +21,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
   final _localRenderer = RTCVideoRenderer();
   bool _isVideoActive = false;
   bool _isMicMuted = true; // 默认关闭麦克风
+  bool _isLoggingOut = false;
   
   // WebRTC signaling
   Signaling? _signaling;
@@ -321,6 +322,58 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
     _signaling?.switchCamera();
   }
 
+  Future<void> _logout() async {
+    if (_isLoggingOut) return;
+    setState(() {
+      _isLoggingOut = true;
+    });
+    try {
+      await SessionManager.clear();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已退出登录')),
+      );
+      // Go to login page and clear navigation stack.
+      Navigator.of(context).pushNamedAndRemoveUntil('/auth', (route) => false);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoggingOut = false;
+        });
+      }
+    }
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('退出登录'),
+        content: const Text('确定要退出当前账户吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: _isLoggingOut
+                ? null
+                : () async {
+                    // Close the dialog first.
+                    Navigator.pop(context);
+                    await _logout();
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -351,6 +404,14 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
             ),
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.red),
+            onPressed: _showLogoutDialog,
+            tooltip: '退出登录',
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Column(
         children: [
