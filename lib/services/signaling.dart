@@ -8,6 +8,7 @@ import '../utils/random_string.dart';
 import '../utils/device_info.dart';
 import '../services//websocket.dart';
 import '../services/turn.dart';
+import '../config/server_config.dart';
 
 enum SignalingState {
   ConnectionOpen,
@@ -51,7 +52,7 @@ class Signaling {
   SimpleWebSocket? _socket;
   BuildContext? _context;
   var _host;
-  var _port = 8086;
+  final _port = defaultAuthPort;
   String? userEmail;
   String? _deviceType;
   bool _deviceIdInitialized = false;
