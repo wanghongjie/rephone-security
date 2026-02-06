@@ -56,6 +56,7 @@ class Signaling {
   String? userEmail;
   String? _deviceType;
   bool _deviceIdInitialized = false;
+  String _currentFacingMode = 'user';
   
   /// 初始化设备ID
   Future<void> _initializeDeviceId(String deviceType) async {
@@ -213,6 +214,7 @@ class Signaling {
         onLocalStream?.call(_localStream!);
       } else {
         Helper.switchCamera(_localStream!.getVideoTracks()[0]);
+        _currentFacingMode = _currentFacingMode == 'user' ? 'environment' : 'user';
       }
     }
   }
@@ -443,6 +445,41 @@ class Signaling {
     await _socket?.connect();
   }
 
+  Future<void> restartVideo() async {
+    print('Signaling: Restarting video stream...');
+    // 1. Stop old video track to release resources
+    if (_localStream != null) {
+      _localStream!.getVideoTracks().forEach((track) {
+        try {
+          track.stop();
+        } catch (e) {
+          print('Error stopping track: $e');
+        }
+      });
+    }
+
+    // 2. Create new stream
+    // This will trigger onLocalStream and update the UI via callback
+    try {
+      MediaStream newStream = await createStream('video', context: _context);
+      _localStream = newStream;
+
+      // 3. Replace track in senders (for remote peers)
+      if (_senders.isNotEmpty) {
+        var newVideoTrack = newStream.getVideoTracks().first;
+        for (var sender in _senders) {
+          if (sender.track?.kind == 'video') {
+            print('Signaling: Replacing video track for sender');
+            await sender.replaceTrack(newVideoTrack);
+          }
+        }
+      }
+      print('Signaling: Video stream restarted successfully');
+    } catch (e) {
+      print('Signaling: Failed to restart video: $e');
+    }
+  }
+
   Future<MediaStream> createStream(String media,
       {BuildContext? context}) async {
     final Map<String, dynamic> mediaConstraints = {
@@ -454,7 +491,7 @@ class Signaling {
                 'minHeight': '480',
                 'minFrameRate': '30',
               },
-              'facingMode': 'user',
+              'facingMode': _currentFacingMode,
               'optional': [],
             }
     };

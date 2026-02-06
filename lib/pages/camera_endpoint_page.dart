@@ -16,7 +16,7 @@ class CameraEndpointPage extends StatefulWidget {
   State<CameraEndpointPage> createState() => _CameraEndpointPageState();
 }
 
-class _CameraEndpointPageState extends State<CameraEndpointPage> {
+class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBindingObserver {
   String _role = 'camera';
   final _localRenderer = RTCVideoRenderer();
   bool _isVideoActive = false;
@@ -36,6 +36,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initRenderer();
     _loadUserInfo();
   }
@@ -136,11 +137,21 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _signaling?.close();
     _stopVideo();
     _stopForegroundService();
     _localRenderer.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    print('CameraEndpointPage: AppLifecycleState changed to $state');
+    if (state == AppLifecycleState.resumed) {
+      // 当应用回到前台时，强制重启视频流以解决编码器卡死问题
+      _signaling?.restartVideo();
+    }
   }
 
   void _initRenderer() async {
