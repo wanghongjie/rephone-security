@@ -202,7 +202,7 @@ class Signaling {
     }
   }
 
-  void switchCamera() {
+  Future<void> switchCamera() async {
     if (_localStream != null) {
       if (_videoSource != VideoSource.Camera) {
         _senders.forEach((sender) {
@@ -213,8 +213,9 @@ class Signaling {
         _videoSource = VideoSource.Camera;
         onLocalStream?.call(_localStream!);
       } else {
-        Helper.switchCamera(_localStream!.getVideoTracks()[0]);
+        // Helper.switchCamera(_localStream!.getVideoTracks()[0]);
         _currentFacingMode = _currentFacingMode == 'user' ? 'environment' : 'user';
+        await restartVideo();
       }
     }
   }
@@ -456,6 +457,8 @@ class Signaling {
           print('Error stopping track: $e');
         }
       });
+      // Give the camera hardware some time to release resources
+      await Future.delayed(const Duration(milliseconds: 500));
     }
 
     // 2. Create new stream

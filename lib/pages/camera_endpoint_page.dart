@@ -307,7 +307,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
   void _startVideo() async {
     if (_signaling != null) {
-      await _signaling!.createStream('video');
+      // 增加延迟，确保冷启动时相机硬件准备就绪（模拟 restartVideo 在后台切前台时的行为）
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _signaling!.restartVideo();
     }
   }
 
@@ -329,8 +331,24 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     });
   }
 
-  void _switchCamera() {
-    _signaling?.switchCamera();
+  bool _isSwitchingCamera = false;
+
+  void _switchCamera() async {
+    if (_isSwitchingCamera) return;
+    
+    setState(() {
+      _isSwitchingCamera = true;
+    });
+    
+    try {
+      await _signaling?.switchCamera();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSwitchingCamera = false;
+        });
+      }
+    }
   }
 
   Future<void> _logout() async {
@@ -468,10 +486,11 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
                             ),
                             FloatingActionButton(
                               heroTag: 'cam_btn',
-                              onPressed: _switchCamera,
+                              onPressed: _isSwitchingCamera ? null : _switchCamera,
                               backgroundColor: Colors.white,
-                              child: const Icon(Icons.switch_camera,
-                                  color: Colors.black),
+                              child: _isSwitchingCamera
+                                  ? const CircularProgressIndicator(strokeWidth: 2)
+                                  : const Icon(Icons.switch_camera, color: Colors.black),
                             ),
                           ],
                         ),
