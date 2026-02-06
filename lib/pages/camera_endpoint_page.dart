@@ -138,11 +138,16 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _signaling?.close();
-    _stopVideo();
-    _stopForegroundService();
-    _localRenderer.dispose();
+   _localRenderer.dispose();
     super.dispose();
+  }
+
+  Future<void> _releaseResources() async {
+    WidgetsBinding.instance.removeObserver(this);
+    await _signaling?.close();
+    _stopVideo();
+    await _stopForegroundService();
+    await _localRenderer.dispose();
   }
 
   @override
@@ -357,6 +362,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       _isLoggingOut = true;
     });
     try {
+      // 必须先释放资源（包括前台服务和WebRTC连接），否则会有资源泄漏风险
+      await _releaseResources();
+      
       await SessionManager.clear();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -406,7 +414,37 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('退出相机'),
+            content: const Text('确定要退出相机端吗？\n退出后将停止视频采集和前台服务。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldExit == true) {
+          await _releaseResources();
+          if (mounted) {
+             SystemNavigator.pop();
+          }
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: theme.colorScheme.inversePrimary,
@@ -533,7 +571,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
             ),
         ],
       ),
-    );
+    ));
   }
 }
 
