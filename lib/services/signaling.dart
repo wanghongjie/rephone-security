@@ -90,7 +90,8 @@ class Signaling {
   Timer? _reconnectTimer;
   bool _isReconnecting = false;
   int _reconnectAttempts = 0;
-  static const int _maxReconnectAttempts = 5;
+  // 设置为无限重连 (对于监控/相机应用，应该一直尝试重连)
+  static const int _maxReconnectAttempts = 999999; 
   static const Duration _keepaliveInterval = Duration(seconds: 30);
   static const Duration _reconnectDelay = Duration(seconds: 3);
 

@@ -18,6 +18,8 @@ class SimpleWebSocket {
       onOpen?.call();
       _socket.listen((data) {
         onMessage?.call(data);
+      }, onError: (e) {
+        onClose?.call(500, e.toString());
       }, onDone: () {
         onClose?.call(_socket.closeCode, _socket.closeReason);
       });
