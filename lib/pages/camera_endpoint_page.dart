@@ -539,36 +539,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
                     child: CircularProgressIndicator(),
                   ),
           ),
-          // 在线监控端列表
-          if (_isConnected && _peers.isNotEmpty)
-            Container(
-              height: 100,
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('在线监控端:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Expanded(
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _peers.length,
-                      itemBuilder: (context, index) {
-                        final peer = _peers[index];
-                        if (peer['id'] == _selfId) return const SizedBox();
-                        return Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          child: Chip(
-                            label: Text('监控端 ${peer['id']}'),
-                            backgroundColor: Colors.blue.shade100,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     ));
