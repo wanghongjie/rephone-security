@@ -92,7 +92,7 @@ class Signaling {
   int _reconnectAttempts = 0;
   // 设置为无限重连 (对于监控/相机应用，应该一直尝试重连)
   static const int _maxReconnectAttempts = 999999; 
-  static const Duration _keepaliveInterval = Duration(seconds: 30);
+  static const Duration _keepaliveInterval = Duration(seconds: 15);
   static const Duration _reconnectDelay = Duration(seconds: 3);
 
   Function(SignalingState state)? onSignalingStateChange;

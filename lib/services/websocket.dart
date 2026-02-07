@@ -25,6 +25,7 @@ class SimpleWebSocket {
       });
     } catch (e) {
       onClose?.call(500, e.toString());
+      throw e;
     }
   }
 

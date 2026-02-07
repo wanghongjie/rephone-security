@@ -156,6 +156,12 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     if (state == AppLifecycleState.resumed) {
       // 当应用回到前台时，强制重启视频流以解决编码器卡死问题
       _signaling?.restartVideo();
+      
+      // 检查连接状态，如果未连接则尝试重连
+      if (!_isConnected) {
+        print('CameraEndpointPage: Resumed but disconnected, forcing reconnect...');
+        _signaling?.connect();
+      }
     }
   }
 
@@ -174,8 +180,29 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       setState(() {
         _isConnected = state == SignalingState.ConnectionOpen;
       });
+      
+      // 处理连接关闭状态，确保重连时 UI 正确反馈
+      if (state == SignalingState.ConnectionClosed || state == SignalingState.ConnectionError) {
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('与服务器连接断开，正在尝试重连...'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+
       if (state == SignalingState.ConnectionOpen) {
         _startVideo();
+         if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('已连接到服务器'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
       }
     };
 
