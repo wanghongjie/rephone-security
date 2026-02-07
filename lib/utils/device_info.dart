@@ -3,6 +3,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import '../services/session_manager.dart';
+import 'log_utils.dart';
 
 class DeviceInfo {
   static const String _deviceIdKeyPrefix = 'device_id_';
@@ -40,7 +41,7 @@ class DeviceInfo {
       final cachedId = prefs.getString(key);
       
       if (cachedId != null && cachedId.isNotEmpty) {
-        print('DeviceInfo: Using cached device ID for $deviceType: $cachedId');
+        LogUtils.i('DeviceInfo', 'Using cached device ID for $deviceType: $cachedId');
         return cachedId;
       }
       
@@ -49,11 +50,11 @@ class DeviceInfo {
       
       // 保存到本地
       await prefs.setString(key, deviceId);
-      print('DeviceInfo: Generated new device ID for $deviceType: $deviceId');
+      LogUtils.i('DeviceInfo', 'Generated new device ID for $deviceType: $deviceId');
       
       return deviceId;
     } catch (e) {
-      print('DeviceInfo: Error getting device ID, using fallback: $e');
+      LogUtils.e('DeviceInfo', 'Error getting device ID, using fallback', e);
       // 如果出错，使用基于时间的fallback
       return _generateFallbackId(deviceType);
     }
@@ -96,7 +97,7 @@ class DeviceInfo {
       
       return deviceId;
     } catch (e) {
-      print('DeviceInfo: Error generating device ID: $e');
+      LogUtils.e('DeviceInfo', 'Error generating device ID', e);
       return _generateFallbackId(deviceType);
     }
   }
@@ -127,9 +128,9 @@ class DeviceInfo {
       final key = '$_deviceIdKeyPrefix$deviceType';
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(key);
-      print('DeviceInfo: Cleared device ID for $deviceType');
+      LogUtils.i('DeviceInfo', 'Cleared device ID for $deviceType');
     } catch (e) {
-      print('DeviceInfo: Error clearing device ID: $e');
+      LogUtils.e('DeviceInfo', 'Error clearing device ID', e);
     }
   }
   
@@ -140,7 +141,7 @@ class DeviceInfo {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getString(key);
     } catch (e) {
-      print('DeviceInfo: Error getting current device ID: $e');
+      LogUtils.e('DeviceInfo', 'Error getting current device ID', e);
       return null;
     }
   }

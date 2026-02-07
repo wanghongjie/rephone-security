@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../config/server_config.dart';
+import '../utils/log_utils.dart';
 
 /// 设备绑定信息模型
 class DeviceBinding {
@@ -99,9 +100,8 @@ class DeviceBinding {
         updatedAt: parseDateTime(json['updated_at']),
       );
     } catch (e, stackTrace) {
-      print('DeviceBinding.fromJson error: $e');
-      print('DeviceBinding.fromJson stack trace: $stackTrace');
-      print('DeviceBinding.fromJson JSON data: $json');
+      LogUtils.e('BindApi', 'DeviceBinding.fromJson error', e, stackTrace);
+      LogUtils.e('BindApi', 'DeviceBinding.fromJson JSON data: $json');
       rethrow;
     }
   }
@@ -249,68 +249,67 @@ class BindApi {
     }
     
     // 打印响应以便调试
-    print('BindApi.getBindings response: ${res.data}');
-    print('BindApi.getBindings response type: ${res.data.runtimeType}');
+    LogUtils.d('BindApi', 'getBindings response: ${res.data}');
+    LogUtils.d('BindApi', 'getBindings response type: ${res.data.runtimeType}');
     
     // 尝试解析响应
     if (res.data is Map) {
       final responseMap = res.data as Map<String, dynamic>;
       
       // 打印 Map 的所有键
-      print('BindApi.getBindings response keys: ${responseMap.keys.toList()}');
+      LogUtils.d('BindApi', 'getBindings response keys: ${responseMap.keys.toList()}');
       
       // 检查是否有 data 字段
       if (responseMap.containsKey('data')) {
         final data = responseMap['data'];
-        print('BindApi.getBindings data field exists, type: ${data.runtimeType}');
-        print('BindApi.getBindings data value: $data');
+        LogUtils.d('BindApi', 'getBindings data field exists, type: ${data.runtimeType}');
+        LogUtils.d('BindApi', 'getBindings data value: $data');
         
         // data 可能是 null（空结果）或数组
         if (data == null) {
           // 服务端返回 null 表示没有绑定关系，返回空列表
-          print('BindApi.getBindings data is null, returning empty list');
+          LogUtils.d('BindApi', 'getBindings data is null, returning empty list');
           return <DeviceBinding>[];
         } else if (data is List) {
-          print('BindApi.getBindings data is List, length: ${data.length}');
+          LogUtils.d('BindApi', 'getBindings data is List, length: ${data.length}');
           try {
             final result = data
                 .map((item) {
-                  print('BindApi.getBindings processing item: $item (type: ${item.runtimeType})');
+                  LogUtils.d('BindApi', 'getBindings processing item: $item (type: ${item.runtimeType})');
                   if (item is Map<String, dynamic>) {
                     return DeviceBinding.fromJson(item);
                   } else {
-                    print('BindApi: Invalid item type in data list: ${item.runtimeType}');
+                    LogUtils.w('BindApi', 'Invalid item type in data list: ${item.runtimeType}');
                     return null;
                   }
                 })
                 .whereType<DeviceBinding>()
                 .toList();
-            print('BindApi.getBindings parsed ${result.length} bindings successfully');
+            LogUtils.d('BindApi', 'getBindings parsed ${result.length} bindings successfully');
             return result;
           } catch (e, stackTrace) {
-            print('BindApi: Error parsing bindings list: $e');
-            print('BindApi: Stack trace: $stackTrace');
+            LogUtils.e('BindApi', 'Error parsing bindings list', e, stackTrace);
             throw BindApiException('解析绑定列表失败: $e');
           }
         } else {
-          print('BindApi: data field is not a List or null, type: ${data.runtimeType}, value: $data');
+          LogUtils.e('BindApi', 'data field is not a List or null, type: ${data.runtimeType}, value: $data');
           throw BindApiException('响应格式错误: data 字段不是数组或 null 类型，实际类型: ${data.runtimeType}');
         }
       } else {
         // 打印所有键以便调试
-        print('BindApi: data field not found in response. Available keys: ${responseMap.keys.toList()}');
-        print('BindApi: Full response map: $responseMap');
+        LogUtils.e('BindApi', 'data field not found in response. Available keys: ${responseMap.keys.toList()}');
+        LogUtils.e('BindApi', 'Full response map: $responseMap');
         
         // 检查是否有 success 字段
         if (responseMap.containsKey('success')) {
-          print('BindApi: success field value: ${responseMap['success']}');
+          LogUtils.d('BindApi', 'success field value: ${responseMap['success']}');
         }
         
         throw BindApiException('响应格式错误: 缺少 data 字段');
       }
     } else if (res.data is List) {
       // 如果响应直接是数组
-      print('BindApi.getBindings response is direct List');
+      LogUtils.d('BindApi', 'getBindings response is direct List');
       try {
         final dataList = res.data as List;
         return dataList
@@ -323,7 +322,7 @@ class BindApi {
             .whereType<DeviceBinding>()
             .toList();
       } catch (e) {
-        print('BindApi: Error parsing direct list response: $e');
+        LogUtils.e('BindApi', 'Error parsing direct list response', e);
         throw BindApiException('解析绑定列表失败: $e');
       }
     }

@@ -6,9 +6,10 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../utils/random_string.dart';
 
 import '../utils/device_info.dart';
-import '../services//websocket.dart';
+import '../services/websocket.dart';
 import '../services/turn.dart';
 import '../config/server_config.dart';
+import '../utils/log_utils.dart';
 
 enum SignalingState {
   ConnectionOpen,
@@ -68,9 +69,9 @@ class Signaling {
     try {
       _selfId = await DeviceInfo.getOrCreateDeviceId(deviceType);
       _deviceIdInitialized = true;
-      print('Signaling: Initialized device ID for $deviceType: $_selfId');
+      LogUtils.i('Signaling', 'Initialized device ID for $deviceType: $_selfId');
     } catch (e) {
-      print('Signaling: Failed to initialize device ID, using random: $e');
+      LogUtils.e('Signaling', 'Failed to initialize device ID, using random', e);
       // Fallback to random ID if device ID generation fails
       if (_selfId.isEmpty) {
         _selfId = randomNumeric(6);
@@ -149,9 +150,9 @@ class Signaling {
       if (_socket != null) {
         try {
           _send('keepalive', {});
-          print('Keepalive sent');
+          LogUtils.d('Signaling', 'Keepalive sent');
         } catch (e) {
-          print('Keepalive error: $e');
+          LogUtils.e('Signaling', 'Keepalive error', e);
           timer.cancel();
           _scheduleReconnect();
         }
@@ -166,13 +167,13 @@ class Signaling {
   
   void _scheduleReconnect() {
     if (_isReconnecting || _reconnectAttempts >= _maxReconnectAttempts) {
-      print('Max reconnect attempts reached or already reconnecting');
+      LogUtils.w('Signaling', 'Max reconnect attempts reached or already reconnecting');
       return;
     }
     
     _isReconnecting = true;
     _reconnectAttempts++;
-    print('Scheduling reconnect attempt $_reconnectAttempts/$_maxReconnectAttempts');
+    LogUtils.i('Signaling', 'Scheduling reconnect attempt $_reconnectAttempts/$_maxReconnectAttempts');
     
     _reconnectTimer = Timer(_reconnectDelay, () {
       _reconnect();
@@ -188,16 +189,17 @@ class Signaling {
   
   Future<void> _reconnect() async {
     if (_reconnectAttempts > _maxReconnectAttempts) {
-      print('Max reconnect attempts reached');
+      LogUtils.w('Signaling', 'Max reconnect attempts reached');
       _isReconnecting = false;
       return;
     }
     
-    print('Reconnecting... attempt $_reconnectAttempts');
+    LogUtils.i('Signaling', 'Reconnecting... attempt $_reconnectAttempts');
     try {
       await connect();
+      _isReconnecting = false; // Fixed: Reset flag on success
     } catch (e) {
-      print('Reconnect failed: $e');
+      LogUtils.e('Signaling', 'Reconnect failed', e);
       _isReconnecting = false;
       _scheduleReconnect();
     }
@@ -363,7 +365,7 @@ class Signaling {
       case 'bye':
         {
           var sessionId = data['session_id'];
-          print('bye: ' + sessionId);
+          LogUtils.i('Signaling', 'bye: $sessionId');
           var session = _sessions.remove(sessionId);
           if (session != null) {
             onCallStateChange?.call(session, CallState.CallStateBye);
@@ -373,7 +375,7 @@ class Signaling {
         break;
       case 'keepalive':
         {
-          print('keepalive response!');
+          LogUtils.d('Signaling', 'keepalive response!');
         }
         break;
       default:
@@ -390,7 +392,7 @@ class Signaling {
     var url = 'https://$_host:$_port/ws';
     _socket = SimpleWebSocket(url);
 
-    print('connect to $url with device ID: $_selfId');
+    LogUtils.i('Signaling', 'connect to $url with device ID: $_selfId');
 
     if (_turnCredential == null) {
       try {
@@ -415,7 +417,7 @@ class Signaling {
     }
 
     _socket?.onOpen = () {
-      print('onOpen');
+      LogUtils.i('Signaling', 'onOpen');
       _reconnectAttempts = 0;
       _isReconnecting = false;
       onSignalingStateChange?.call(SignalingState.ConnectionOpen);
@@ -432,12 +434,12 @@ class Signaling {
     };
 
     _socket?.onMessage = (message) {
-      print('Received data: ' + message);
+      LogUtils.d('Signaling', 'Received data: $message');
       onMessage(_decoder.convert(message));
     };
 
     _socket?.onClose = (int? code, String? reason) {
-      print('Closed by server [$code => $reason]!');
+      LogUtils.w('Signaling', 'Closed by server [$code => $reason]!');
       _stopKeepalive();
       onSignalingStateChange?.call(SignalingState.ConnectionClosed);
       // 自动重连
@@ -448,14 +450,14 @@ class Signaling {
   }
 
   Future<void> restartVideo() async {
-    print('Signaling: Restarting video stream...');
+    LogUtils.i('Signaling', 'Restarting video stream...');
     // 1. Stop old video track to release resources
     if (_localStream != null) {
       _localStream!.getVideoTracks().forEach((track) {
         try {
           track.stop();
         } catch (e) {
-          print('Error stopping track: $e');
+          LogUtils.e('Signaling', 'Error stopping track', e);
         }
       });
       // Give the camera hardware some time to release resources
@@ -473,14 +475,14 @@ class Signaling {
         var newVideoTrack = newStream.getVideoTracks().first;
         for (var sender in _senders) {
           if (sender.track?.kind == 'video') {
-            print('Signaling: Replacing video track for sender');
+            LogUtils.i('Signaling', 'Replacing video track for sender');
             await sender.replaceTrack(newVideoTrack);
           }
         }
       }
-      print('Signaling: Video stream restarted successfully');
+      LogUtils.i('Signaling', 'Video stream restarted successfully');
     } catch (e) {
-      print('Signaling: Failed to restart video: $e');
+      LogUtils.e('Signaling', 'Failed to restart video', e);
     }
   }
 
@@ -515,7 +517,7 @@ class Signaling {
     if (media != 'data' && useLocalMedia)
       _localStream =
           await createStream(media, context: _context);
-    print(_iceServers);
+    LogUtils.d('Signaling', 'ICE Servers: $_iceServers');
     RTCPeerConnection pc = await createPeerConnection({
       ..._iceServers,
       ...{'sdpSemantics': sdpSemantics}
@@ -590,7 +592,7 @@ class Signaling {
     }
     pc.onIceCandidate = (candidate) async {
       if (candidate == null) {
-        print('onIceCandidate: complete!');
+        LogUtils.d('Signaling', 'onIceCandidate: complete!');
         return;
       }
       // This delay is needed to allow enough time to try an ICE candidate
@@ -650,7 +652,7 @@ class Signaling {
     final session = _sessions[sessionId];
     final dc = session?.dc;
     if (dc == null) {
-      print('Signaling.sendData: data channel not ready for sessionId=$sessionId');
+      LogUtils.w('Signaling', 'sendData: data channel not ready for sessionId=$sessionId');
       return;
     }
     dc.send(RTCDataChannelMessage(message));
@@ -681,7 +683,7 @@ class Signaling {
         'media': media,
       });
     } catch (e) {
-      print(e.toString());
+      LogUtils.e('Signaling', 'createOffer error', e);
     }
   }
 
@@ -704,7 +706,7 @@ class Signaling {
         'session_id': session.sid,
       });
     } catch (e) {
-      print(e.toString());
+      LogUtils.e('Signaling', 'createAnswer error', e);
     }
   }
 

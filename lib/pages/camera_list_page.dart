@@ -8,6 +8,7 @@ import '../services/bind_api.dart';
 import '../services/session_manager.dart';
 import 'qr_code_generator_page.dart';
 import '../models/camera_device.dart';
+import '../utils/log_utils.dart';
 
 class CameraListPage extends StatefulWidget {
   const CameraListPage({super.key});
@@ -76,8 +77,7 @@ class _CameraListPageState extends State<CameraListPage> {
             _isBannerAdReady = false;
           });
           // Keep quiet in UI; log only.
-          // ignore: avoid_print
-          print('BannerAd failed to load: code=${error.code}, message=${error.message}, domain=${error.domain}');
+          LogUtils.w('CameraListPage', 'BannerAd failed to load: code=${error.code}, message=${error.message}, domain=${error.domain}');
         },
       ),
     );

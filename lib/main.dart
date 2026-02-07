@@ -10,9 +10,14 @@ import 'pages/membership_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/welcome_page.dart';
 import 'services/session_manager.dart';
+import 'utils/log_utils.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 初始化日志工具
+  await LogUtils.init();
+
   // 设置沉浸式状态栏
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent, // 状态栏透明

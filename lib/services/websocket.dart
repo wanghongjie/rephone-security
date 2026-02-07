@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:convert';
 import 'dart:async';
+import 'package:rephone_security/utils/log_utils.dart';
 
 class SimpleWebSocket {
   String _url;
@@ -32,7 +33,7 @@ class SimpleWebSocket {
   send(data) {
     if (_socket != null) {
       _socket.add(data);
-      print('send: $data');
+      LogUtils.d('WebSocket', 'send: $data');
     }
   }
 
@@ -47,8 +48,7 @@ class SimpleWebSocket {
       HttpClient client = HttpClient(context: SecurityContext());
       client.badCertificateCallback =
           (X509Certificate cert, String host, int port) {
-        print(
-            'SimpleWebSocket: Allow self-signed certificate => $host:$port. ');
+        LogUtils.w('WebSocket', 'Allow self-signed certificate => $host:$port.');
         return true;
       };
 

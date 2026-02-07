@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
+import '../utils/log_utils.dart';
 
 class MonitorViewerPage extends StatefulWidget {
   const MonitorViewerPage({
@@ -80,14 +81,14 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
     // 设置回调函数在连接之前
     _signaling!.onSignalingStateChange = (SignalingState state) {
-      print('Monitor signaling state changed: $state');
+      LogUtils.i('MonitorViewer', 'Signaling state changed: $state');
       setState(() {
         _isConnected = state == SignalingState.ConnectionOpen;
       });
     };
 
     _signaling!.onPeersUpdate = (event) {
-      print('Monitor peers updated: $event');
+      LogUtils.d('MonitorViewer', 'Peers updated: $event');
       setState(() {
         _selfId = event['self'];
         _peers = event['peers'];
@@ -102,7 +103,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
         final cameraStillOnline = _peers.any((peer) => peer['id'] == _connectedCameraId);
         if (!cameraStillOnline) {
           // 相机端已离线，返回上一页
-          print('Monitor: Camera $_connectedCameraId went offline, returning to previous page');
+          LogUtils.w('MonitorViewer', 'Camera $_connectedCameraId went offline, returning to previous page');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -129,7 +130,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     };
 
     _signaling!.onCallStateChange = (Session session, CallState state) {
-      print('Monitor call state changed: $state');
+      LogUtils.i('MonitorViewer', 'Call state changed: $state');
       switch (state) {
         case CallState.CallStateNew:
           setState(() {
@@ -181,14 +182,14 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     };
 
     _signaling!.onAddRemoteStream = (session, stream) {
-      print('Monitor remote stream added');
+      LogUtils.i('MonitorViewer', 'Remote stream added');
       _remoteStream = stream;
       _remoteRenderer.srcObject = stream;
       setState(() {});
     };
 
     _signaling!.onRemoveRemoteStream = (session, stream) {
-      print('Monitor remote stream removed');
+      LogUtils.i('MonitorViewer', 'Remote stream removed');
       _stopRecording(showToast: false);
       _remoteStream = null;
       _remoteRenderer.srcObject = null;
@@ -209,10 +210,10 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       
       if (cameraPeer != null) {
         _connectedCameraId = cameraPeer['id'];
-        print('Monitor: Calling camera with ID: ${widget.cameraDeviceId}');
+        LogUtils.i('MonitorViewer', 'Calling camera with ID: ${widget.cameraDeviceId}');
         _signaling!.invite(cameraPeer['id'], 'video', false);
       } else {
-        print('Monitor: Camera ${widget.cameraDeviceId} not found in peers list');
+        LogUtils.w('MonitorViewer', 'Camera ${widget.cameraDeviceId} not found in peers list');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('相机端 ${widget.cameraName} 不在线'),

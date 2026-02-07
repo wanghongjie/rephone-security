@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+
 import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
+import '../utils/log_utils.dart';
 
 class CameraEndpointPage extends StatefulWidget {
   const CameraEndpointPage({super.key, required this.onSwitchToMonitor});
@@ -101,7 +103,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         }
       }
     } catch (e) {
-      print('Camera: Permission check error: $e');
+      LogUtils.e('CameraEndpoint', 'Permission check error', e);
       // Android 12以下不需要运行时权限，直接启动服务
       if (mounted) {
         await _startForegroundService();
@@ -112,9 +114,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   Future<void> _startForegroundService() async {
     try {
       await _serviceChannel.invokeMethod('startForegroundService');
-      print('Camera: Foreground service started');
+      LogUtils.i('CameraEndpoint', 'Foreground service started');
     } catch (e) {
-      print('Camera: Failed to start foreground service: $e');
+      LogUtils.e('CameraEndpoint', 'Failed to start foreground service', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -129,9 +131,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   Future<void> _stopForegroundService() async {
     try {
       await _serviceChannel.invokeMethod('stopForegroundService');
-      print('Camera: Foreground service stopped');
+      LogUtils.i('CameraEndpoint', 'Foreground service stopped');
     } catch (e) {
-      print('Camera: Failed to stop foreground service: $e');
+      LogUtils.e('CameraEndpoint', 'Failed to stop foreground service', e);
     }
   }
 
@@ -152,14 +154,14 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    print('CameraEndpointPage: AppLifecycleState changed to $state');
+    LogUtils.i('CameraEndpoint', 'AppLifecycleState changed to $state');
     if (state == AppLifecycleState.resumed) {
       // 当应用回到前台时，强制重启视频流以解决编码器卡死问题
       _signaling?.restartVideo();
       
       // 检查连接状态，如果未连接则尝试重连
       if (!_isConnected) {
-        print('CameraEndpointPage: Resumed but disconnected, forcing reconnect...');
+        LogUtils.w('CameraEndpoint', 'Resumed but disconnected, forcing reconnect...');
         _signaling?.connect();
       }
     }
@@ -176,7 +178,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     
     // 设置回调函数在连接之前
     _signaling!.onSignalingStateChange = (SignalingState state) {
-      print('Signaling state changed: $state');
+      LogUtils.i('CameraEndpoint', 'Signaling state changed: $state');
       setState(() {
         _isConnected = state == SignalingState.ConnectionOpen;
       });
@@ -207,7 +209,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     };
 
     _signaling!.onPeersUpdate = (event) {
-      print('Peers updated: $event');
+      LogUtils.d('CameraEndpoint', 'Peers updated: $event');
       setState(() {
         _selfId = event['self'];
         _peers = event['peers'];
@@ -219,7 +221,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     };
 
     _signaling!.onLocalStream = (stream) {
-      print('Local stream received');
+      LogUtils.i('CameraEndpoint', 'Local stream received');
       _localRenderer.srcObject = stream;
       setState(() {
         _isVideoActive = true;
@@ -235,7 +237,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     };
 
     _signaling!.onCallStateChange = (Session session, CallState state) {
-      print('Call state changed: $state');
+      LogUtils.i('CameraEndpoint', 'Call state changed: $state');
       switch (state) {
         case CallState.CallStateRinging:
           // 验证邮箱权限后自动接受来电
@@ -271,11 +273,11 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
     // DataChannel: receive messages from monitor while video is live.
     _signaling!.onDataChannel = (session, dc) {
-      print('Camera: DataChannel opened: ${dc.label}');
+      LogUtils.i('CameraEndpoint', 'DataChannel opened: ${dc.label}');
     };
     _signaling!.onDataChannelMessage = (session, dc, data) {
       final msg = data.isBinary ? '[binary ${data.binary.length} bytes]' : data.text;
-      print('Camera: DataChannel message: $msg');
+      LogUtils.d('CameraEndpoint', 'DataChannel message: $msg');
       if (!data.isBinary) {
         try {
           final decoded = jsonDecode(data.text);
@@ -309,7 +311,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   bool _validateEmailPermission(Session session) {
     // 检查当前用户邮箱
     if (_currentUserEmail == null) {
-      print('Camera: No logged in user');
+      LogUtils.w('CameraEndpoint', 'No logged in user');
       return false;
     }
 
@@ -320,7 +322,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     );
 
     if (callerPeer == null) {
-      print('Camera: Caller peer not found');
+      LogUtils.w('CameraEndpoint', 'Caller peer not found');
       return false;
     }
 
@@ -329,9 +331,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     final emailMatch = RegExp(r'email:([^|]+)').firstMatch(userAgent);
     final callerEmail = emailMatch?.group(1);
 
-    print('Camera: Current user email: $_currentUserEmail');
-    print('Camera: Caller email: $callerEmail');
-    print('Camera: Caller user_agent: $userAgent');
+    LogUtils.d('CameraEndpoint', 'Current user email: $_currentUserEmail');
+    LogUtils.d('CameraEndpoint', 'Caller email: $callerEmail');
+    LogUtils.d('CameraEndpoint', 'Caller user_agent: $userAgent');
 
     // 验证邮箱是否匹配
     return callerEmail == _currentUserEmail;
@@ -352,7 +354,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         _isVideoActive = false;
       });
     } catch (e) {
-      print('Error stopping video: $e');
+      LogUtils.e('CameraEndpoint', 'Error stopping video', e);
     }
   }
 
