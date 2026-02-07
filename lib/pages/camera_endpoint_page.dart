@@ -186,24 +186,14 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       // 处理连接关闭状态，确保重连时 UI 正确反馈
       if (state == SignalingState.ConnectionClosed || state == SignalingState.ConnectionError) {
         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('与服务器连接断开，正在尝试重连...'),
-              duration: Duration(seconds: 2),
-            ),
-          );
+          LogUtils.w('CameraEndpoint', '与服务器连接断开，正在尝试重连...');
         }
       }
 
       if (state == SignalingState.ConnectionOpen) {
         _startVideo();
          if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('已连接到服务器'),
-              duration: Duration(seconds: 2),
-            ),
-          );
+           LogUtils.i('CameraEndpoint', '已连接到服务器');
         }
       }
     };
@@ -243,9 +233,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
           // 验证邮箱权限后自动接受来电
           if (_validateEmailPermission(session)) {
             _signaling?.accept(session.sid, 'video');
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('监控端已连接')),
-            );
+            LogUtils.i('CameraEndpoint', '监控端已连接');
           } else {
             _signaling?.reject(session.sid);
             ScaffoldMessenger.of(context).showSnackBar(
@@ -257,14 +245,10 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
           }
           break;
         case CallState.CallStateConnected:
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('视频通话已连接')),
-          );
+          LogUtils.i('CameraEndpoint', '视频通话已连接');
           break;
         case CallState.CallStateBye:
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('监控端已断开')),
-          );
+          LogUtils.i('CameraEndpoint', '监控端已断开');
           break;
         default:
           break;
@@ -288,9 +272,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
               _isMicMuted = !enabled;
             });
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(enabled ? '监控端已开启相机端声音' : '监控端已关闭相机端声音')),
-              );
+              LogUtils.i('CameraEndpoint', enabled ? '监控端已开启相机端声音' : '监控端已关闭相机端声音');
             }
             return;
           }
@@ -299,9 +281,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         }
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('监控端消息: $msg')),
-      );
+      LogUtils.i('CameraEndpoint', '监控端消息: $msg');
     };
 
     // 连接到服务器
