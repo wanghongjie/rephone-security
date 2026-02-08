@@ -101,6 +101,16 @@ class AuthApi {
     }
     throw AuthApiException('响应格式错误');
   }
+
+  Future<void> deleteAccount(String email, String password) async {
+    final res = await _post('delete-account', {
+      'email': email,
+      'password': password,
+    });
+    if (res.statusCode >= 400) {
+      throw AuthApiException(_extractMessage(res.data, '注销账号失败'));
+    }
+  }
 }
 
 class _HttpResult {

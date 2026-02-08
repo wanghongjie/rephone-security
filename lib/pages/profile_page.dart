@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/session_manager.dart';
 import 'about_page.dart';
+import 'delete_account_page.dart';
 import 'help_center_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -40,6 +41,12 @@ class _ProfilePageState extends State<ProfilePage> {
       icon: Icons.info,
       title: '关于我们',
       subtitle: '版本信息、用户协议',
+      onTap: null, // wired in build to keep context available
+    ),
+    SettingItem(
+      icon: Icons.delete_forever,
+      title: '注销账号',
+      subtitle: '永久删除账号及所有数据',
       onTap: null, // wired in build to keep context available
     ),
   ];
@@ -200,6 +207,13 @@ class _ProfilePageState extends State<ProfilePage> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const AboutPage()),
+      );
+      return;
+    }
+    if (item.title == '注销账号') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const DeleteAccountPage()),
       );
       return;
     }
