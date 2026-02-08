@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/session_manager.dart';
 import 'about_page.dart';
-import 'delete_account_page.dart';
+import 'general_settings_page.dart';
 import 'help_center_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -14,7 +14,6 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   String? _currentUserEmail;
   final String _membershipLevel = '基础版';
-  bool _isLoggingOut = false;
 
   @override
   void initState() {
@@ -44,9 +43,9 @@ class _ProfilePageState extends State<ProfilePage> {
       onTap: null, // wired in build to keep context available
     ),
     SettingItem(
-      icon: Icons.delete_forever,
-      title: '注销账号',
-      subtitle: '永久删除账号及所有数据',
+      icon: Icons.settings,
+      title: '通用设置',
+      subtitle: '账号注销、退出登录',
       onTap: null, // wired in build to keep context available
     ),
   ];
@@ -61,8 +60,6 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildUserProfile(),
             const SizedBox(height: 24),
             _buildSettingsList(),
-            const SizedBox(height: 24),
-            _buildLogoutButton(),
           ],
         ),
       ),
@@ -177,24 +174,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildLogoutButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton(
-        onPressed: _showLogoutDialog,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.red,
-          side: const BorderSide(color: Colors.red),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-        ),
-        child: const Text(
-          '退出登录',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
-  }
-
   void _onSettingTap(SettingItem item) {
     if (item.title == '帮助中心') {
       Navigator.push(
@@ -210,10 +189,10 @@ class _ProfilePageState extends State<ProfilePage> {
       );
       return;
     }
-    if (item.title == '注销账号') {
+    if (item.title == '通用设置') {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const DeleteAccountPage()),
+        MaterialPageRoute(builder: (_) => const GeneralSettingsPage()),
       );
       return;
     }
@@ -224,57 +203,6 @@ class _ProfilePageState extends State<ProfilePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('打开 ${item.title}')),
     );
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('确定要退出当前账户吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: _isLoggingOut
-                ? null
-                : () async {
-                    // Close the dialog first.
-                    Navigator.pop(context);
-                    await _logout();
-                  },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('确定'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _logout() async {
-    if (_isLoggingOut) return;
-    setState(() {
-      _isLoggingOut = true;
-    });
-    try {
-      await SessionManager.clear();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已退出登录')),
-      );
-      // Go to login page and clear navigation stack.
-      Navigator.of(context).pushNamedAndRemoveUntil('/auth', (route) => false);
-    } finally {
-      if (!mounted) return;
-      setState(() {
-        _isLoggingOut = false;
-      });
-    }
   }
 }
 

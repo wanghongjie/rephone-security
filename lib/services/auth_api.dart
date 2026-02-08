@@ -111,6 +111,25 @@ class AuthApi {
       throw AuthApiException(_extractMessage(res.data, '注销账号失败'));
     }
   }
+
+  Future<void> resetPassword({
+    required String email,
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final res = await _post('reset-password', {
+      'email': email,
+      'old_password': oldPassword,
+      'new_password': newPassword,
+    });
+    if (res.statusCode >= 400) {
+      throw AuthApiException(_extractMessage(res.data, '重置密码失败'));
+    }
+    // Check if success is true in response body, though status code usually handles errors
+    if (res.data is Map && res.data['success'] == false) {
+      throw AuthApiException(_extractMessage(res.data, '重置密码失败'));
+    }
+  }
 }
 
 class _HttpResult {
