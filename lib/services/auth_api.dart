@@ -78,6 +78,16 @@ class AuthApi {
     throw AuthApiException('响应格式错误');
   }
 
+  Future<void> deleteAccount(String email, String password) async {
+    final res = await _post('delete-account', {
+      'email': email,
+      'password': password,
+    });
+    if (res.statusCode >= 400) {
+      throw AuthApiException(_extractMessage(res.data, '注销账号失败'));
+    }
+  }
+
   Future<void> verifyCode(String email, String code) async {
     final res = await _post('verify-code', {'email': email, 'code': code});
     if (res.statusCode >= 400) {
@@ -100,16 +110,6 @@ class AuthApi {
       return AuthUser.fromJson(res.data['data'] as Map<String, dynamic>);
     }
     throw AuthApiException('响应格式错误');
-  }
-
-  Future<void> deleteAccount(String email, String password) async {
-    final res = await _post('delete-account', {
-      'email': email,
-      'password': password,
-    });
-    if (res.statusCode >= 400) {
-      throw AuthApiException(_extractMessage(res.data, '注销账号失败'));
-    }
   }
 
   Future<void> resetPassword({

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'monitor_viewer_page.dart';
+import 'playback_page.dart';
 import 'camera_settings_page.dart';
 import '../services/bind_api.dart';
 import '../services/session_manager.dart';
@@ -265,55 +266,114 @@ class _CameraListPageState extends State<CameraListPage> {
 
   Widget _buildCameraCard(CameraDevice camera) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: CircleAvatar(
-          backgroundColor: camera.isOnline ? Colors.green : Colors.red,
-          child: Icon(
-            camera.isOnline ? Icons.videocam : Icons.videocam_off,
-            color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          // Top: Status, Name, Location
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.circle,
+                  size: 12,
+                  color: camera.isOnline ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        camera.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      if (camera.location.isNotEmpty)
+                        Text(
+                          camera.location,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        title: Text(
-          camera.name,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text('位置: ${camera.location}'),
-            const SizedBox(height: 2),
-            Text(
-              camera.isOnline
-                  ? '在线 • ${_formatLastSeen(camera.lastSeen)}'
-                  : '离线 • ${_formatLastSeen(camera.lastSeen)}',
-              style: TextStyle(
-                color: camera.isOnline ? Colors.green : Colors.red,
-                fontSize: 12,
+          
+          // Middle: Cover Image
+          InkWell(
+            onTap: () => _viewCamera(camera),
+            child: Container(
+              height: 200,
+              width: double.infinity,
+              color: Colors.grey[200],
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    Icons.image,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-        trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'view',
-              child: Text('查看实时画面'),
+          ),
+          
+          // Bottom: Actions
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                TextButton.icon(
+                  onPressed: () {
+                     Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PlaybackPage()),
+                    );
+                  },
+                  icon: const Icon(Icons.history),
+                  label: const Text('回看'),
+                ),
+                TextButton.icon(
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CameraSettingsPage(camera: camera),
+                      ),
+                    );
+                    if (mounted) {
+                      _loadBindings(showLoading: false);
+                    }
+                  },
+                  icon: const Icon(Icons.settings),
+                  label: const Text('设置'),
+                ),
+              ],
             ),
-            const PopupMenuItem(
-              value: 'settings',
-              child: Text('设备设置'),
-            ),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Text('删除设备'),
-            ),
-          ],
-          onSelected: (value) => _handleMenuAction(value, camera),
-        ),
-        onTap: () => _viewCamera(camera),
+          ),
+        ],
       ),
     );
   }
@@ -375,92 +435,5 @@ class _CameraListPageState extends State<CameraListPage> {
     );
   }
 
-  void _handleMenuAction(String action, CameraDevice camera) {
-    switch (action) {
-      case 'view':
-        _viewCamera(camera);
-        break;
-      case 'settings':
-        _openSettings(camera);
-        break;
-      case 'delete':
-        _deleteCamera(camera);
-        break;
-    }
-  }
 
-  void _openSettings(CameraDevice camera) {
-    Navigator.push<CameraDevice>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CameraSettingsPage(camera: camera),
-      ),
-    ).then((updated) {
-      if (updated == null) return;
-      if (!mounted) return;
-      setState(() {
-        _cameras = _cameras
-            .map((c) => c.id == updated.id ? updated : c)
-            .toList(growable: false);
-      });
-    });
-  }
-
-  void _deleteCamera(CameraDevice camera) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除设备'),
-        content: Text('确定要删除 ${camera.name} 吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              if (_deletingCameraIds.contains(camera.id)) return;
-              setState(() {
-                _deletingCameraIds.add(camera.id);
-              });
-              try {
-                await _bindApi.deleteCamera(cameraDeviceId: camera.id);
-                if (!mounted) return;
-                setState(() {
-                  _cameras.removeWhere((c) => c.id == camera.id);
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('已删除 ${camera.name}'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-                // 重新加载列表（以服务端为准）
-                await _loadBindings(showLoading: false);
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('删除失败: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              } finally {
-                if (!mounted) return;
-                setState(() {
-                  _deletingCameraIds.remove(camera.id);
-                });
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
-    );
-  }
 }

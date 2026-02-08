@@ -1,47 +1,77 @@
 #!/bin/bash
 
-# 配置信息
-PACKAGE="com.rephone.security"
-DATE=$(date +%Y-%m-%d)
-REMOTE_LOG_DIR="/data/data/$PACKAGE/app_flutter/logs"
-LOCAL_DIR="$HOME/Desktop"
-FILENAME="log_$DATE.txt"
+# Configuration
+PACKAGE_NAME="com.rephone.security"
+LOCAL_DIR="./logs_dump"
 
-echo "=== Log Pull Script ==="
-echo "Target Package: $PACKAGE"
-echo "Date: $DATE"
-echo "Remote Dir: $REMOTE_LOG_DIR"
-echo "Local Dir: $LOCAL_DIR"
-echo "-----------------------"
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
-# 检查设备连接
-DEVICE_COUNT=$(adb devices | grep -v "List of devices attached" | grep -v "^$" | wc -l)
-if [ $DEVICE_COUNT -eq 0 ]; then
-    echo "Error: No Android device connected."
+echo -e "${GREEN}Starting log extraction for $PACKAGE_NAME...${NC}"
+
+# Create local directory
+mkdir -p "$LOCAL_DIR"
+
+# Check for devices
+DEVICES=$(adb devices | grep -w "device" | cut -f1)
+if [ -z "$DEVICES" ]; then
+    echo -e "${RED}No Android devices found! Please connect a device and enable USB debugging.${NC}"
     exit 1
 fi
 
-# 列出远程日志文件
-echo "Checking remote logs..."
-adb shell run-as $PACKAGE ls $REMOTE_LOG_DIR
+echo "Found device(s):"
+echo "$DEVICES"
 
-# 尝试拉取当天的日志
-echo "-----------------------"
-echo "Attempting to pull today's log: $FILENAME"
+# Function to pull logs from a specific device
+pull_logs_from_device() {
+    local DEVICE_ID=$1
+    echo -e "${GREEN}Processing device: $DEVICE_ID${NC}"
 
-# 检查远程文件是否存在
-EXISTS=$(adb shell run-as $PACKAGE ls $REMOTE_LOG_DIR/$FILENAME > /dev/null 2>&1 && echo "yes" || echo "no")
+    # timestamp for this pull
+    TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+    DEVICE_DIR="$LOCAL_DIR/$DEVICE_ID/$TIMESTAMP"
+    mkdir -p "$DEVICE_DIR"
 
-if [ "$EXISTS" == "yes" ]; then
-    adb exec-out run-as $PACKAGE cat $REMOTE_LOG_DIR/$FILENAME > "$LOCAL_DIR/$FILENAME"
+    # 1. Pull Logcat (system logs)
+    echo "Pulling logcat..."
+    adb -s "$DEVICE_ID" logcat -d > "$DEVICE_DIR/logcat.txt"
+
+    # 2. Pull App Logs (from internal storage)
+    # Note: This requires the app to be debuggable (run-as)
+    echo "Attempting to pull internal app logs..."
     
-    if [ -s "$LOCAL_DIR/$FILENAME" ]; then
-        echo "✅ Success! Log saved to: $LOCAL_DIR/$FILENAME"
-        open "$LOCAL_DIR/$FILENAME"
+    # List files first to see what's there
+    LOG_FILES=$(adb -s "$DEVICE_ID" shell run-as $PACKAGE_NAME ls -1 app_flutter/logs/ 2>/dev/null)
+    
+    if [ -z "$LOG_FILES" ]; then
+        echo -e "${RED}Could not list log files (or empty). Is the app debuggable?${NC}"
     else
-        echo "⚠️  Warning: File pulled but appears empty."
+        echo "Found log files:"
+        echo "$LOG_FILES"
+        
+        for LOG_FILE in $LOG_FILES; do
+            # Remove carriage return if present
+            LOG_FILE=$(echo "$LOG_FILE" | tr -d '\r')
+            if [ -n "$LOG_FILE" ]; then
+                echo "Pulling $LOG_FILE..."
+                # Use cat and redirection to avoid permission issues with 'adb pull' on internal storage
+                adb -s "$DEVICE_ID" exec-out run-as $PACKAGE_NAME cat "app_flutter/logs/$LOG_FILE" > "$DEVICE_DIR/$LOG_FILE"
+            fi
+        done
     fi
-else
-    echo "❌ Error: Log file '$FILENAME' not found on device."
-    echo "Tip: Make sure the app has run today and generated logs."
-fi
+
+    # 3. Pull ANR traces if available
+    echo "Pulling ANR traces..."
+    adb -s "$DEVICE_ID" pull /data/anr/traces.txt "$DEVICE_DIR/anr_traces.txt" 2>/dev/null
+
+    echo -e "${GREEN}Logs saved to: $DEVICE_DIR${NC}"
+}
+
+# Iterate over all connected devices
+for DEVICE in $DEVICES; do
+    pull_logs_from_device "$DEVICE"
+done
+
+echo -e "${GREEN}Done!${NC}"

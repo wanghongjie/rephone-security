@@ -73,6 +73,67 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
     await _saveToServer();
   }
 
+  Future<void> _deleteDevice() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除设备'),
+        content: const Text('确定要删除此设备吗？此操作无法撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await BindApi().deleteCamera(cameraDeviceId: widget.camera.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('设备已删除')),
+      );
+      // Return null to indicate the device is gone/deleted, or a special signal
+      // Actually, since we return a CameraDevice usually, we can return null to signal deletion
+      // But the current implementation returns updated CameraDevice on pop.
+      // We should change the return type logic or use a specific signal.
+      // Let's modify the pop logic.
+      Navigator.pop(context, null); // returning null means deleted (or cancelled, but we can differentiate if needed)
+      // Wait, standard back returns the updated camera.
+      // If I return null, the caller might think "no changes".
+      // But the caller (CameraListPage) reloads the list anyway usually.
+      // Let's stick to: standard back returns updated camera.
+      // "Delete" returns 'deleted'.
+      // But I can't return string 'deleted' because the type is CameraDevice.
+      // I'll assume the caller handles null as "no update" or I need to change return type.
+      // Let's check CameraListPage usage of push.
+      // It doesn't use the return value currently! It relies on polling/refresh.
+      // "onSelected: (value) => _handleMenuAction(value, camera),"
+      // _handleMenuAction just calls navigation.
+      // So I can just pop. The list will refresh via polling or manual refresh.
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('删除失败: $e')),
+      );
+      setState(() {
+        _isSaving = false;
+      });
+    }
+  }
+
   Future<void> _saveToServer() async {
     if (_isSaving) return;
     setState(() {
@@ -143,6 +204,15 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
               onTap: _isSaving ? null : () => _editField(_CameraField.location),
             ),
             const Divider(height: 1),
+            if (!_isSaving)
+              Padding(
+                padding: const EdgeInsets.only(top: 24.0),
+                child: ListTile(
+                  leading: const Icon(Icons.delete_forever, color: Colors.red),
+                  title: const Text('删除设备', style: TextStyle(color: Colors.red)),
+                  onTap: _deleteDevice,
+                ),
+              ),
             if (_isSaving)
               const Padding(
                 padding: EdgeInsets.all(16),

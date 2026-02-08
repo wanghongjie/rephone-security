@@ -5,7 +5,6 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'pages/auth_page.dart';
 import 'pages/camera_list_page.dart';
 import 'pages/camera_endpoint_page.dart';
-import 'pages/playback_page.dart';
 import 'pages/membership_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/welcome_page.dart';
@@ -163,14 +162,12 @@ class _MainPageState extends State<MainPage> {
 
   final List<Widget> _pages = [
     const CameraListPage(),
-    const PlaybackPage(),
     const MembershipPage(),
     const ProfilePage(),
   ];
 
   final List<String> _titles = [
     '相机列表',
-    '回看',
     '会员',
     '个人中心',
   ];
@@ -204,11 +201,6 @@ class _MainPageState extends State<MainPage> {
             icon: Icon(Icons.videocam),
             activeIcon: Icon(Icons.videocam),
             label: '相机列表',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            activeIcon: Icon(Icons.history),
-            label: '回看',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.workspace_premium_outlined),
