@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File, Directory;
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:path_provider/path_provider.dart';
 import 'monitor_viewer_page.dart';
 import 'playback_page.dart';
 import 'camera_settings_page.dart';
@@ -29,6 +30,7 @@ class _CameraListPageState extends State<CameraListPage> {
   // Banner ad
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
+  Directory? _docsDir;
 
   // Delete in-flight
   final Set<String> _deletingCameraIds = <String>{};
@@ -38,6 +40,16 @@ class _CameraListPageState extends State<CameraListPage> {
     super.initState();
     _loadBannerAd();
     _loadUserInfo();
+    _initDocsDir();
+  }
+
+  Future<void> _initDocsDir() async {
+    final dir = await getApplicationDocumentsDirectory();
+    if (mounted) {
+      setState(() {
+        _docsDir = dir;
+      });
+    }
   }
 
   @override
@@ -321,12 +333,28 @@ class _CameraListPageState extends State<CameraListPage> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Image.asset(
-                    'assets/images/camera_placeholder.png',
-                    width: double.infinity,
-                    height: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
+                  if (_docsDir != null)
+                    Image.file(
+                      File('${_docsDir!.path}/covers/cover_${camera.id}.jpg'),
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Image.asset(
+                          'assets/images/camera_placeholder.png',
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                        );
+                      },
+                    )
+                  else
+                    Image.asset(
+                      'assets/images/camera_placeholder.png',
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.3),
@@ -428,8 +456,8 @@ class _CameraListPageState extends State<CameraListPage> {
     });
   }
 
-  void _viewCamera(CameraDevice camera) {
-    Navigator.push(
+  void _viewCamera(CameraDevice camera) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => MonitorViewerPage(
@@ -438,6 +466,15 @@ class _CameraListPageState extends State<CameraListPage> {
         ),
       ),
     );
+    
+    if (mounted && _docsDir != null) {
+      final file = File('${_docsDir!.path}/covers/cover_${camera.id}.jpg');
+      // 清除图片缓存以显示最新截图
+      if (await file.exists()) {
+        await FileImage(file).evict();
+      }
+      setState(() {});
+    }
   }
 
 

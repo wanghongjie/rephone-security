@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -473,9 +474,46 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     }
   }
 
+  Future<void> _captureSnapshot() async {
+    if (!_inCall || _remoteRenderer.srcObject == null) return;
+
+    try {
+      final stream = _remoteRenderer.srcObject!;
+      final tracks = stream.getVideoTracks();
+      if (tracks.isEmpty) return;
+
+      final track = tracks.first;
+      final buffer = await track.captureFrame();
+      final bytes = buffer.asUint8List();
+
+      if (bytes.isNotEmpty) {
+        final dir = await getApplicationDocumentsDirectory();
+        final coversDir = Directory('${dir.path}/covers');
+        if (!await coversDir.exists()) {
+          await coversDir.create(recursive: true);
+        }
+
+        final file = File('${coversDir.path}/cover_${widget.cameraDeviceId}.jpg');
+        await file.writeAsBytes(bytes);
+        LogUtils.i('MonitorViewer', 'Snapshot saved to ${file.path}');
+      }
+    } catch (e) {
+      LogUtils.e('MonitorViewer', 'Failed to capture snapshot: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _captureSnapshot();
+        if (context.mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text('监控 - ${widget.cameraName}'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -610,6 +648,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
               ),
             ),
         ],
+      ),
       ),
     );
   }
