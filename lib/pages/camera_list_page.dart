@@ -296,26 +296,59 @@ class _CameraListPageState extends State<CameraListPage> {
                 Expanded(
                   child: Row(
                     children: [
-                      Flexible(
-                        child: Text(
-                          camera.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                      // 左侧：名称和位置
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                camera.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (camera.location.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  '(${camera.location})',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      if (camera.location.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          camera.location,
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
+                      // 右侧：状态和时间
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            camera.isOnline ? '在线' : '离线',
+                            style: TextStyle(
+                              color: camera.isOnline ? Colors.green : Colors.red,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                      ],
+                          Text(
+                            _formatLastSeen(camera.lastSeen),
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
