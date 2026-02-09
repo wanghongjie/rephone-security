@@ -613,36 +613,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
                 ),
               ),
             ),
-          // 在线设备列表
-          if (_isConnected && _peers.isNotEmpty)
-            Container(
-              height: 80,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('在线设备:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Expanded(
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _peers.length,
-                      itemBuilder: (context, index) {
-                        final peer = _peers[index];
-                        if (peer['id'] == _selfId) return const SizedBox();
-                        return Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          child: Chip(
-                            label: Text('相机端 ${peer['id']}'),
-                            backgroundColor: Colors.orange.shade100,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
       ),
