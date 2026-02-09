@@ -19,7 +19,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     
     <application
-        android:label="RePhone Security"
+        android:label="RePhone"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
         <!-- AdMob App ID -->

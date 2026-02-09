@@ -144,9 +144,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
             // 记录连接的相机端ID
             _connectedCameraId = session.pid;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('视频连接成功')),
-          );
+          LogUtils.i('MonitorViewer', '视频连接成功');
           break;
         case CallState.CallStateBye:
           _stopRecording(showToast: false);
@@ -173,9 +171,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
           }
           break;
         case CallState.CallStateInvite:
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('正在呼叫相机端...')),
-          );
+          LogUtils.i('MonitorViewer', '正在呼叫相机端...');
           break;
         default:
           break;
