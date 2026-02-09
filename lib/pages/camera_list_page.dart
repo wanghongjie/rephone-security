@@ -282,17 +282,20 @@ class _CameraListPageState extends State<CameraListPage> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Text(
-                        camera.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                      Flexible(
+                        child: Text(
+                          camera.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (camera.location.isNotEmpty)
+                      if (camera.location.isNotEmpty) ...[
+                        const SizedBox(width: 8),
                         Text(
                           camera.location,
                           style: TextStyle(
@@ -300,6 +303,7 @@ class _CameraListPageState extends State<CameraListPage> {
                             fontSize: 12,
                           ),
                         ),
+                      ],
                     ],
                   ),
                 ),
@@ -317,10 +321,11 @@ class _CameraListPageState extends State<CameraListPage> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Icon(
-                    Icons.image,
-                    size: 64,
-                    color: Colors.grey[400],
+                  Image.asset(
+                    'assets/images/camera_placeholder.png',
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
                   ),
                   Container(
                     decoration: BoxDecoration(
