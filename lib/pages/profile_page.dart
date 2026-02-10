@@ -1,4 +1,7 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import '../utils/log_utils.dart';
 import '../services/session_manager.dart';
 import 'about_page.dart';
 import 'general_settings_page.dart';
@@ -15,10 +18,60 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _currentUserEmail;
   final String _membershipLevel = '基础版';
 
+  // Banner ad
+  BannerAd? _bannerAd;
+  bool _isBannerAdReady = false;
+
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
+    _loadBannerAd();
+  }
+
+  @override
+  void dispose() {
+    _bannerAd?.dispose();
+    super.dispose();
+  }
+
+  void _loadBannerAd() {
+    // NOTE:
+    // - These are Google's official Banner TEST ad unit IDs.
+    // - Replace with your own Banner ad unit IDs when ready.
+    final adUnitId = Platform.isAndroid
+        ? 'ca-app-pub-3940256099942544/6300978111'
+        : 'ca-app-pub-3940256099942544/2934735716';
+
+    final ad = BannerAd(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      size: AdSize.banner,
+      listener: BannerAdListener(
+        onAdLoaded: (ad) {
+          if (!mounted) {
+            ad.dispose();
+            return;
+          }
+          setState(() {
+            _bannerAd = ad as BannerAd;
+            _isBannerAdReady = true;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          if (!mounted) return;
+          setState(() {
+            _bannerAd = null;
+            _isBannerAdReady = false;
+          });
+          // Keep quiet in UI; log only.
+          LogUtils.w('ProfilePage', 'BannerAd failed to load: code=${error.code}, message=${error.message}, domain=${error.domain}');
+        },
+      ),
+    );
+
+    ad.load();
   }
 
   Future<void> _loadUserInfo() async {
@@ -53,15 +106,31 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildUserProfile(),
-            const SizedBox(height: 24),
-            _buildSettingsList(),
-          ],
-        ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  _buildUserProfile(),
+                  const SizedBox(height: 24),
+                  _buildSettingsList(),
+                ],
+              ),
+            ),
+          ),
+          if (_isBannerAdReady && _bannerAd != null)
+            SafeArea(
+              top: false,
+              child: Container(
+                alignment: Alignment.center,
+                width: _bannerAd!.size.width.toDouble(),
+                height: _bannerAd!.size.height.toDouble(),
+                child: AdWidget(ad: _bannerAd!),
+              ),
+            ),
+        ],
       ),
     );
   }
