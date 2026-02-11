@@ -3,6 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
+import 'dart:io';
+import 'dart:async';
+import 'package:path_provider/path_provider.dart';
+import '../db/database_helper.dart';
+import '../models/detection_event.dart';
 
 import '../services/signaling.dart';
 import '../services/session_manager.dart';
@@ -23,6 +31,14 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   final _localRenderer = RTCVideoRenderer();
   bool _isVideoActive = false;
   bool _isMicMuted = true; // 默认关闭麦克风
+
+  // Detection & Recording
+  final GlobalKey _videoKey = GlobalKey();
+  PoseDetector? _poseDetector;
+  bool _isDetecting = false;
+  bool _isRecording = false;
+  Timer? _detectTimer;
+  MediaRecorder? _mediaRecorder;
   bool _isLoggingOut = false;
   
   // WebRTC signaling
@@ -40,6 +56,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initRenderer();
+    _initDetector();
     _loadUserInfo();
   }
 
@@ -140,12 +157,16 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _detectTimer?.cancel();
+    _poseDetector?.close();
    _localRenderer.dispose();
     super.dispose();
   }
 
   Future<void> _releaseResources() async {
     WidgetsBinding.instance.removeObserver(this);
+    _stopDetectionTimer();
+    _poseDetector?.close();
     await _signaling?.close();
     _stopVideo();
     await _stopForegroundService();
@@ -259,12 +280,33 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     _signaling!.onDataChannel = (session, dc) {
       LogUtils.i('CameraEndpoint', 'DataChannel opened: ${dc.label}');
     };
-    _signaling!.onDataChannelMessage = (session, dc, data) {
+    _signaling!.onDataChannelMessage = (session, dc, data) async {
       final msg = data.isBinary ? '[binary ${data.binary.length} bytes]' : data.text;
       LogUtils.d('CameraEndpoint', 'DataChannel message: $msg');
       if (!data.isBinary) {
         try {
           final decoded = jsonDecode(data.text);
+          
+          if (decoded is Map && decoded['type'] == 'get_events') {
+            LogUtils.i('CameraEndpoint', 'Received get_events request');
+            try {
+              final events = await DatabaseHelper().getEvents();
+              // Convert events to List<Map>
+              final eventsList = events.map((e) => e.toMap()).toList();
+              
+              final response = {
+                'type': 'events_list',
+                'data': eventsList,
+              };
+              
+              _signaling?.sendData(session.sid, jsonEncode(response));
+              LogUtils.i('CameraEndpoint', 'Sent ${events.length} events');
+            } catch (e) {
+              LogUtils.e('CameraEndpoint', 'Error getting events', e);
+            }
+            return;
+          }
+
           if (decoded is Map && decoded['type'] == 'camera_mic') {
             final enabled = decoded['enabled'] == true;
             _signaling?.setMicEnabled(enabled);
@@ -420,6 +462,133 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     );
   }
 
+  void _initDetector() {
+    final options = PoseDetectorOptions(mode: PoseDetectionMode.stream);
+    _poseDetector = PoseDetector(options: options);
+    
+    _startDetectionTimer();
+  }
+
+  void _startDetectionTimer() {
+    _detectTimer?.cancel();
+    // 每秒检测一次
+    _detectTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _performDetection();
+    });
+  }
+
+  void _stopDetectionTimer() {
+    _detectTimer?.cancel();
+    _detectTimer = null;
+  }
+
+  Future<void> _performDetection() async {
+    if (_isRecording || _isDetecting || _poseDetector == null) return;
+    if (!_isVideoActive) return;
+
+    _isDetecting = true;
+    try {
+      RenderRepaintBoundary? boundary = _videoKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      
+      ui.Image image = await boundary.toImage();
+      ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/frame_temp.png');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+
+      final inputImage = InputImage.fromFilePath(file.path);
+      final poses = await _poseDetector!.processImage(inputImage);
+
+      if (poses.isNotEmpty) {
+        // 保存快照到永久目录
+        final appDir = await getApplicationDocumentsDirectory();
+        final snapshotDir = Directory('${appDir.path}/snapshots');
+        if (!await snapshotDir.exists()) {
+          await snapshotDir.create(recursive: true);
+        }
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final imagePath = '${snapshotDir.path}/snapshot_$timestamp.png';
+        final imageFile = File(imagePath);
+        await imageFile.writeAsBytes(byteData.buffer.asUint8List());
+
+        LogUtils.i('CameraEndpoint', '检测到人物，开始录制');
+        _startTenSecondsRecording(imagePath);
+      }
+    } catch (e) {
+      LogUtils.e('CameraEndpoint', 'Detection error', e);
+    } finally {
+      _isDetecting = false;
+    }
+  }
+
+  Future<void> _startTenSecondsRecording(String imagePath) async {
+    if (_isRecording) return;
+    _isRecording = true;
+    _stopDetectionTimer(); // Stop detection timer during recording
+
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final saveDir = Directory('${dir.path}/recordings');
+      if (!await saveDir.exists()) {
+        await saveDir.create(recursive: true);
+      }
+      
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final filePath = '${saveDir.path}/event_$timestamp.mp4';
+
+      _mediaRecorder = MediaRecorder();
+      // Use the first video track from the local stream
+      final tracks = _localRenderer.srcObject?.getVideoTracks();
+      if (tracks == null || tracks.isEmpty) {
+         LogUtils.w('CameraEndpoint', 'No video tracks available for recording');
+         _isRecording = false;
+         _startDetectionTimer(); // Resume detection on error
+         return;
+      }
+      
+      await _mediaRecorder!.start(
+        filePath, 
+        videoTrack: tracks.first
+      );
+      
+      LogUtils.i('CameraEndpoint', 'Start recording: $filePath');
+
+      // 10秒后停止
+      Future.delayed(const Duration(seconds: 10), () async {
+        await _mediaRecorder?.stop();
+        _isRecording = false;
+        
+        // 记录到数据库
+        await DatabaseHelper().insertEvent(DetectionEvent(
+          timestamp: timestamp,
+          imagePath: imagePath,
+          videoPath: filePath,
+        ));
+        LogUtils.i('CameraEndpoint', 'Event saved to database');
+
+        LogUtils.i('CameraEndpoint', 'Recording finished. Cooldown for 10 seconds.');
+        _mediaRecorder = null;
+        
+        // 10秒冷却时间后恢复检测
+        Future.delayed(const Duration(seconds: 10), () {
+          if (mounted) { // 确保页面还存在
+             _startDetectionTimer();
+             LogUtils.i('CameraEndpoint', 'Cooldown finished, detection resumed.');
+          }
+        });
+      });
+      
+    } catch (e) {
+      LogUtils.e('CameraEndpoint', 'Recording error', e);
+      _isRecording = false;
+      _startDetectionTimer(); // Resume detection on error
+      _mediaRecorder = null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -511,7 +680,10 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
                         width: double.infinity,
                         height: double.infinity,
                         decoration: const BoxDecoration(color: Colors.black),
-                        child: RTCVideoView(_localRenderer, mirror: true),
+                        child: RepaintBoundary(
+                          key: _videoKey,
+                          child: RTCVideoView(_localRenderer, mirror: true),
+                        ),
                       ),
                       Positioned(
                         bottom: 30,

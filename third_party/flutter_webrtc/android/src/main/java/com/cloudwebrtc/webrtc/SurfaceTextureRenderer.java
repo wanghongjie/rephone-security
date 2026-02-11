@@ -117,7 +117,7 @@ public class SurfaceTextureRenderer extends EglRenderer {
     this.producer.setCallback(
             new TextureRegistry.SurfaceProducer.Callback() {
               @Override
-              public void onSurfaceAvailable() {
+              public void onSurfaceCreated() {
                 // Do surface initialization here, and draw the current frame.
               }
 

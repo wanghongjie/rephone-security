@@ -415,7 +415,7 @@ class _CameraListPageState extends State<CameraListPage> {
                   onPressed: () {
                      Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const PlaybackPage()),
+                      MaterialPageRoute(builder: (_) => PlaybackPage(camera: camera)),
                     );
                   },
                   icon: const Icon(Icons.history),
