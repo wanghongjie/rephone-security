@@ -289,18 +289,22 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
           
           if (decoded is Map && decoded['type'] == 'get_events') {
             LogUtils.i('CameraEndpoint', 'Received get_events request');
+            final int limit = decoded['limit'] ?? 15;
+            final int offset = decoded['offset'] ?? 0;
+            
             try {
-              final events = await DatabaseHelper().getEvents();
+              final events = await DatabaseHelper().getEvents(limit: limit, offset: offset);
               // Convert events to List<Map>
               final eventsList = events.map((e) => e.toMap()).toList();
               
               final response = {
                 'type': 'events_list',
                 'data': eventsList,
+                'offset': offset,
               };
               
               _signaling?.sendData(session.sid, jsonEncode(response));
-              LogUtils.i('CameraEndpoint', 'Sent ${events.length} events');
+              LogUtils.i('CameraEndpoint', 'Sent ${events.length} events (offset: $offset, limit: $limit)');
             } catch (e) {
               LogUtils.e('CameraEndpoint', 'Error getting events', e);
             }

@@ -43,11 +43,13 @@ class DatabaseHelper {
     return await db.insert('detection_events', event.toMap());
   }
 
-  Future<List<DetectionEvent>> getEvents() async {
+  Future<List<DetectionEvent>> getEvents({int? limit, int? offset}) async {
     Database db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'detection_events', 
-      orderBy: 'timestamp DESC'
+      orderBy: 'timestamp DESC',
+      limit: limit,
+      offset: offset,
     );
     return List.generate(maps.length, (i) {
       return DetectionEvent.fromMap(maps[i]);

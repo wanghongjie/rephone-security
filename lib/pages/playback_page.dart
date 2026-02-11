@@ -27,17 +27,43 @@ class _PlaybackPageState extends State<PlaybackPage> {
   bool _isConnecting = true;
   List<Map<String, dynamic>> _events = []; // 存储接收到的事件数据
   Session? _currentSession;
+  
+  // Pagination
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _currentOffset = 0;
+  static const int _pageSize = 15;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _loadUserInfo();
   }
 
   @override
   void dispose() {
     _signaling?.close();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200 &&
+        !_isLoadingMore &&
+        _hasMore &&
+        _isConnected) {
+      _loadMoreEvents();
+    }
+  }
+
+  Future<void> _loadMoreEvents() async {
+    if (_isLoadingMore) return;
+    setState(() {
+      _isLoadingMore = true;
+    });
+    _requestEventList(_currentSession?.sid ?? '', offset: _currentOffset);
   }
 
   void _loadUserInfo() async {
@@ -118,7 +144,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
       LogUtils.i('PlaybackPage', 'DataChannel created: ${dc.label}, state: ${dc.state}');
       
       if (dc.state.toString() == 'RTCDataChannelState.RTCDataChannelOpen') {
-        _requestEventList(session.sid);
+        _requestEventList(session.sid, offset: 0);
       }
       
       // 监听状态变化，确保连接打开后再发送
@@ -126,7 +152,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
          LogUtils.i('PlaybackPage', 'DataChannel state changed: $state');
          // Temporary workaround for enum value mismatch
          if (state.toString() == 'RTCDataChannelState.RTCDataChannelOpen') {
-           _requestEventList(session.sid);
+           _requestEventList(session.sid, offset: 0);
          }
        };
     };
@@ -138,25 +164,42 @@ class _PlaybackPageState extends State<PlaybackPage> {
         final json = jsonDecode(data.text);
         if (json['type'] == 'events_list') {
           final List<dynamic> list = json['data'];
-          LogUtils.i('PlaybackPage', 'Received ${list.length} events');
+          final int offset = json['offset'] ?? 0;
+          
+          LogUtils.i('PlaybackPage', 'Received ${list.length} events (offset: $offset)');
           if (mounted) {
             setState(() {
-              _events = List<Map<String, dynamic>>.from(list);
+              if (offset == 0) {
+                _events = List<Map<String, dynamic>>.from(list);
+              } else {
+                _events.addAll(List<Map<String, dynamic>>.from(list));
+              }
+              
+              _isLoadingMore = false;
+              _currentOffset = _events.length;
+              _hasMore = list.length >= _pageSize;
             });
           }
         }
       } catch (e) {
         LogUtils.e('PlaybackPage', 'Error parsing message', e);
+        if (mounted) {
+          setState(() {
+            _isLoadingMore = false;
+          });
+        }
       }
     };
 
     await _signaling!.connect();
   }
 
-  void _requestEventList(String sessionId) {
-    LogUtils.i('PlaybackPage', 'Requesting event list...');
+  void _requestEventList(String sessionId, {required int offset}) {
+    LogUtils.i('PlaybackPage', 'Requesting event list (offset: $offset)...');
     _signaling!.sendData(sessionId, jsonEncode({
       'type': 'get_events',
+      'limit': _pageSize,
+      'offset': offset,
     }));
   }
 
@@ -211,8 +254,18 @@ class _PlaybackPageState extends State<PlaybackPage> {
     }
 
     return ListView.builder(
-      itemCount: _events.length,
+      controller: _scrollController,
+      itemCount: _events.length + (_hasMore ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index == _events.length) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(8.0),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        
         final event = _events[index];
         final timestamp = event['timestamp'] as int;
         final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
