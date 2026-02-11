@@ -31,6 +31,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
   // Pagination
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingMore = false;
+  bool _isFirstLoading = true;
   bool _hasMore = true;
   int _currentOffset = 0;
   static const int _pageSize = 15;
@@ -174,10 +175,18 @@ class _PlaybackPageState extends State<PlaybackPage> {
               } else {
                 _events.addAll(List<Map<String, dynamic>>.from(list));
               }
-              
-              _isLoadingMore = false;
-              _currentOffset = _events.length;
-              _hasMore = list.length >= _pageSize;
+            });
+            
+            // Defer the loading state update to the next frame to ensure UI is rendered
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _isLoadingMore = false;
+                  _isFirstLoading = false;
+                  _currentOffset = _events.length;
+                  _hasMore = list.length >= _pageSize;
+                });
+              }
             });
           }
         }
@@ -186,6 +195,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
         if (mounted) {
           setState(() {
             _isLoadingMore = false;
+            _isFirstLoading = false;
           });
         }
       }
@@ -237,11 +247,27 @@ class _PlaybackPageState extends State<PlaybackPage> {
             const Text('无法连接到相机'),
             TextButton(
               onPressed: () {
-                setState(() => _isConnecting = true);
+                setState(() {
+                   _isConnecting = true;
+                   _isFirstLoading = true;
+                });
                 _connectSignaling();
               }, 
               child: const Text('重试')
             ),
+          ],
+        ),
+      );
+    }
+
+    if (_isFirstLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在加载录像列表...'),
           ],
         ),
       );
@@ -270,16 +296,105 @@ class _PlaybackPageState extends State<PlaybackPage> {
         final timestamp = event['timestamp'] as int;
         final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
         
-        return ListTile(
-          leading: const Icon(Icons.video_file, color: Colors.blue),
-          title: Text(date.toString().split('.')[0]), // 简单格式化
-          subtitle: Text('ID: ${event['id']}'),
-          onTap: () {
-            // TODO: 实现点击播放或查看图片
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('播放功能开发中...')),
-            );
-          },
+        Widget thumbnailWidget;
+        final String? thumbnailData = event['thumbnail'];
+        
+        if (thumbnailData != null && thumbnailData.isNotEmpty) {
+          try {
+             final bytes = base64Decode(thumbnailData);
+             thumbnailWidget = Image.memory(
+               bytes, 
+               width: 120, 
+               height: 90, 
+               fit: BoxFit.cover,
+               errorBuilder: (context, error, stackTrace) {
+                 return Container(
+                   width: 120, 
+                   height: 90,
+                   color: Colors.grey[300],
+                   child: const Icon(Icons.broken_image, color: Colors.grey),
+                 );
+               },
+             );
+          } catch (e) {
+             thumbnailWidget = Container(
+               width: 120, 
+               height: 90,
+               color: Colors.grey[300],
+               child: const Icon(Icons.broken_image, color: Colors.grey),
+             );
+          }
+        } else {
+          thumbnailWidget = Container(
+            width: 120, 
+            height: 90,
+            color: Colors.grey[200],
+            child: const Icon(Icons.videocam, size: 40, color: Colors.blueGrey),
+          );
+        }
+
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('播放功能开发中...')),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: thumbnailWidget,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+                          style: const TextStyle(
+                            fontSize: 14, 
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}',
+                          style: const TextStyle(
+                            fontSize: 20, 
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(Icons.access_time, size: 14, color: Colors.blue[700]),
+                            const SizedBox(width: 4),
+                            Text(
+                              '智能检测录像',
+                              style: TextStyle(
+                                fontSize: 13, 
+                                color: Colors.blue[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.play_circle_outline, size: 36, color: Colors.blue),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );

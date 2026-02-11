@@ -16,6 +16,7 @@ import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
 import '../utils/log_utils.dart';
+import 'package:image/image.dart' as img;
 
 class CameraEndpointPage extends StatefulWidget {
   const CameraEndpointPage({super.key, required this.onSwitchToMonitor});
@@ -296,6 +297,40 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
               final events = await DatabaseHelper().getEvents(limit: limit, offset: offset);
               // Convert events to List<Map>
               final eventsList = events.map((e) => e.toMap()).toList();
+              
+              // Generate thumbnails for each event
+              for (var eventMap in eventsList) {
+                // The key in toMap() is 'image_path', not 'imagePath'
+                final String? imagePath = eventMap['image_path'];
+                LogUtils.d('CameraEndpoint', 'Processing thumbnail for event ${eventMap['id']}, path: $imagePath');
+                
+                if (imagePath != null) {
+                  final file = File(imagePath);
+                  if (await file.exists()) {
+                    try {
+                      final bytes = await file.readAsBytes();
+                      final image = img.decodeImage(bytes);
+                      if (image != null) {
+                        // Resize to width 200 for better quality on larger display
+                        final thumbnail = img.copyResize(image, width: 200);
+                        // Encode to JPG with reduced quality
+                        final thumbnailBytes = img.encodeJpg(thumbnail, quality: 70);
+                        final base64Thumb = base64Encode(thumbnailBytes);
+                        eventMap['thumbnail'] = base64Thumb;
+                        LogUtils.d('CameraEndpoint', 'Thumbnail generated for ${eventMap['id']}, size: ${base64Thumb.length}');
+                      } else {
+                         LogUtils.w('CameraEndpoint', 'Failed to decode image: $imagePath');
+                      }
+                    } catch (e) {
+                      LogUtils.e('CameraEndpoint', 'Error generating thumbnail for $imagePath', e);
+                    }
+                  } else {
+                     LogUtils.w('CameraEndpoint', 'Image file not found: $imagePath');
+                  }
+                } else {
+                   LogUtils.w('CameraEndpoint', 'No image path for event ${eventMap['id']}');
+                }
+              }
               
               final response = {
                 'type': 'events_list',
