@@ -1,6 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:path_provider/path_provider.dart';
+import 'video_player_page.dart';
 import '../models/camera_device.dart';
 import '../models/detection_event.dart'; // 需要用到 DetectionEvent 模型来解析，或者直接用 Map
 import '../services/signaling.dart';
@@ -36,6 +40,15 @@ class _PlaybackPageState extends State<PlaybackPage> {
   int _currentOffset = 0;
   static const int _pageSize = 15;
 
+  // Video download state
+  bool _isDownloadingVideo = false;
+  int? _downloadingEventId;
+  int _receivedVideoBytes = 0;
+  int _totalVideoBytes = 0;
+  IOSink? _videoFileSink;
+  File? _tempVideoFile;
+  final ValueNotifier<double> _progressNotifier = ValueNotifier(0.0);
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +60,8 @@ class _PlaybackPageState extends State<PlaybackPage> {
   void dispose() {
     _signaling?.close();
     _scrollController.dispose();
+    _progressNotifier.dispose();
+    _videoFileSink?.close();
     super.dispose();
   }
 
@@ -158,11 +173,83 @@ class _PlaybackPageState extends State<PlaybackPage> {
        };
     };
 
-    _signaling!.onDataChannelMessage = (Session session, RTCDataChannel dc, RTCDataChannelMessage data) {
-      if (data.isBinary) return;
+    _signaling!.onDataChannelMessage = (Session session, RTCDataChannel dc, RTCDataChannelMessage data) async {
+      if (data.isBinary) {
+        if (_isDownloadingVideo && _videoFileSink != null) {
+          _videoFileSink!.add(data.binary);
+          _receivedVideoBytes += data.binary.length;
+          if (_totalVideoBytes > 0) {
+            _progressNotifier.value = _receivedVideoBytes / _totalVideoBytes;
+          }
+        }
+        return;
+      }
       
       try {
         final json = jsonDecode(data.text);
+        
+        if (json['type'] == 'video_start') {
+            final int size = json['size'];
+            final int id = json['id'];
+            if (id == _downloadingEventId) {
+              _totalVideoBytes = size;
+              LogUtils.i('PlaybackPage', 'Started receiving video $id, size: $size');
+            }
+            return;
+         }
+         
+         if (json['type'] == 'video_end') {
+            final int id = json['id'];
+            if (id == _downloadingEventId) {
+              await _videoFileSink?.flush();
+              await _videoFileSink?.close();
+              _videoFileSink = null;
+              
+              // Rename .tmp to .mp4 to mark as complete
+              File? finalFile;
+              if (_tempVideoFile != null && await _tempVideoFile!.exists()) {
+                final tempDir = await getTemporaryDirectory();
+                final String finalPath = '${tempDir.path}/video_${id}.mp4';
+                finalFile = await _tempVideoFile!.rename(finalPath);
+              }
+              
+              _isDownloadingVideo = false;
+              
+              if (mounted) {
+                Navigator.pop(context); // Close dialog
+                
+                // Navigate to player
+                if (finalFile != null && await finalFile.exists()) {
+                   Navigator.of(context).push(
+                     MaterialPageRoute(
+                       builder: (context) => VideoPlayerPage(
+                         videoFile: finalFile!,
+                         title: '回看录像',
+                       ),
+                     ),
+                   );
+                }
+              }
+              LogUtils.i('PlaybackPage', 'Video received and cached successfully');
+            }
+            return;
+         }
+        
+        if (json['type'] == 'video_error') {
+           if (json['id'] == _downloadingEventId) {
+             _videoFileSink?.close();
+             _videoFileSink = null;
+             _isDownloadingVideo = false;
+             if (mounted) {
+               Navigator.pop(context); // Close dialog
+               ScaffoldMessenger.of(context).showSnackBar(
+                 SnackBar(content: Text('获取视频失败: ${json['message']}')),
+               );
+             }
+           }
+           return;
+        }
+
         if (json['type'] == 'events_list') {
           final List<dynamic> list = json['data'];
           final int offset = json['offset'] ?? 0;
@@ -202,6 +289,102 @@ class _PlaybackPageState extends State<PlaybackPage> {
     };
 
     await _signaling!.connect();
+  }
+
+  Future<void> _requestVideo(Map<String, dynamic> event) async {
+    if (_isDownloadingVideo) return;
+    
+    final int eventId = event['id'];
+    final tempDir = await getTemporaryDirectory();
+    
+    // Check if video already exists in cache
+    try {
+      final cacheFile = File('${tempDir.path}/video_${eventId}.mp4');
+      if (await cacheFile.exists()) {
+        LogUtils.i('PlaybackPage', 'Video $eventId found in cache, playing directly');
+        if (mounted) {
+           Navigator.of(context).push(
+             MaterialPageRoute(
+               builder: (context) => VideoPlayerPage(
+                 videoFile: cacheFile,
+                 title: '回看录像',
+               ),
+             ),
+           );
+        }
+        return;
+      }
+    } catch (e) {
+      LogUtils.e('PlaybackPage', 'Error checking video cache', e);
+    }
+    
+    // Prepare for download - Open sink immediately to avoid race condition
+    final tempFile = File('${tempDir.path}/video_${eventId}.tmp');
+    IOSink? sink;
+    try {
+      sink = tempFile.openWrite();
+    } catch (e) {
+      LogUtils.e('PlaybackPage', 'Error opening video file for write', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('无法创建临时文件: $e')),
+        );
+      }
+      return;
+    }
+    
+    setState(() {
+      _isDownloadingVideo = true;
+      _downloadingEventId = eventId;
+      _receivedVideoBytes = 0;
+      _totalVideoBytes = 0;
+      _progressNotifier.value = 0.0;
+      _tempVideoFile = tempFile;
+      _videoFileSink = sink;
+    });
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('正在获取视频...'),
+          content: ValueListenableBuilder<double>(
+            valueListenable: _progressNotifier,
+            builder: (context, value, child) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LinearProgressIndicator(value: value > 0 ? value : null),
+                  const SizedBox(height: 10),
+                  Text('${(value * 100).toStringAsFixed(1)}%'),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                 Navigator.pop(context);
+                 setState(() {
+                   _isDownloadingVideo = false;
+                   _videoFileSink?.close();
+                   _videoFileSink = null;
+                 });
+              },
+              child: const Text('取消'),
+            )
+          ],
+        ),
+      ),
+    );
+
+    LogUtils.i('PlaybackPage', 'Requesting video for event $eventId');
+    _signaling!.sendData(_currentSession!.sid, jsonEncode({
+      'type': 'get_video',
+      'id': eventId,
+    }));
   }
 
   void _requestEventList(String sessionId, {required int offset}) {
@@ -340,9 +523,13 @@ class _PlaybackPageState extends State<PlaybackPage> {
           child: InkWell(
             borderRadius: BorderRadius.circular(8),
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('播放功能开发中...')),
-              );
+              if (_currentSession == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('未连接到相机，无法回看')),
+                );
+                return;
+              }
+              _requestVideo(event);
             },
             child: Padding(
               padding: const EdgeInsets.all(10),

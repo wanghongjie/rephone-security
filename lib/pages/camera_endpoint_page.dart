@@ -357,6 +357,79 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
             }
             return;
           }
+
+          if (decoded is Map && decoded['type'] == 'get_video') {
+            final int eventId = decoded['id'];
+            LogUtils.i('CameraEndpoint', 'Received get_video request for event $eventId');
+            
+            try {
+              final event = await DatabaseHelper().getEventById(eventId);
+              if (event == null || event.videoPath == null) {
+                LogUtils.w('CameraEndpoint', 'Video not found for event $eventId');
+                _signaling?.sendData(session.sid, jsonEncode({
+                  'type': 'video_error',
+                  'message': 'Video not found',
+                  'id': eventId
+                }));
+                return;
+              }
+              
+              final file = File(event.videoPath!);
+              if (!await file.exists()) {
+                 LogUtils.w('CameraEndpoint', 'Video file missing: ${event.videoPath}');
+                  _signaling?.sendData(session.sid, jsonEncode({
+                  'type': 'video_error',
+                  'message': 'Video file missing',
+                  'id': eventId
+                }));
+                return;
+              }
+              
+              final fileSize = await file.length();
+              LogUtils.i('CameraEndpoint', 'Sending video: ${event.videoPath} ($fileSize bytes)');
+              
+              _signaling?.sendData(session.sid, jsonEncode({
+                'type': 'video_start',
+                'id': eventId,
+                'size': fileSize
+              }));
+              
+              // Chunk size 16KB to be safe with WebRTC DataChannel
+              const int chunkSize = 16 * 1024;
+              final raf = await file.open(mode: FileMode.read);
+              int bytesSent = 0;
+              
+              while (bytesSent < fileSize) {
+                // If channel closes or session ends, we should probably stop?
+                // But catching exception on send might be enough.
+                final chunk = await raf.read(chunkSize);
+                if (chunk.isEmpty) break;
+                
+                _signaling?.sendBinaryData(session.sid, chunk);
+                bytesSent += chunk.length;
+                
+                // Small delay to prevent flooding
+                await Future.delayed(const Duration(milliseconds: 5));
+              }
+              
+              await raf.close();
+              
+              _signaling?.sendData(session.sid, jsonEncode({
+                'type': 'video_end',
+                'id': eventId
+              }));
+              LogUtils.i('CameraEndpoint', 'Video sent successfully');
+              
+            } catch (e) {
+               LogUtils.e('CameraEndpoint', 'Error sending video', e);
+               _signaling?.sendData(session.sid, jsonEncode({
+                  'type': 'video_error',
+                  'message': 'Internal error: $e',
+                  'id': eventId
+                }));
+            }
+            return;
+          }
         } catch (_) {
           // fallthrough: treat as plain text
         }

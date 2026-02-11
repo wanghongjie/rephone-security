@@ -55,6 +55,12 @@ dependencies:
   sqflite: ^2.4.1
   path: ^1.9.0
   image: ^4.7.2
+  video_player: ^2.8.6
+  chewie: ^1.8.1
+
+dependency_overrides:
+  package_info_plus: ^8.0.2
+  wakelock_plus: 1.1.4
 
 dev_dependencies:
   flutter_launcher_icons: ^0.13.1

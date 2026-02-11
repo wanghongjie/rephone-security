@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
@@ -656,6 +657,16 @@ class Signaling {
       return;
     }
     dc.send(RTCDataChannelMessage(message));
+  }
+
+  void sendBinaryData(String sessionId, Uint8List data) {
+    final session = _sessions[sessionId];
+    final dc = session?.dc;
+    if (dc == null) {
+      LogUtils.w('Signaling', 'sendBinaryData: data channel not ready for sessionId=$sessionId');
+      return;
+    }
+    dc.send(RTCDataChannelMessage.fromBinary(data));
   }
 
   Future<void> _createOffer(Session session, String media) async {

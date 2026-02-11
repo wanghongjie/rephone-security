@@ -55,4 +55,17 @@ class DatabaseHelper {
       return DetectionEvent.fromMap(maps[i]);
     });
   }
+
+  Future<DetectionEvent?> getEventById(int id) async {
+    Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'detection_events',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (maps.isNotEmpty) {
+      return DetectionEvent.fromMap(maps.first);
+    }
+    return null;
+  }
 }
