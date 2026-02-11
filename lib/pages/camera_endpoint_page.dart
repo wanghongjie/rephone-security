@@ -471,8 +471,8 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
   void _startDetectionTimer() {
     _detectTimer?.cancel();
-    // 每秒检测一次
-    _detectTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    // 每10秒检测一次
+    _detectTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       _performDetection();
     });
   }
@@ -488,20 +488,21 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
     _isDetecting = true;
     try {
-      RenderRepaintBoundary? boundary = _videoKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) return;
-      
-      ui.Image image = await boundary.toImage();
-      ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return;
+      final videoTracks = _localRenderer.srcObject?.getVideoTracks();
+      if (videoTracks == null || videoTracks.isEmpty) return;
 
+      final track = videoTracks.first;
+      // Capture frame from the video track directly
+      // This works even when the screen is off or app is in background
+      await (track as dynamic).captureFrame();
+      
       final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/frame_temp.png');
-      await file.writeAsBytes(byteData.buffer.asUint8List());
+      final file = File('${tempDir.path}/captureFrame.png');
+      if (!await file.exists()) return;
 
       final inputImage = InputImage.fromFilePath(file.path);
       final poses = await _poseDetector!.processImage(inputImage);
-
+      
       if (poses.isNotEmpty) {
         // 保存快照到永久目录
         final appDir = await getApplicationDocumentsDirectory();
@@ -511,14 +512,14 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         }
         final timestamp = DateTime.now().millisecondsSinceEpoch;
         final imagePath = '${snapshotDir.path}/snapshot_$timestamp.png';
-        final imageFile = File(imagePath);
-        await imageFile.writeAsBytes(byteData.buffer.asUint8List());
+        
+        await file.copy(imagePath);
 
         LogUtils.i('CameraEndpoint', '检测到人物，开始录制');
         _startTenSecondsRecording(imagePath);
       }
     } catch (e) {
-      LogUtils.e('CameraEndpoint', 'Detection error', e);
+      LogUtils.e('CameraEndpoint', 'Error detecting pose', e);
     } finally {
       _isDetecting = false;
     }
