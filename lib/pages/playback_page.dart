@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -39,6 +40,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
   bool _hasMore = true;
   int _currentOffset = 0;
   static const int _pageSize = 15;
+  Completer<void>? _refreshCompleter;
 
   // Video download state
   bool _isDownloadingVideo = false;
@@ -270,6 +272,12 @@ class _PlaybackPageState extends State<PlaybackPage> {
               }
             });
             
+            // Complete refresh if needed
+            if (offset == 0 && _refreshCompleter != null && !_refreshCompleter!.isCompleted) {
+              _refreshCompleter!.complete();
+              _refreshCompleter = null;
+            }
+            
             // Defer the loading state update to the next frame to ensure UI is rendered
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
@@ -430,6 +438,30 @@ class _PlaybackPageState extends State<PlaybackPage> {
       'id': eventId,
     }));
   }
+  
+  Future<void> _onRefresh() async {
+    if (!_isConnected || _currentSession == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text('未连接到相机')),
+        );
+      }
+      return;
+    }
+    
+    _refreshCompleter = Completer<void>();
+    _requestEventList(_currentSession!.sid, offset: 0);
+    
+    // Timeout fallback (5 seconds)
+    Future.delayed(const Duration(seconds: 5), () {
+       if (_refreshCompleter != null && !_refreshCompleter!.isCompleted) {
+          _refreshCompleter!.complete();
+          _refreshCompleter = null;
+       }
+    });
+    
+    return _refreshCompleter!.future;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -492,15 +524,33 @@ class _PlaybackPageState extends State<PlaybackPage> {
     }
 
     if (_events.isEmpty) {
-      return const Center(
-        child: Text('暂无录制记录'),
+      return RefreshIndicator(
+        onRefresh: _onRefresh,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: const Center(
+                  child: Text('暂无录制记录'),
+                ),
+              ),
+            );
+          },
+        ),
       );
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      itemCount: _events.length + (_hasMore ? 1 : 0),
-      itemBuilder: (context, index) {
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      child: ListView.builder(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: _events.length + (_hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
         if (index == _events.length) {
           return const Center(
             child: Padding(
@@ -620,6 +670,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
           ),
         );
       },
-    );
+    ),
+  );
   }
 }
