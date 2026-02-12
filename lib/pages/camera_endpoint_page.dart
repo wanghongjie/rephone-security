@@ -298,52 +298,51 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
               // Convert events to List<Map>
               final eventsList = events.map((e) => e.toMap()).toList();
               
-              // Generate thumbnails for each event
-              for (var eventMap in eventsList) {
-                // The key in toMap() is 'image_path', not 'imagePath'
-                final String? imagePath = eventMap['image_path'];
-                LogUtils.d('CameraEndpoint', 'Processing thumbnail for event ${eventMap['id']}, path: $imagePath');
-                
-                if (imagePath != null) {
-                  final file = File(imagePath);
-                  if (await file.exists()) {
-                    try {
-                      final bytes = await file.readAsBytes();
-                      final image = img.decodeImage(bytes);
-                      if (image != null) {
-                        // Resize to width 200 for better quality on larger display
-                        final thumbnail = img.copyResize(image, width: 200);
-                        // Encode to JPG with reduced quality
-                        final thumbnailBytes = img.encodeJpg(thumbnail, quality: 70);
-                        final base64Thumb = base64Encode(thumbnailBytes);
-                        eventMap['thumbnail'] = base64Thumb;
-                        LogUtils.d('CameraEndpoint', 'Thumbnail generated for ${eventMap['id']}, size: ${base64Thumb.length}');
-                      } else {
-                         LogUtils.w('CameraEndpoint', 'Failed to decode image: $imagePath');
-                      }
-                    } catch (e) {
-                      LogUtils.e('CameraEndpoint', 'Error generating thumbnail for $imagePath', e);
-                    }
-                  } else {
-                     LogUtils.w('CameraEndpoint', 'Image file not found: $imagePath');
-                  }
-                } else {
-                   LogUtils.w('CameraEndpoint', 'No image path for event ${eventMap['id']}');
-                }
-              }
-              
               final response = {
                 'type': 'events_list',
                 'data': eventsList,
                 'offset': offset,
               };
               
-              _signaling?.sendData(session.sid, jsonEncode(response));
+              final jsonResponse = jsonEncode(response);
+              LogUtils.i('CameraEndpoint', 'Sending events_list response, length: ${jsonResponse.length} bytes');
+              _signaling?.sendData(session.sid, jsonResponse);
               LogUtils.i('CameraEndpoint', 'Sent ${events.length} events (offset: $offset, limit: $limit)');
             } catch (e) {
               LogUtils.e('CameraEndpoint', 'Error getting events', e);
             }
             return;
+          }
+
+          if (decoded is Map && decoded['type'] == 'get_thumbnail') {
+             final int eventId = decoded['id'];
+             LogUtils.i('CameraEndpoint', 'Received get_thumbnail request for event $eventId');
+             
+             try {
+               final event = await DatabaseHelper().getEventById(eventId);
+               if (event != null && event.imagePath != null) {
+                  final file = File(event.imagePath!);
+                  if (await file.exists()) {
+                    final bytes = await file.readAsBytes();
+                    final image = img.decodeImage(bytes);
+                    if (image != null) {
+                       final thumbnail = img.copyResize(image, width: 200);
+                       final thumbnailBytes = img.encodeJpg(thumbnail, quality: 70);
+                       final base64Thumb = base64Encode(thumbnailBytes);
+                       
+                       _signaling?.sendData(session.sid, jsonEncode({
+                         'type': 'thumbnail',
+                         'id': eventId,
+                         'data': base64Thumb
+                       }));
+                       LogUtils.d('CameraEndpoint', 'Sent thumbnail for event $eventId, size: ${base64Thumb.length}');
+                    }
+                  }
+               }
+             } catch (e) {
+               LogUtils.e('CameraEndpoint', 'Error sending thumbnail for $eventId', e);
+             }
+             return;
           }
 
           if (decoded is Map && decoded['type'] == 'camera_mic') {
@@ -575,7 +574,11 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   }
 
   void _initDetector() {
-    final options = PoseDetectorOptions(mode: PoseDetectionMode.stream);
+    // 使用单张图片模式和精确模型以提高检测准确率
+    final options = PoseDetectorOptions(
+      mode: PoseDetectionMode.single,
+      model: PoseDetectionModel.accurate,
+    );
     _poseDetector = PoseDetector(options: options);
     
     _startDetectionTimer();
@@ -615,7 +618,47 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       final inputImage = InputImage.fromFilePath(file.path);
       final poses = await _poseDetector!.processImage(inputImage);
       
-      if (poses.isNotEmpty) {
+      bool hasPerson = false;
+      for (final pose in poses) {
+        // 1. 提高基础置信度阈值 (0.60 -> 0.75) 以减少误报
+        const double minConfidence = 0.75;
+        
+        // 2. 核心关键点定义 (面部 + 躯干)
+        final coreLandmarks = [
+          pose.landmarks[PoseLandmarkType.nose],
+          pose.landmarks[PoseLandmarkType.leftShoulder],
+          pose.landmarks[PoseLandmarkType.rightShoulder],
+          pose.landmarks[PoseLandmarkType.leftHip],
+          pose.landmarks[PoseLandmarkType.rightHip],
+        ];
+
+        // 3. 统计核心部位命中数
+        int validCoreCount = 0;
+        for (final landmark in coreLandmarks) {
+          if ((landmark?.likelihood ?? 0) > minConfidence) {
+            validCoreCount++;
+          }
+        }
+
+        // 4. 统计全身高置信度关键点总数
+        int totalConfidentLandmarks = 0;
+        pose.landmarks.forEach((_, landmark) {
+          if (landmark.likelihood > minConfidence) {
+            totalConfidentLandmarks++;
+          }
+        });
+
+        // 5. 综合判定策略 (更宽松但仍保持有效性):
+        // 策略A: 至少检测到2个核心部位 (如头+肩，肩+肩，肩+腰) 且 全身至少3个点
+        // 策略B: 只有全身点数特别多 (>=5) 说明虽然核心部位可能遮挡，但四肢识别清晰
+        if ((validCoreCount >= 2 && totalConfidentLandmarks >= 3) || totalConfidentLandmarks >= 5) {
+          hasPerson = true;
+          LogUtils.i('CameraEndpoint', 'Person detected (Relaxed): Core=$validCoreCount, Total=$totalConfidentLandmarks');
+          break;
+        }
+      }
+
+      if (hasPerson) {
         // 保存快照到永久目录
         final appDir = await getApplicationDocumentsDirectory();
         final snapshotDir = Directory('${appDir.path}/snapshots');

@@ -242,6 +242,14 @@ class Signaling {
 
   void invite(String peerId, String media, bool useScreen) async {
     var sessionId = _selfId + '-' + peerId;
+    
+    // Proactive cleanup: ensure no stale session exists for this ID
+    if (_sessions.containsKey(sessionId)) {
+      LogUtils.w('Signaling', 'Cleaning up existing session $sessionId before new invite');
+      await _closeSession(_sessions[sessionId]!);
+      _sessions.remove(sessionId);
+    }
+
     Session session = await _createSession(null,
         peerId: peerId,
         sessionId: sessionId,
@@ -250,9 +258,9 @@ class Signaling {
     // Create a data channel for both pure-data sessions and regular media calls,
     // so we can send control messages alongside video.
     if (session.dc == null) {
-      _createDataChannel(session);
+      await _createDataChannel(session);
     }
-    _createOffer(session, media);
+    await _createOffer(session, media);
     onCallStateChange?.call(session, CallState.CallStateNew);
     onCallStateChange?.call(session, CallState.CallStateInvite);
   }
@@ -645,6 +653,7 @@ class Signaling {
       ..maxRetransmits = 30;
     RTCDataChannel channel =
         await session.pc!.createDataChannel(label, dataChannelDict);
+    // 关键修复: 创建端也需要设置onMessage监听器，否则无法接收对方通过该通道发回的消息
     _addDataChannel(session, channel);
   }
 
@@ -656,7 +665,15 @@ class Signaling {
       LogUtils.w('Signaling', 'sendData: data channel not ready for sessionId=$sessionId');
       return;
     }
-    dc.send(RTCDataChannelMessage(message));
+    if (dc.state != RTCDataChannelState.RTCDataChannelOpen) {
+      LogUtils.w('Signaling', 'sendData: data channel not open (state: ${dc.state}) for sessionId=$sessionId');
+      return;
+    }
+    try {
+      dc.send(RTCDataChannelMessage(message));
+    } catch (e) {
+      LogUtils.e('Signaling', 'sendData: error sending message', e);
+    }
   }
 
   void sendBinaryData(String sessionId, Uint8List data) {
@@ -666,7 +683,15 @@ class Signaling {
       LogUtils.w('Signaling', 'sendBinaryData: data channel not ready for sessionId=$sessionId');
       return;
     }
-    dc.send(RTCDataChannelMessage.fromBinary(data));
+    if (dc.state != RTCDataChannelState.RTCDataChannelOpen) {
+      LogUtils.w('Signaling', 'sendBinaryData: data channel not open (state: ${dc.state}) for sessionId=$sessionId');
+      return;
+    }
+    try {
+      dc.send(RTCDataChannelMessage.fromBinary(data));
+    } catch (e) {
+      LogUtils.e('Signaling', 'sendBinaryData: error sending binary', e);
+    }
   }
 
   Future<void> _createOffer(Session session, String media) async {

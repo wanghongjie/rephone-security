@@ -49,6 +49,9 @@ class _PlaybackPageState extends State<PlaybackPage> {
   File? _tempVideoFile;
   final ValueNotifier<double> _progressNotifier = ValueNotifier(0.0);
 
+  // Thumbnail cache
+  final Map<int, Uint8List?> _thumbnailCache = {};
+
   @override
   void initState() {
     super.initState();
@@ -96,11 +99,13 @@ class _PlaybackPageState extends State<PlaybackPage> {
 
     _signaling!.onSignalingStateChange = (SignalingState state) {
       LogUtils.i('PlaybackPage', 'Signaling state: $state');
-      if (state == SignalingState.ConnectionClosed) {
+      if (state == SignalingState.ConnectionClosed || state == SignalingState.ConnectionError) {
          if (mounted) {
            setState(() {
              _isConnected = false;
              _isConnecting = false;
+             _currentSession = null; // Clear session on disconnect to allow reconnection
+             _events.clear(); // Clear events list as connection is lost
            });
            ScaffoldMessenger.of(context).showSnackBar(
              const SnackBar(content: Text('信令服务器连接断开')),
@@ -112,6 +117,8 @@ class _PlaybackPageState extends State<PlaybackPage> {
     _signaling!.onPeersUpdate = (event) {
       final peers = event['peers'] as List;
       final cameraOnline = peers.any((p) => p['id'] == widget.camera.id);
+      
+      LogUtils.d('PlaybackPage', 'Peers update. Camera online: $cameraOnline, Current session: ${_currentSession?.sid}');
       
       if (cameraOnline && _currentSession == null) {
         LogUtils.i('PlaybackPage', 'Found camera online, initiating connection...');
@@ -159,15 +166,14 @@ class _PlaybackPageState extends State<PlaybackPage> {
     _signaling!.onDataChannel = (Session session, RTCDataChannel dc) {
       LogUtils.i('PlaybackPage', 'DataChannel created: ${dc.label}, state: ${dc.state}');
       
-      if (dc.state.toString() == 'RTCDataChannelState.RTCDataChannelOpen') {
+      if (dc.state == RTCDataChannelState.RTCDataChannelOpen) {
         _requestEventList(session.sid, offset: 0);
       }
       
       // 监听状态变化，确保连接打开后再发送
        dc.onDataChannelState = (state) {
          LogUtils.i('PlaybackPage', 'DataChannel state changed: $state');
-         // Temporary workaround for enum value mismatch
-         if (state.toString() == 'RTCDataChannelState.RTCDataChannelOpen') {
+         if (state == RTCDataChannelState.RTCDataChannelOpen) {
            _requestEventList(session.sid, offset: 0);
          }
        };
@@ -276,6 +282,22 @@ class _PlaybackPageState extends State<PlaybackPage> {
               }
             });
           }
+        }
+        
+        if (json['type'] == 'thumbnail') {
+           final int id = json['id'];
+           final String data = json['data'];
+           
+           try {
+             final bytes = base64Decode(data);
+             if (mounted) {
+               setState(() {
+                 _thumbnailCache[id] = bytes;
+               });
+             }
+           } catch (e) {
+             LogUtils.e('PlaybackPage', 'Error decoding thumbnail for $id', e);
+           }
         }
       } catch (e) {
         LogUtils.e('PlaybackPage', 'Error parsing message', e);
@@ -396,6 +418,19 @@ class _PlaybackPageState extends State<PlaybackPage> {
     }));
   }
 
+  void _requestThumbnail(int eventId) {
+    if (_thumbnailCache.containsKey(eventId)) return;
+    
+    // Use a placeholder to prevent duplicate requests
+    _thumbnailCache[eventId] = null;
+    
+    LogUtils.d('PlaybackPage', 'Requesting thumbnail for event $eventId');
+    _signaling!.sendData(_currentSession!.sid, jsonEncode({
+      'type': 'get_thumbnail',
+      'id': eventId,
+    }));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -476,37 +511,38 @@ class _PlaybackPageState extends State<PlaybackPage> {
         }
         
         final event = _events[index];
+        final int eventId = event['id'];
         final timestamp = event['timestamp'] as int;
         final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
         
-        Widget thumbnailWidget;
-        final String? thumbnailData = event['thumbnail'];
+        // Request thumbnail if not loaded
+        if (!_thumbnailCache.containsKey(eventId)) {
+           // Defer request to avoid build-phase side effects
+           WidgetsBinding.instance.addPostFrameCallback((_) {
+             if (mounted && _currentSession != null) {
+                _requestThumbnail(eventId);
+             }
+           });
+        }
         
-        if (thumbnailData != null && thumbnailData.isNotEmpty) {
-          try {
-             final bytes = base64Decode(thumbnailData);
-             thumbnailWidget = Image.memory(
-               bytes, 
-               width: 120, 
-               height: 90, 
-               fit: BoxFit.cover,
-               errorBuilder: (context, error, stackTrace) {
-                 return Container(
-                   width: 120, 
-                   height: 90,
-                   color: Colors.grey[300],
-                   child: const Icon(Icons.broken_image, color: Colors.grey),
-                 );
-               },
-             );
-          } catch (e) {
-             thumbnailWidget = Container(
-               width: 120, 
-               height: 90,
-               color: Colors.grey[300],
-               child: const Icon(Icons.broken_image, color: Colors.grey),
-             );
-          }
+        Widget thumbnailWidget;
+        final Uint8List? thumbnailBytes = _thumbnailCache[eventId];
+        
+        if (thumbnailBytes != null && thumbnailBytes.isNotEmpty) {
+           thumbnailWidget = Image.memory(
+             thumbnailBytes, 
+             width: 120, 
+             height: 90, 
+             fit: BoxFit.cover,
+             errorBuilder: (context, error, stackTrace) {
+               return Container(
+                 width: 120, 
+                 height: 90,
+                 color: Colors.grey[300],
+                 child: const Icon(Icons.broken_image, color: Colors.grey),
+               );
+             },
+           );
         } else {
           thumbnailWidget = Container(
             width: 120, 
