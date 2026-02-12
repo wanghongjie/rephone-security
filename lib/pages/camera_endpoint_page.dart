@@ -603,22 +603,51 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
     _isDetecting = true;
     try {
+      // 1. 单次检测 (内部已包含严格的拓扑校验和关键点数量要求)
+      bool isDetected = await _detectPersonInCurrentFrame();
+      
+      if (isDetected) {
+        LogUtils.i('CameraEndpoint', '检测到人物 (严格模式)，准备录制');
+        
+        // 保存快照
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/captureFrame.png');
+        if (await file.exists()) {
+          final appDir = await getApplicationDocumentsDirectory();
+          final snapshotDir = Directory('${appDir.path}/snapshots');
+          if (!await snapshotDir.exists()) {
+            await snapshotDir.create(recursive: true);
+          }
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final imagePath = '${snapshotDir.path}/snapshot_$timestamp.png';
+          
+          await file.copy(imagePath);
+          
+          _startTenSecondsRecording(imagePath);
+        }
+      }
+    } catch (e) {
+      LogUtils.e('CameraEndpoint', 'Error in detection loop', e);
+    } finally {
+      _isDetecting = false;
+    }
+  }
+
+  Future<bool> _detectPersonInCurrentFrame() async {
+    try {
       final videoTracks = _localRenderer.srcObject?.getVideoTracks();
-      if (videoTracks == null || videoTracks.isEmpty) return;
+      if (videoTracks == null || videoTracks.isEmpty) return false;
 
       final track = videoTracks.first;
-      // Capture frame from the video track directly
-      // This works even when the screen is off or app is in background
       await (track as dynamic).captureFrame();
       
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/captureFrame.png');
-      if (!await file.exists()) return;
+      if (!await file.exists()) return false;
 
       final inputImage = InputImage.fromFilePath(file.path);
       final poses = await _poseDetector!.processImage(inputImage);
       
-      bool hasPerson = false;
       for (final pose in poses) {
         // 1. 提高基础置信度阈值 (0.60 -> 0.75) 以减少误报
         const double minConfidence = 0.75;
@@ -648,36 +677,70 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
           }
         });
 
-        // 5. 综合判定策略 (更宽松但仍保持有效性):
-        // 策略A: 至少检测到2个核心部位 (如头+肩，肩+肩，肩+腰) 且 全身至少3个点
-        // 策略B: 只有全身点数特别多 (>=5) 说明虽然核心部位可能遮挡，但四肢识别清晰
-        if ((validCoreCount >= 2 && totalConfidentLandmarks >= 3) || totalConfidentLandmarks >= 5) {
-          hasPerson = true;
-          LogUtils.i('CameraEndpoint', 'Person detected (Relaxed): Core=$validCoreCount, Total=$totalConfidentLandmarks');
-          break;
-        }
-      }
-
-      if (hasPerson) {
-        // 保存快照到永久目录
-        final appDir = await getApplicationDocumentsDirectory();
-        final snapshotDir = Directory('${appDir.path}/snapshots');
-        if (!await snapshotDir.exists()) {
-          await snapshotDir.create(recursive: true);
-        }
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final imagePath = '${snapshotDir.path}/snapshot_$timestamp.png';
+        // 5. 综合判定策略 (更严格):
+        // 策略A: 至少检测到3个核心部位 (如头+肩+肩，肩+肩+腰) 且 通过拓扑检查
+        // 策略B: 只有全身点数特别多 (>=5) 且 通过拓扑检查
+        // 之前的 >=2 太容易被椅子靠背等物体误报 (只识别出双肩)
+        bool topologyPass = _checkBodyTopology(pose);
         
-        await file.copy(imagePath);
-
-        LogUtils.i('CameraEndpoint', '检测到人物，开始录制');
-        _startTenSecondsRecording(imagePath);
+        if (topologyPass) {
+          if ((validCoreCount >= 3 && totalConfidentLandmarks >= 3) || totalConfidentLandmarks >= 5) {
+            LogUtils.d('CameraEndpoint', 'Frame detected person: Core=$validCoreCount, Total=$totalConfidentLandmarks');
+            return true;
+          }
+        }
       }
     } catch (e) {
-      LogUtils.e('CameraEndpoint', 'Error detecting pose', e);
-    } finally {
-      _isDetecting = false;
+      LogUtils.e('CameraEndpoint', 'Single frame detection error', e);
     }
+    return false;
+  }
+
+  bool _checkBodyTopology(Pose pose) {
+    final landmarks = pose.landmarks;
+    final nose = landmarks[PoseLandmarkType.nose];
+    final leftShoulder = landmarks[PoseLandmarkType.leftShoulder];
+    final rightShoulder = landmarks[PoseLandmarkType.rightShoulder];
+    final leftHip = landmarks[PoseLandmarkType.leftHip];
+    final rightHip = landmarks[PoseLandmarkType.rightHip];
+    
+    // 稍微降低校验阈值，避免过度过滤
+    const double minConf = 0.60; 
+    
+    // 1. 检查躯干直立性 (肩膀在臀部上方)
+    // 图像坐标系Y向下增加，所以头部Y < 脚部Y
+    if (leftShoulder != null && leftHip != null && 
+        leftShoulder.likelihood > minConf && leftHip.likelihood > minConf) {
+      if (leftShoulder.y > leftHip.y) {
+         // LogUtils.d('CameraEndpoint', 'Topology reject: L-Shoulder below L-Hip');
+         return false; 
+      }
+    }
+    if (rightShoulder != null && rightHip != null && 
+        rightShoulder.likelihood > minConf && rightHip.likelihood > minConf) {
+      if (rightShoulder.y > rightHip.y) {
+         // LogUtils.d('CameraEndpoint', 'Topology reject: R-Shoulder below R-Hip');
+         return false;
+      }
+    }
+
+    // 2. 检查头部位置 (鼻子在肩膀上方)
+    if (nose != null && nose.likelihood > minConf) {
+      if (leftShoulder != null && leftShoulder.likelihood > minConf) {
+        if (nose.y > leftShoulder.y) {
+           // LogUtils.d('CameraEndpoint', 'Topology reject: Nose below L-Shoulder');
+           return false;
+        }
+      }
+      if (rightShoulder != null && rightShoulder.likelihood > minConf) {
+        if (nose.y > rightShoulder.y) {
+           // LogUtils.d('CameraEndpoint', 'Topology reject: Nose below R-Shoulder');
+           return false;
+        }
+      }
+    }
+    
+    return true;
   }
 
   Future<void> _startTenSecondsRecording(String imagePath) async {
