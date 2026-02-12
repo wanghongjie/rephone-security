@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:gallery_saver/gallery_saver.dart';
 import 'video_player_page.dart';
 import '../models/camera_device.dart';
 import '../models/detection_event.dart'; // 需要用到 DetectionEvent 模型来解析，或者直接用 Map
@@ -44,6 +45,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
 
   // Video download state
   bool _isDownloadingVideo = false;
+  bool _isSavingToGallery = false;
   int? _downloadingEventId;
   int _receivedVideoBytes = 0;
   int _totalVideoBytes = 0;
@@ -226,16 +228,25 @@ class _PlaybackPageState extends State<PlaybackPage> {
               if (mounted) {
                 Navigator.pop(context); // Close dialog
                 
-                // Navigate to player
                 if (finalFile != null && await finalFile.exists()) {
-                   Navigator.of(context).push(
-                     MaterialPageRoute(
-                       builder: (context) => VideoPlayerPage(
-                         videoFile: finalFile!,
-                         title: '回看录像',
-                       ),
-                     ),
-                   );
+                   if (_isSavingToGallery) {
+                      bool? success = await GallerySaver.saveVideo(finalFile.path);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(success == true ? '已保存到相册' : '保存失败')),
+                        );
+                      }
+                   } else {
+                      // Navigate to player
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => VideoPlayerPage(
+                            videoFile: finalFile!,
+                            title: '回看录像',
+                          ),
+                        ),
+                      );
+                   }
                 }
               }
               LogUtils.i('PlaybackPage', 'Video received and cached successfully');
@@ -254,6 +265,29 @@ class _PlaybackPageState extends State<PlaybackPage> {
                  SnackBar(content: Text('获取视频失败: ${json['message']}')),
                );
              }
+           }
+           return;
+        }
+
+        if (json['type'] == 'delete_event_success') {
+           final int id = json['id'];
+           if (mounted) {
+             setState(() {
+               _events.removeWhere((e) => e['id'] == id);
+             });
+             ScaffoldMessenger.of(context).showSnackBar(
+               const SnackBar(content: Text('删除成功')),
+             );
+           }
+           return;
+        }
+
+        if (json['type'] == 'delete_event_error') {
+           final String message = json['message'] ?? 'Unknown error';
+           if (mounted) {
+             ScaffoldMessenger.of(context).showSnackBar(
+               SnackBar(content: Text('删除失败: $message')),
+             );
            }
            return;
         }
@@ -321,7 +355,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
     await _signaling!.connect();
   }
 
-  Future<void> _requestVideo(Map<String, dynamic> event) async {
+  Future<void> _startVideoAction(Map<String, dynamic> event, {required bool saveToGallery}) async {
     if (_isDownloadingVideo) return;
     
     final int eventId = event['id'];
@@ -331,16 +365,25 @@ class _PlaybackPageState extends State<PlaybackPage> {
     try {
       final cacheFile = File('${tempDir.path}/video_${eventId}.mp4');
       if (await cacheFile.exists()) {
-        LogUtils.i('PlaybackPage', 'Video $eventId found in cache, playing directly');
-        if (mounted) {
-           Navigator.of(context).push(
-             MaterialPageRoute(
-               builder: (context) => VideoPlayerPage(
-                 videoFile: cacheFile,
-                 title: '回看录像',
-               ),
-             ),
-           );
+        LogUtils.i('PlaybackPage', 'Video $eventId found in cache');
+        if (saveToGallery) {
+           bool? success = await GallerySaver.saveVideo(cacheFile.path);
+           if (mounted) {
+             ScaffoldMessenger.of(context).showSnackBar(
+               SnackBar(content: Text(success == true ? '已保存到相册' : '保存失败')),
+             );
+           }
+        } else {
+           if (mounted) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => VideoPlayerPage(
+                    videoFile: cacheFile,
+                    title: '回看录像',
+                  ),
+                ),
+              );
+           }
         }
         return;
       }
@@ -365,6 +408,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
     
     setState(() {
       _isDownloadingVideo = true;
+      _isSavingToGallery = saveToGallery;
       _downloadingEventId = eventId;
       _receivedVideoBytes = 0;
       _totalVideoBytes = 0;
@@ -379,7 +423,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
       builder: (context) => PopScope(
         canPop: false,
         child: AlertDialog(
-          title: const Text('正在获取视频...'),
+          title: Text(saveToGallery ? '正在下载并保存...' : '正在获取视频...'),
           content: ValueListenableBuilder<double>(
             valueListenable: _progressNotifier,
             builder: (context, value, child) {
@@ -415,6 +459,30 @@ class _PlaybackPageState extends State<PlaybackPage> {
       'type': 'get_video',
       'id': eventId,
     }));
+  }
+
+  void _deleteEvent(Map<String, dynamic> event) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text('确定要删除这条录像吗？此操作不可恢复。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _signaling!.sendData(_currentSession!.sid, jsonEncode({
+                'type': 'delete_event',
+                'id': event['id']
+              }));
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _requestEventList(String sessionId, {required int offset}) {
@@ -615,7 +683,37 @@ class _PlaybackPageState extends State<PlaybackPage> {
                 );
                 return;
               }
-              _requestVideo(event);
+              _startVideoAction(event, saveToGallery: false);
+            },
+            onLongPress: () {
+              if (_currentSession == null) return;
+              
+              showModalBottomSheet(
+                context: context,
+                builder: (ctx) => SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.save_alt),
+                        title: const Text('保存到相册'),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _startVideoAction(event, saveToGallery: true);
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.delete, color: Colors.red),
+                        title: const Text('删除', style: TextStyle(color: Colors.red)),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _deleteEvent(event);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
             },
             child: Padding(
               padding: const EdgeInsets.all(10),

@@ -18,6 +18,7 @@ import '../config/server_config.dart';
 import '../utils/log_utils.dart';
 import 'package:image/image.dart' as img;
 
+
 class CameraEndpointPage extends StatefulWidget {
   const CameraEndpointPage({super.key, required this.onSwitchToMonitor});
 
@@ -341,6 +342,47 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
                }
              } catch (e) {
                LogUtils.e('CameraEndpoint', 'Error sending thumbnail for $eventId', e);
+             }
+             return;
+          }
+
+          if (decoded is Map && decoded['type'] == 'delete_event') {
+             final int eventId = decoded['id'];
+             LogUtils.i('CameraEndpoint', 'Received delete_event request for event $eventId');
+             
+             try {
+               final event = await DatabaseHelper().getEventById(eventId);
+               if (event != null) {
+                  await DatabaseHelper().deleteEvent(eventId);
+                  
+                  if (event.videoPath != null) {
+                    final f = File(event.videoPath!);
+                    if (await f.exists()) await f.delete();
+                  }
+                  if (event.imagePath != null) {
+                    final f = File(event.imagePath!);
+                    if (await f.exists()) await f.delete();
+                  }
+                  
+                  _signaling?.sendData(session.sid, jsonEncode({
+                    'type': 'delete_event_success',
+                    'id': eventId
+                  }));
+                  LogUtils.i('CameraEndpoint', 'Event $eventId deleted successfully');
+               } else {
+                 _signaling?.sendData(session.sid, jsonEncode({
+                    'type': 'delete_event_error',
+                    'id': eventId,
+                    'message': 'Event not found'
+                  }));
+               }
+             } catch (e) {
+               LogUtils.e('CameraEndpoint', 'Error deleting event $eventId', e);
+               _signaling?.sendData(session.sid, jsonEncode({
+                  'type': 'delete_event_error',
+                  'id': eventId,
+                  'message': e.toString()
+                }));
              }
              return;
           }
@@ -808,6 +850,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -911,6 +954,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
+
                             FloatingActionButton(
                               heroTag: 'mic_btn',
                               onPressed: _toggleMic,
@@ -944,6 +988,8 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     ));
   }
 }
+
+
 
 class _CameraRoleMenu extends StatelessWidget {
   const _CameraRoleMenu({

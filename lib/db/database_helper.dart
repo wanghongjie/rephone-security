@@ -68,4 +68,13 @@ class DatabaseHelper {
     }
     return null;
   }
+
+  Future<int> deleteEvent(int id) async {
+    Database db = await database;
+    return await db.delete(
+      'detection_events',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 }
