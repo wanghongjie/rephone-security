@@ -69,6 +69,18 @@ class DatabaseHelper {
     return null;
   }
 
+  Future<List<DetectionEvent>> getEventsBefore(int timestamp) async {
+    Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'detection_events',
+      where: 'timestamp < ?',
+      whereArgs: [timestamp],
+    );
+    return List.generate(maps.length, (i) {
+      return DetectionEvent.fromMap(maps[i]);
+    });
+  }
+
   Future<int> deleteEvent(int id) async {
     Database db = await database;
     return await db.delete(

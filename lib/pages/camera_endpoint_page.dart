@@ -60,7 +60,47 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     _initRenderer();
     _initDetector();
     _loadUserInfo();
+    _cleanupOldRecordings();
   }
+
+  Future<void> _cleanupOldRecordings() async {
+    final cutoff = DateTime.now().subtract(const Duration(days: 3)).millisecondsSinceEpoch;
+    final db = DatabaseHelper();
+    final oldEvents = await db.getEventsBefore(cutoff);
+    
+    int deletedCount = 0;
+    for (final event in oldEvents) {
+      if (event.imagePath != null) {
+        final f = File(event.imagePath!);
+        if (await f.exists()) {
+          try {
+            await f.delete();
+          } catch (e) {
+            LogUtils.e('CameraEndpoint', 'Failed to delete old image: ${event.imagePath}', e);
+          }
+        }
+      }
+      if (event.videoPath != null) {
+        final f = File(event.videoPath!);
+        if (await f.exists()) {
+          try {
+            await f.delete();
+          } catch (e) {
+            LogUtils.e('CameraEndpoint', 'Failed to delete old video: ${event.videoPath}', e);
+          }
+        }
+      }
+      if (event.id != null) {
+        await db.deleteEvent(event.id!);
+        deletedCount++;
+      }
+    }
+    
+    if (deletedCount > 0) {
+      LogUtils.i('CameraEndpoint', 'Cleaned up $deletedCount old recordings');
+    }
+  }
+
 
   void _loadUserInfo() async {
     final user = await SessionManager.getUser();
