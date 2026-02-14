@@ -35,15 +35,13 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: 1.0.8
-  flutter_webrtc:
-    path: third_party/flutter_webrtc
+  flutter_webrtc: 0.12.11
   shared_preferences: ^2.2.0
   http: ^0.13.6
   device_info_plus: ^10.1.0
   path_provider: ^2.1.2
-  gallery_saver:
-    path: third_party/gallery_saver
   permission_handler: ^11.3.1
+  gallery_saver: ^2.3.2
   # NOTE: google_mobile_ads ^6+ requires Dart >= 3.6.0. This project currently uses Dart 3.5.x,
   # so we let pub choose the newest compatible version. Upgrade Flutter/Dart to use ^7.0.0.
   google_mobile_ads: any
