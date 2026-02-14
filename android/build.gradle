@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 allprojects {
     repositories {
         maven { url 'https://maven.aliyun.com/repository/google' }
@@ -9,8 +10,8 @@ allprojects {
 }
 
 ext {
-    compileSdkVersion = 35
-    targetSdkVersion = 35
+    compileSdkVersion = 36
+    targetSdkVersion = 36
     minSdkVersion = 21
 }
 
@@ -24,4 +25,22 @@ subprojects {
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
+}
+
+// Fix AGP 8+ namespace requirement for gallery_saver plugin
+subprojects { subproject ->
+    if (subproject.name.contains("gallery_saver")) {
+        subproject.plugins.withId("com.android.library") {
+            def androidExt = subproject.extensions.findByName("android")
+            if (androidExt != null && androidExt.hasProperty("namespace")) {
+                androidExt.namespace = "carnegietechnologies.gallery_saver"
+            }
+        }
+        // Align Kotlin and Java bytecode levels to avoid mismatch (1.8 vs 17)
+        subproject.tasks.withType(KotlinCompile).configureEach { task ->
+            if (task.kotlinOptions != null) {
+                task.kotlinOptions.jvmTarget = '1.8'
+            }
+        }
+    }
 }
