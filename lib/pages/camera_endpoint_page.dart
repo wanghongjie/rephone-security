@@ -849,7 +849,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
          _startDetectionTimer(); // Resume detection on error
          return;
       }
-      
       await _mediaRecorder!.start(
         filePath, 
         videoTrack: tracks.first
@@ -857,8 +856,8 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       
       LogUtils.i('CameraEndpoint', 'Start recording: $filePath');
 
-      // 10秒后停止
-      Future.delayed(const Duration(seconds: 10), () async {
+      // 为避免编码器冷启动造成的时长偏差，增加轻微补偿（约500ms）
+      Future.delayed(const Duration(milliseconds: 10500), () async {
         await _mediaRecorder?.stop();
         _isRecording = false;
         
