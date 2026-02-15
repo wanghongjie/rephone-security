@@ -17,9 +17,9 @@ class _MembershipPageState extends State<MembershipPage> {
       price: '免费',
       duration: '永久',
       features: [
-        '最多2个设备',
-        '7天云存储',
+        '1天图片云存储（仅图片）',
         '基础报警功能',
+        '支持实时视频直播',
         '有广告',
       ],
       isRecommended: false,
@@ -30,38 +30,13 @@ class _MembershipPageState extends State<MembershipPage> {
       price: '¥19.9',
       duration: '月',
       features: [
-        '无限设备数量',
-        '30天云存储',
+        '3天云端视频回看',
         'AI智能检测',
-        'AI视频回看',
         '去除广告',
-        '双向通话',
+        '支持实时视频直播',
       ],
       isRecommended: true,
       isCurrentPlan: false,
-    ),
-  ];
-
-  final List<MembershipBenefit> _benefits = [
-    MembershipBenefit(
-      icon: Icons.psychology,
-      title: 'AI智能分析',
-      description: '人脸识别、动作检测、异常行为分析',
-    ),
-    MembershipBenefit(
-      icon: Icons.video_library,
-      title: 'AI录制视频',
-      description: '自动录制并云端保存重要事件片段',
-    ),
-    MembershipBenefit(
-      icon: Icons.block,
-      title: '去除广告',
-      description: '享受纯净无广告的清爽体验',
-    ),
-    MembershipBenefit(
-      icon: Icons.cloud_upload,
-      title: '云端存储',
-      description: '安全可靠的云端存储，随时查看录像',
     ),
   ];
 
@@ -74,8 +49,6 @@ class _MembershipPageState extends State<MembershipPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildMembershipStatus(),
-            const SizedBox(height: 32),
-            _buildBenefitsSection(),
             const SizedBox(height: 32),
             _buildPlansSection(),
             const SizedBox(height: 32),
@@ -151,82 +124,12 @@ class _MembershipPageState extends State<MembershipPage> {
     );
   }
 
-  Widget _buildBenefitsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '会员特权',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const SizedBox(height: 16),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.1, // 调整宽高比，给更多垂直空间
-          ),
-          itemCount: _benefits.length,
-          itemBuilder: (context, index) {
-            return _buildBenefitCard(_benefits[index]);
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBenefitCard(MembershipBenefit benefit) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12), // 减少padding
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min, // 添加这行，让Column占用最小空间
-          children: [
-            Icon(
-              benefit.icon,
-              size: 28, // 稍微减小图标大小
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(height: 6), // 减少间距
-            Text(
-              benefit.title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13, // 稍微减小字体
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 2), // 减少间距
-            Flexible( // 使用Flexible包装，避免溢出
-              child: Text(
-                benefit.description,
-                style: TextStyle(
-                  fontSize: 11, // 减小副标题字体
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildPlansSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '选择套餐',
+          '会员特权与套餐',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -413,18 +316,6 @@ class _MembershipPageState extends State<MembershipPage> {
             ),
           ],
         ),
-        ExpansionTile(
-          title: const Text('支持哪些支付方式？'),
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                '支持微信支付、支付宝、Apple Pay等多种支付方式。',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -482,7 +373,6 @@ class _MembershipPageState extends State<MembershipPage> {
     );
   }
 }
-
 class MembershipPlan {
   final String name;
   final String price;
@@ -498,17 +388,5 @@ class MembershipPlan {
     required this.features,
     required this.isRecommended,
     required this.isCurrentPlan,
-  });
-}
-
-class MembershipBenefit {
-  final IconData icon;
-  final String title;
-  final String description;
-
-  MembershipBenefit({
-    required this.icon,
-    required this.title,
-    required this.description,
   });
 }
