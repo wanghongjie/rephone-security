@@ -19,31 +19,6 @@ class AboutPage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'RePhone Security',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '家庭看护与安防监控应用（后续将接入 H5 服务条款与隐私协议页面）。',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[700],
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
             child: Column(
               children: [
                 ListTile(
@@ -89,5 +64,4 @@ class AboutPage extends StatelessWidget {
     );
   }
 }
-
 

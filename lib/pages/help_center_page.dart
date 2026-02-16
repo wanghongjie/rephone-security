@@ -153,13 +153,36 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
           ),
           const SizedBox(height: 8),
           Card(
-            child: ListTile(
-              leading: const Icon(Icons.email_outlined),
-              title: const Text(_supportEmail),
-              subtitle: const Text('也可以直接发送邮件到该邮箱'),
-              trailing: TextButton(
-                onPressed: _copyEmail,
-                child: const Text('复制邮箱'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.email_outlined),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _supportEmail,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _copyEmail,
+                        child: const Text('复制邮箱'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '也可以直接发送邮件到该邮箱',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -168,5 +191,4 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
     );
   }
 }
-
 
