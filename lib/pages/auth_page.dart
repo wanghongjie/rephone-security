@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import 'email_auth_flow.dart';
 import 'qr_code_scanner_page.dart';
 import 'webview_page.dart';
@@ -12,10 +13,11 @@ class AuthPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('登录 / 注册'),
+        title: Text(l.authTitle),
         backgroundColor: theme.colorScheme.inversePrimary,
       ),
       body: SafeArea(
@@ -25,14 +27,14 @@ class AuthPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '选择登录方式',
+                l.authChooseMethod,
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                '登录后可同步设备、查看告警记录，随时掌握安全动态。',
+                l.authDesc,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: Colors.grey[700],
                   height: 1.4,
@@ -40,7 +42,7 @@ class AuthPage extends StatelessWidget {
               ),
               const SizedBox(height: 28),
               _AuthButton(
-                label: '使用电子邮件登录',
+                label: l.authEmailLogin,
                 icon: Icons.alternate_email,
                 background: theme.colorScheme.primary,
                 foreground: Colors.white,
@@ -62,7 +64,7 @@ class AuthPage extends StatelessWidget {
                   runSpacing: 2,
                   children: [
                     Text(
-                      '登录即代表您同意',
+                      l.authTermsPrefix,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -85,7 +87,7 @@ class AuthPage extends StatelessWidget {
                           ),
                         );
                       },
-                      child: const Text('服务条款'),
+                      child: Text(l.authTermsLink),
                     ),
                     Text(
                       '和',
@@ -111,7 +113,7 @@ class AuthPage extends StatelessWidget {
                           ),
                         );
                       },
-                      child: const Text('隐私政策'),
+                      child: Text(l.authPrivacyLink),
                     ),
                     Text(
                       '。',
@@ -128,7 +130,7 @@ class AuthPage extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '如果作为相机端可以直接扫描监控端的二维码',
+                      l.tr('authScanToBind'),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -144,7 +146,7 @@ class AuthPage extends StatelessWidget {
                           ),
                         );
                       },
-                      child: const Text('扫码绑定'),
+                      child: Text(l.authScanToBind),
                     ),
                   ],
                 ),
@@ -202,4 +204,3 @@ class _AuthButton extends StatelessWidget {
     );
   }
 }
-

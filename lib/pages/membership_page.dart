@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 
 class MembershipPage extends StatefulWidget {
   const MembershipPage({super.key});
@@ -13,28 +14,14 @@ class _MembershipPageState extends State<MembershipPage> {
 
   final List<MembershipPlan> _plans = [
     MembershipPlan(
-      name: '基础版',
-      price: '免费',
-      duration: '永久',
-      features: [
-        '1天图片云存储（仅图片）',
-        '基础报警功能',
-        '支持实时视频直播',
-        '有广告',
-      ],
+      id: 'basic',
+      price: null,
       isRecommended: false,
       isCurrentPlan: true,
     ),
     MembershipPlan(
-      name: '高级版',
-      price: '¥19.9',
-      duration: '月',
-      features: [
-        '3天云端视频回看',
-        'AI智能检测',
-        '去除广告',
-        '支持实时视频直播',
-      ],
+      id: 'pro',
+      price: 19.9,
       isRecommended: true,
       isCurrentPlan: false,
     ),
@@ -60,6 +47,8 @@ class _MembershipPageState extends State<MembershipPage> {
   }
 
   Widget _buildMembershipStatus() {
+    final l = AppLocalizations.of(context);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -89,7 +78,7 @@ class _MembershipPageState extends State<MembershipPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _isCurrentlyMember ? '高级会员' : '基础用户',
+                      _isCurrentlyMember ? l.membershipStatusPremium : l.membershipStatusBasic,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -98,7 +87,7 @@ class _MembershipPageState extends State<MembershipPage> {
                     ),
                     if (_isCurrentlyMember && _membershipExpiry != null)
                       Text(
-                        '到期时间: ${_formatDate(_membershipExpiry!)}',
+                        '${l.membershipExpiryPrefix}${_formatDate(_membershipExpiry!)}',
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 14,
@@ -117,7 +106,7 @@ class _MembershipPageState extends State<MembershipPage> {
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.grey[800],
               ),
-              child: const Text('立即升级'),
+              child: Text(l.membershipButtonUpgrade),
             ),
         ],
       ),
@@ -125,11 +114,13 @@ class _MembershipPageState extends State<MembershipPage> {
   }
 
   Widget _buildPlansSection() {
+    final l = AppLocalizations.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '会员特权与套餐',
+          l.membershipSectionTitle,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -148,6 +139,8 @@ class _MembershipPageState extends State<MembershipPage> {
   }
 
   Widget _buildPlanCard(MembershipPlan plan) {
+    final l = AppLocalizations.of(context);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -174,9 +167,9 @@ class _MembershipPageState extends State<MembershipPage> {
                     bottomLeft: Radius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  '推荐',
-                  style: TextStyle(
+                child: Text(
+                  l.membershipBadgeRecommended,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -193,7 +186,7 @@ class _MembershipPageState extends State<MembershipPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      plan.name,
+                      plan.id == 'basic' ? l.membershipPlanBasic : l.membershipPlanPro,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -209,9 +202,9 @@ class _MembershipPageState extends State<MembershipPage> {
                           color: Colors.green,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text(
-                          '当前',
-                          style: TextStyle(
+                        child: Text(
+                          l.membershipBadgeCurrent,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
                           ),
@@ -225,7 +218,9 @@ class _MembershipPageState extends State<MembershipPage> {
                     style: DefaultTextStyle.of(context).style,
                     children: [
                       TextSpan(
-                        text: plan.price,
+                        text: plan.isFree
+                            ? l.membershipPriceFree
+                            : '¥${plan.price!.toStringAsFixed(1)}',
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -233,7 +228,7 @@ class _MembershipPageState extends State<MembershipPage> {
                         ),
                       ),
                       TextSpan(
-                        text: plan.price != '免费' ? '/${plan.duration}' : '',
+                        text: plan.isFree ? ' · ${l.membershipDurationForever}' : '/${l.membershipDurationMonth}',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],
@@ -243,20 +238,7 @@ class _MembershipPageState extends State<MembershipPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                ...plan.features.map((feature) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.check_circle,
-                            size: 16,
-                            color: Colors.green,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(feature),
-                        ],
-                      ),
-                    )),
+                ..._buildFeatureWidgets(plan, l),
                 const SizedBox(height: 16),
                 if (!plan.isCurrentPlan)
                   SizedBox(
@@ -268,9 +250,7 @@ class _MembershipPageState extends State<MembershipPage> {
                             ? Theme.of(context).colorScheme.primary
                             : null,
                       ),
-                      child: Text(
-                        plan.price == '免费' ? '降级到此套餐' : '立即订阅',
-                      ),
+                      child: Text(l.membershipActionSubscribe),
                     ),
                   ),
               ],
@@ -282,35 +262,37 @@ class _MembershipPageState extends State<MembershipPage> {
   }
 
   Widget _buildFAQSection() {
+    final l = AppLocalizations.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '常见问题',
+          l.membershipFaqTitle,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
         ),
         const SizedBox(height: 16),
         ExpansionTile(
-          title: const Text('如何取消订阅？'),
+          title: Text(l.membershipFaqCancelTitle),
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                '您可以随时在应用商店的订阅管理中取消订阅，取消后将在当前计费周期结束时生效。',
+                l.membershipFaqCancelContent,
                 style: TextStyle(color: Colors.grey[600]),
               ),
             ),
           ],
         ),
         ExpansionTile(
-          title: const Text('会员权益何时生效？'),
+          title: Text(l.membershipFaqEffectTitle),
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                '订阅成功后，会员权益将立即生效，您可以马上享受所有高级功能。',
+                l.membershipFaqEffectContent,
                 style: TextStyle(color: Colors.grey[600]),
               ),
             ),
@@ -325,22 +307,24 @@ class _MembershipPageState extends State<MembershipPage> {
   }
 
   void _showUpgradeDialog() {
+    final l = AppLocalizations.of(context);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('升级会员'),
-        content: const Text('升级到高级会员，享受更多特权功能！'),
+        title: Text(l.membershipDialogUpgradeTitle),
+        content: Text(l.membershipDialogUpgradeContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('稍后再说'),
+            child: Text(l.membershipDialogLater),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               // TODO: 跳转到订阅页面
             },
-            child: const Text('立即升级'),
+            child: Text(l.membershipButtonUpgrade),
           ),
         ],
       ),
@@ -348,45 +332,81 @@ class _MembershipPageState extends State<MembershipPage> {
   }
 
   void _subscribeToPlan(MembershipPlan plan) {
+    final l = AppLocalizations.of(context);
+    final planName = plan.id == 'basic' ? l.membershipPlanBasic : l.membershipPlanPro;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('订阅${plan.name}'),
-        content: Text('确定要订阅${plan.name}套餐吗？价格：${plan.price}/${plan.duration}'),
+        title: Text(l.membershipDialogSubscribeTitle),
+        content: Text(l.membershipDialogSubscribeContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l.commonCancel),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('正在处理${plan.name}订阅...')),
+                SnackBar(content: Text('${l.membershipDialogProcessing} $planName')),
               );
               // TODO: 实现订阅逻辑
             },
-            child: const Text('确认订阅'),
+            child: Text(l.commonConfirm),
           ),
         ],
       ),
     );
   }
 }
+
 class MembershipPlan {
-  final String name;
-  final String price;
-  final String duration;
-  final List<String> features;
+  final String id;
+  final double? price;
   final bool isRecommended;
   final bool isCurrentPlan;
 
   MembershipPlan({
-    required this.name,
+    required this.id,
     required this.price,
-    required this.duration,
-    required this.features,
     required this.isRecommended,
     required this.isCurrentPlan,
   });
+
+  bool get isFree => price == null || price == 0;
+}
+
+List<Widget> _buildFeatureWidgets(MembershipPlan plan, AppLocalizations l) {
+  final featureKeys = plan.id == 'basic'
+      ? [
+          'membershipFeatureNoDeviceLimit',
+          'membershipFeatureBasicCloudImages',
+          'membershipFeatureLiveStreaming',
+        ]
+      : [
+          'membershipFeatureNoDeviceLimit',
+          'membershipFeatureProCloudPlayback',
+          'membershipFeatureLiveStreaming',
+          'membershipFeatureNoAds',
+        ];
+
+  return featureKeys
+      .map(
+        (key) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: [
+              Icon(
+                Icons.check_circle,
+                size: 16,
+                color: Colors.green,
+              ),
+              const SizedBox(width: 8),
+              Text(l.tr(key)),
+            ],
+          ),
+        ),
+      )
+      .toList();
 }

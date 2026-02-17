@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_api.dart';
 import '../services/session_manager.dart';
+import '../l10n/app_localizations.dart';
 
 class EmailInputPage extends StatefulWidget {
   const EmailInputPage({super.key});
@@ -40,8 +41,9 @@ class _EmailInputPageState extends State<EmailInputPage> {
           ),
         );
       } else {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('验证码已发送到邮箱，请查收')),
+          SnackBar(content: Text(l.tr('emailFlowCodeSent'))),
         );
         Navigator.push(
           context,
@@ -67,9 +69,10 @@ class _EmailInputPageState extends State<EmailInputPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('电子邮件登录'),
+        title: Text(l.authEmailLogin),
         backgroundColor: theme.colorScheme.inversePrimary,
       ),
       body: SafeArea(
@@ -81,14 +84,14 @@ class _EmailInputPageState extends State<EmailInputPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '输入邮箱地址',
+                  l.emailFlowInputEmailTitle,
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '我们将根据邮箱判断是否已注册，未注册将进入快捷注册流程。',
+                  l.tr('emailFlowInputEmailDesc'),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: Colors.grey[700],
                   ),
@@ -96,18 +99,18 @@ class _EmailInputPageState extends State<EmailInputPage> {
                 const SizedBox(height: 24),
                 TextFormField(
                   controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: '邮箱',
-                    hintText: 'name@example.com',
-                    prefixIcon: Icon(Icons.email_outlined),
+                  decoration: InputDecoration(
+                    labelText: l.tr('emailFlowEmailLabel'),
+                    hintText: l.emailFlowInputEmailHint,
+                    prefixIcon: const Icon(Icons.email_outlined),
                   ),
                   keyboardType: TextInputType.emailAddress,
                   autofillHints: const [AutofillHints.email],
                   validator: (value) {
                     final v = value?.trim() ?? '';
-                    if (v.isEmpty) return '请输入邮箱';
+                    if (v.isEmpty) return l.tr('emailFlowEmailRequired');
                     final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
-                    if (!emailRegex.hasMatch(v)) return '邮箱格式不正确';
+                    if (!emailRegex.hasMatch(v)) return l.tr('emailFlowEmailInvalid');
                     return null;
                   },
                   onFieldSubmitted: (_) => _handleNext(),
@@ -128,9 +131,9 @@ class _EmailInputPageState extends State<EmailInputPage> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text(
-                              '继续',
-                              style: TextStyle(fontSize: 16),
+                          : Text(
+                              l.emailFlowNext,
+                              style: const TextStyle(fontSize: 16),
                             ),
                     ),
                   ),
@@ -181,8 +184,9 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
           await widget.api.login(widget.email, _passwordController.text.trim());
       await SessionManager.saveUser(user);
       if (!mounted) return;
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已使用 ${widget.email} 登录')),
+        SnackBar(content: Text(l.tr('emailFlowLoginSuccess'))),
       );
       Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
     } catch (e) {
@@ -202,9 +206,10 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('输入密码'),
+        title: Text(l.tr('emailFlowPasswordLoginTitle')),
         backgroundColor: theme.colorScheme.inversePrimary,
       ),
       body: SafeArea(
@@ -216,7 +221,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '邮箱已注册',
+                  l.tr('emailFlowEmailRegisteredTitle'),
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -233,7 +238,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                   controller: _passwordController,
                   obscureText: _obscure,
                   decoration: InputDecoration(
-                    labelText: '密码',
+                    labelText: l.commonPassword,
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       onPressed: () {
@@ -247,7 +252,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                     ),
                   ),
                   validator: (value) {
-                    if ((value ?? '').length < 6) return '密码至少6位';
+                    if ((value ?? '').length < 6) return l.resetPasswordTooShort;
                     return null;
                   },
                   onFieldSubmitted: (_) => _handleLogin(),
@@ -268,7 +273,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text('登录'),
+                          : Text(l.tr('emailFlowLoginButton')),
                     ),
                   ),
                 ),
@@ -339,9 +344,10 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('验证码验证'),
+        title: Text(l.emailFlowVerifyCodeTitle),
         backgroundColor: theme.colorScheme.inversePrimary,
       ),
       body: SafeArea(
@@ -353,7 +359,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '发送验证码到邮箱',
+                  l.tr('emailFlowSendCodeDesc'),
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -368,15 +374,15 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                 const SizedBox(height: 24),
                 TextFormField(
                   controller: _codeController,
-                  decoration: const InputDecoration(
-                    labelText: '6位验证码',
-                    prefixIcon: Icon(Icons.verified_outlined),
+                  decoration: InputDecoration(
+                    labelText: l.emailFlowVerifyCodeHint,
+                    prefixIcon: const Icon(Icons.verified_outlined),
                   ),
                   keyboardType: TextInputType.number,
                   maxLength: 6,
                   validator: (value) {
                     final v = value?.trim() ?? '';
-                    if (v.length != 6) return '请输入6位验证码';
+                    if (v.length != 6) return l.tr('emailFlowCodeInvalid');
                     return null;
                   },
                   onFieldSubmitted: (_) => _handleVerify(),
@@ -397,7 +403,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text('验证并继续'),
+                          : Text(l.emailFlowNext),
                     ),
                   ),
                 ),
@@ -451,8 +457,9 @@ class _PasswordRegisterPageState extends State<PasswordRegisterPage> {
       );
       await SessionManager.saveUser(user);
       if (!mounted) return;
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('注册成功：${widget.email}')),
+        SnackBar(content: Text(l.tr('emailFlowRegisterSuccess'))),
       );
       Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
     } catch (e) {
@@ -472,9 +479,10 @@ class _PasswordRegisterPageState extends State<PasswordRegisterPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('设置密码'),
+        title: Text(l.emailFlowSetPasswordTitle),
         backgroundColor: theme.colorScheme.inversePrimary,
       ),
       body: SafeArea(
@@ -486,7 +494,7 @@ class _PasswordRegisterPageState extends State<PasswordRegisterPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '创建账号',
+                  l.tr('emailFlowCreateAccountTitle'),
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -503,7 +511,7 @@ class _PasswordRegisterPageState extends State<PasswordRegisterPage> {
                   controller: _passwordController,
                   obscureText: _obscure,
                   decoration: InputDecoration(
-                    labelText: '设置密码',
+                    labelText: l.emailFlowPasswordHint,
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       onPressed: () {
@@ -518,7 +526,7 @@ class _PasswordRegisterPageState extends State<PasswordRegisterPage> {
                   ),
                   validator: (value) {
                     final v = value ?? '';
-                    if (v.length < 6) return '密码至少6位';
+                    if (v.length < 6) return l.resetPasswordTooShort;
                     return null;
                   },
                 ),
@@ -526,12 +534,14 @@ class _PasswordRegisterPageState extends State<PasswordRegisterPage> {
                 TextFormField(
                   controller: _confirmController,
                   obscureText: _obscure,
-                  decoration: const InputDecoration(
-                    labelText: '确认密码',
-                    prefixIcon: Icon(Icons.lock_reset_outlined),
+                  decoration: InputDecoration(
+                    labelText: l.emailFlowConfirmPasswordHint,
+                    prefixIcon: const Icon(Icons.lock_reset_outlined),
                   ),
                   validator: (value) {
-                    if (value != _passwordController.text) return '两次输入不一致';
+                    if (value != _passwordController.text) {
+                      return l.tr('emailFlowConfirmPasswordNotMatch');
+                    }
                     return null;
                   },
                   onFieldSubmitted: (_) => _handleRegister(),
@@ -552,7 +562,7 @@ class _PasswordRegisterPageState extends State<PasswordRegisterPage> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text('完成注册'),
+                          : Text(l.emailFlowFinish),
                     ),
                   ),
                 ),
@@ -564,4 +574,3 @@ class _PasswordRegisterPageState extends State<PasswordRegisterPage> {
     );
   }
 }
-

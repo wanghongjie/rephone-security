@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../l10n/app_localizations.dart';
 
 class QRCodeGeneratorPage extends StatelessWidget {
   const QRCodeGeneratorPage({super.key, required this.email});
@@ -8,9 +9,10 @@ class QRCodeGeneratorPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('扫描二维码绑定'),
+        title: Text(l.qrGenerateTitle),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Center(
@@ -19,9 +21,9 @@ class QRCodeGeneratorPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
-                '请使用相机端扫描此二维码',
-                style: TextStyle(
+              Text(
+                l.qrGenerateDesc,
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -50,7 +52,7 @@ class QRCodeGeneratorPage extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               Text(
-                '监控端邮箱：$email',
+                l.qrGenerateMonitorEmailLabel.replaceFirst('{email}', email),
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[600],
@@ -58,9 +60,9 @@ class QRCodeGeneratorPage extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              const Text(
-                '等待相机端扫描并绑定...',
-                style: TextStyle(
+              Text(
+                l.qrGenerateWaitingForScan,
+                style: const TextStyle(
                   fontSize: 14,
                   color: Colors.grey,
                 ),
@@ -73,4 +75,3 @@ class QRCodeGeneratorPage extends StatelessWidget {
     );
   }
 }
-

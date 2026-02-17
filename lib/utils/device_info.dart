@@ -133,6 +133,33 @@ class DeviceInfo {
       LogUtils.e('DeviceInfo', 'Error clearing device ID', e);
     }
   }
+
+  /// 获取可读设备名称（用于默认相机名称）
+  static Future<String> getReadableDeviceName() async {
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      if (Platform.isAndroid) {
+        final android = await deviceInfo.androidInfo;
+        final brand = android.brand ?? '';
+        final model = android.model ?? '';
+        final result = [brand, model].where((s) => s.isNotEmpty).join(' ');
+        if (result.isNotEmpty) return result;
+        return 'Android device';
+      }
+      if (Platform.isIOS) {
+        final ios = await deviceInfo.iosInfo;
+        final name = ios.name ?? '';
+        final model = ios.model ?? '';
+        if (name.isNotEmpty) return name;
+        if (model.isNotEmpty) return model;
+        return 'iPhone';
+      }
+      return Platform.localHostname;
+    } catch (e) {
+      LogUtils.e('DeviceInfo', 'Error getting readable device name', e);
+      return 'Camera device';
+    }
+  }
   
   /// 获取当前设备ID（不生成新的）
   static Future<String?> getCurrentDeviceId(String deviceType) async {

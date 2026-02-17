@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import '../l10n/app_localizations.dart';
 import '../utils/log_utils.dart';
 import '../services/session_manager.dart';
 import 'about_page.dart';
@@ -16,7 +17,6 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   String? _currentUserEmail;
-  final String _membershipLevel = '基础版';
 
   // Banner ad
   BannerAd? _bannerAd;
@@ -82,24 +82,18 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-  final List<SettingItem> _settingItems = [
+  final List<SettingItem> _settingItems = const [
     SettingItem(
+      id: 'helpCenter',
       icon: Icons.help,
-      title: '帮助中心',
-      subtitle: '常见问题、联系客服',
-      onTap: null, // wired in build to keep context available
     ),
     SettingItem(
+      id: 'about',
       icon: Icons.info,
-      title: '关于我们',
-      subtitle: '版本信息、用户协议',
-      onTap: null, // wired in build to keep context available
     ),
     SettingItem(
+      id: 'generalSettings',
       icon: Icons.settings,
-      title: '通用设置',
-      subtitle: '账号注销、退出登录',
-      onTap: null, // wired in build to keep context available
     ),
   ];
 
@@ -136,6 +130,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildUserProfile() {
+    final l = AppLocalizations.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -159,7 +154,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const SizedBox(height: 12),
           Text(
-            _currentUserEmail ?? '未登录',
+            _currentUserEmail ?? l.profileNotLoggedIn,
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 16,
@@ -174,7 +169,7 @@ class _ProfilePageState extends State<ProfilePage> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              _membershipLevel,
+              l.membershipPlanBasic,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,
@@ -189,11 +184,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
 
   Widget _buildSettingsList() {
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '设置',
+          l.profileSettingsTitle,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -204,14 +200,34 @@ class _ProfilePageState extends State<ProfilePage> {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: _settingItems.length,
           itemBuilder: (context, index) {
-            return _buildSettingItem(_settingItems[index]);
+            return _buildSettingItem(_settingItems[index], l);
           },
         ),
       ],
     );
   }
 
-  Widget _buildSettingItem(SettingItem item) {
+  Widget _buildSettingItem(SettingItem item, AppLocalizations l) {
+    String title;
+    String subtitle;
+    switch (item.id) {
+      case 'helpCenter':
+        title = l.profileHelpCenter;
+        subtitle = l.profileHelpCenterSubtitle;
+        break;
+      case 'about':
+        title = l.profileAbout;
+        subtitle = l.profileAboutSubtitle;
+        break;
+      case 'generalSettings':
+        title = l.profileGeneralSettings;
+        subtitle = l.profileGeneralSettingsSubtitle;
+        break;
+      default:
+        title = '';
+        subtitle = '';
+        break;
+    }
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
@@ -227,11 +243,11 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
         title: Text(
-          item.title,
+          title,
           style: const TextStyle(fontWeight: FontWeight.w500),
         ),
         subtitle: Text(
-          item.subtitle,
+          subtitle,
           style: TextStyle(
             fontSize: 12,
             color: Colors.grey[600],
@@ -244,47 +260,40 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _onSettingTap(SettingItem item) {
-    if (item.title == '帮助中心') {
+    if (item.id == 'helpCenter') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const HelpCenterPage()),
       );
       return;
     }
-    if (item.title == '关于我们') {
+    if (item.id == 'about') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const AboutPage()),
       );
       return;
     }
-    if (item.title == '通用设置') {
+    if (item.id == 'generalSettings') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const GeneralSettingsPage()),
       );
       return;
     }
-    if (item.onTap != null) {
-      item.onTap!();
-      return;
-    }
+    final l = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('打开 ${item.title}')),
+      SnackBar(content: Text('${l.profileOpenPagePrefix}${item.id}')),
     );
   }
 }
 
 class SettingItem {
+  final String id;
   final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
 
-  SettingItem({
+  const SettingItem({
+    required this.id,
     required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.onTap,
   });
 }

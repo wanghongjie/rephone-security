@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'l10n/app_localizations.dart';
 import 'pages/auth_page.dart';
 import 'pages/camera_list_page.dart';
 import 'pages/camera_endpoint_page.dart';
@@ -15,6 +17,7 @@ void main() async {
   
   // 初始化日志工具
   await LogUtils.init();
+  await LocaleManager.init();
 
   // 设置沉浸式状态栏
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -40,36 +43,56 @@ class RePhoneSecurityApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'RePhone Security',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2196F3),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-        ),
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2196F3),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-        ),
-      ),
-      home: const StartupPage(),
-      routes: {
-        '/auth': (_) => const AuthPage(),
-        '/home': (_) => const MainPage(),
+    return ValueListenableBuilder<Locale?>(
+      valueListenable: LocaleManager.localeNotifier,
+      builder: (context, locale, _) {
+        return MaterialApp(
+          title: 'RePhone Security',
+          onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF2196F3),
+              brightness: Brightness.light,
+            ),
+            useMaterial3: true,
+            appBarTheme: const AppBarTheme(
+              centerTitle: true,
+              elevation: 0,
+            ),
+          ),
+          darkTheme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF2196F3),
+              brightness: Brightness.dark,
+            ),
+            useMaterial3: true,
+            appBarTheme: const AppBarTheme(
+              centerTitle: true,
+              elevation: 0,
+            ),
+          ),
+          locale: locale,
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          localeResolutionCallback: (deviceLocale, supportedLocales) {
+            if (locale != null) {
+              return locale;
+            }
+            return LocaleManager.resolveLocale(deviceLocale, supportedLocales);
+          },
+          home: const StartupPage(),
+          routes: {
+            '/auth': (_) => const AuthPage(),
+            '/home': (_) => const MainPage(),
+          },
+          debugShowCheckedModeBanner: false,
+        );
       },
-      debugShowCheckedModeBanner: false,
     );
   }
 }
@@ -165,12 +188,6 @@ class _MainPageState extends State<MainPage> {
     const ProfilePage(),
   ];
 
-  final List<String> _titles = [
-    '相机列表',
-    '会员',
-    '个人中心',
-  ];
-
   @override
   Widget build(BuildContext context) {
     if (_cameraRole == 'camera') {
@@ -195,21 +212,21 @@ class _MainPageState extends State<MainPage> {
         },
         selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.videocam),
-            activeIcon: Icon(Icons.videocam),
-            label: '相机列表',
+            icon: const Icon(Icons.videocam),
+            activeIcon: const Icon(Icons.videocam),
+            label: AppLocalizations.of(context).tabCameras,
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.workspace_premium_outlined),
-            activeIcon: Icon(Icons.workspace_premium),
-            label: '会员',
+            icon: const Icon(Icons.workspace_premium_outlined),
+            activeIcon: const Icon(Icons.workspace_premium),
+            label: AppLocalizations.of(context).tabMembership,
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: '个人中心',
+            icon: const Icon(Icons.person_outline),
+            activeIcon: const Icon(Icons.person),
+            label: AppLocalizations.of(context).tabProfile,
           ),
         ],
       ),
@@ -217,12 +234,18 @@ class _MainPageState extends State<MainPage> {
   }
 
   PreferredSizeWidget _buildAppBar() {
+    final l = AppLocalizations.of(context);
+    final titles = [
+      l.tabCameras,
+      l.tabMembership,
+      l.tabProfile,
+    ];
     if (_currentIndex == 0) {
       return AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         centerTitle: true,
-        title: Text(_titles[_currentIndex]),
+        title: Text(titles[_currentIndex]),
         leadingWidth: 140,
         leading: Padding(
           padding: const EdgeInsets.only(left: 8),
@@ -245,7 +268,7 @@ class _MainPageState extends State<MainPage> {
 
     return AppBar(
       automaticallyImplyLeading: false,
-      title: Text(_titles[_currentIndex]),
+      title: Text(titles[_currentIndex]),
       backgroundColor: Theme.of(context).colorScheme.inversePrimary,
     );
   }
@@ -262,19 +285,20 @@ class _CameraRoleMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final isMonitor = value == 'monitor';
     return PopupMenuButton<String>(
       position: PopupMenuPosition.under,
       offset: const Offset(0, 4),
       onSelected: onSelected,
-      itemBuilder: (context) => const [
+      itemBuilder: (context) => [
         PopupMenuItem(
           value: 'monitor',
-          child: Text('监控端'),
+          child: Text(l.cameraRoleMonitor),
         ),
         PopupMenuItem(
           value: 'camera',
-          child: Text('相机端'),
+          child: Text(l.cameraRoleCamera),
         ),
       ],
       child: Container(
@@ -287,7 +311,7 @@ class _CameraRoleMenu extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              isMonitor ? '监控端' : '相机端',
+              isMonitor ? l.cameraRoleMonitor : l.cameraRoleCamera,
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(width: 4),

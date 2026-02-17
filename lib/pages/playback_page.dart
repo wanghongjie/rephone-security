@@ -13,6 +13,7 @@ import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
 import '../utils/log_utils.dart';
+import '../l10n/app_localizations.dart';
 
 class PlaybackPage extends StatefulWidget {
   final CameraDevice camera;
@@ -108,12 +109,9 @@ class _PlaybackPageState extends State<PlaybackPage> {
            setState(() {
              _isConnected = false;
              _isConnecting = false;
-             _currentSession = null; // Clear session on disconnect to allow reconnection
-             _events.clear(); // Clear events list as connection is lost
+             _currentSession = null;
+             _events.clear();
            });
-           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('信令服务器连接断开')),
-           );
          }
       }
     };
@@ -133,9 +131,6 @@ class _PlaybackPageState extends State<PlaybackPage> {
           setState(() {
             _isConnecting = false;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('相机设备不在线')),
-          );
         }
       }
     };
@@ -160,9 +155,6 @@ class _PlaybackPageState extends State<PlaybackPage> {
             _isConnected = false;
             _currentSession = null;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('连接已断开')),
-          );
         }
       }
     };
@@ -232,8 +224,9 @@ class _PlaybackPageState extends State<PlaybackPage> {
                    if (_isSavingToGallery) {
                       bool? success = await GallerySaver.saveVideo(finalFile.path);
                       if (mounted) {
+                        final l = AppLocalizations.of(context);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(success == true ? '已保存到相册' : '保存失败')),
+                          SnackBar(content: Text(success == true ? l.tr('playbackSaveToGallerySuccess') : l.tr('playbackSaveToGalleryFailed'))),
                         );
                       }
                    } else {
@@ -242,7 +235,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
                         MaterialPageRoute(
                           builder: (context) => VideoPlayerPage(
                             videoFile: finalFile!,
-                            title: '回看录像',
+                            title: AppLocalizations.of(context).tr('playbackVideoTitle'),
                           ),
                         ),
                       );
@@ -260,9 +253,10 @@ class _PlaybackPageState extends State<PlaybackPage> {
              _videoFileSink = null;
              _isDownloadingVideo = false;
              if (mounted) {
-               Navigator.pop(context); // Close dialog
+               Navigator.pop(context);
+               final l = AppLocalizations.of(context);
                ScaffoldMessenger.of(context).showSnackBar(
-                 SnackBar(content: Text('获取视频失败: ${json['message']}')),
+                 SnackBar(content: Text('${l.tr('playbackGetVideoFailed')}: ${json['message']}')),
                );
              }
            }
@@ -285,8 +279,9 @@ class _PlaybackPageState extends State<PlaybackPage> {
         if (json['type'] == 'delete_event_error') {
            final String message = json['message'] ?? 'Unknown error';
            if (mounted) {
+             final l = AppLocalizations.of(context);
              ScaffoldMessenger.of(context).showSnackBar(
-               SnackBar(content: Text('删除失败: $message')),
+               SnackBar(content: Text('${l.tr('playbackDeleteEventFailed')}: $message')),
              );
            }
            return;
@@ -369,8 +364,9 @@ class _PlaybackPageState extends State<PlaybackPage> {
         if (saveToGallery) {
            bool? success = await GallerySaver.saveVideo(cacheFile.path);
            if (mounted) {
+             final l = AppLocalizations.of(context);
              ScaffoldMessenger.of(context).showSnackBar(
-               SnackBar(content: Text(success == true ? '已保存到相册' : '保存失败')),
+               SnackBar(content: Text(success == true ? l.tr('playbackSaveToGallerySuccess') : l.tr('playbackSaveToGalleryFailed'))),
              );
            }
         } else {
@@ -379,7 +375,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
                 MaterialPageRoute(
                   builder: (context) => VideoPlayerPage(
                     videoFile: cacheFile,
-                    title: '回看录像',
+                    title: AppLocalizations.of(context).tr('playbackVideoTitle'),
                   ),
                 ),
               );
@@ -399,8 +395,9 @@ class _PlaybackPageState extends State<PlaybackPage> {
     } catch (e) {
       LogUtils.e('PlaybackPage', 'Error opening video file for write', e);
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('无法创建临时文件: $e')),
+          SnackBar(content: Text(l.tr('playbackCreateTempFileFailed'))),
         );
       }
       return;
@@ -423,7 +420,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
       builder: (context) => PopScope(
         canPop: false,
         child: AlertDialog(
-          title: Text(saveToGallery ? '正在下载并保存...' : '正在获取视频...'),
+          title: Text(saveToGallery ? AppLocalizations.of(context).tr('playbackDownloadingAndSaving') : AppLocalizations.of(context).tr('playbackFetchingVideo')),
           content: ValueListenableBuilder<double>(
             valueListenable: _progressNotifier,
             builder: (context, value, child) {
@@ -447,7 +444,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
                    _videoFileSink = null;
                  });
               },
-              child: const Text('取消'),
+              child: Text(AppLocalizations.of(context).commonCancel),
             )
           ],
         ),
@@ -533,23 +530,25 @@ class _PlaybackPageState extends State<PlaybackPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.camera.name} - SD卡回看'),
+        title: Text('${widget.camera.name}${l.playbackTitleSuffix}'),
       ),
       body: _buildBody(),
     );
   }
 
   Widget _buildBody() {
+    final l = AppLocalizations.of(context);
     if (_isConnecting) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('正在连接相机...'),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(l.playbackConnecting),
           ],
         ),
       );
@@ -562,7 +561,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
           children: [
             const Icon(Icons.signal_wifi_off, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            const Text('无法连接到相机'),
+            Text(l.playbackConnectFailed),
             TextButton(
               onPressed: () {
                 setState(() {
@@ -570,8 +569,8 @@ class _PlaybackPageState extends State<PlaybackPage> {
                    _isFirstLoading = true;
                 });
                 _connectSignaling();
-              }, 
-              child: const Text('重试')
+              },
+              child: Text(l.playbackRetry),
             ),
           ],
         ),
@@ -579,13 +578,13 @@ class _PlaybackPageState extends State<PlaybackPage> {
     }
 
     if (_isFirstLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('正在加载录像列表...'),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(l.playbackLoadList),
           ],
         ),
       );
@@ -602,8 +601,8 @@ class _PlaybackPageState extends State<PlaybackPage> {
                 constraints: BoxConstraints(
                   minHeight: constraints.maxHeight,
                 ),
-                child: const Center(
-                  child: Text('暂无录制记录'),
+                child: Center(
+                  child: Text(l.playbackEmpty),
                 ),
               ),
             );
@@ -748,13 +747,18 @@ class _PlaybackPageState extends State<PlaybackPage> {
                           children: [
                             Icon(Icons.access_time, size: 14, color: Colors.blue[700]),
                             const SizedBox(width: 4),
-                            Text(
-                              '智能检测录像',
-                              style: TextStyle(
-                                fontSize: 13, 
-                                color: Colors.blue[700],
-                                fontWeight: FontWeight.w500,
-                              ),
+                            Builder(
+                              builder: (context) {
+                                final l = AppLocalizations.of(context);
+                                return Text(
+                                  l.playbackSmartDetectionLabel,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.blue[700],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ),

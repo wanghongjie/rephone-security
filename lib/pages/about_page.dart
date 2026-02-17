@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import 'webview_page.dart';
 
 class AboutPage extends StatelessWidget {
@@ -10,9 +11,10 @@ class AboutPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('关于我们'),
+        title: Text(l.aboutTitle),
         backgroundColor: theme.colorScheme.inversePrimary,
       ),
       body: ListView(
@@ -23,8 +25,8 @@ class AboutPage extends StatelessWidget {
               children: [
                 ListTile(
                   leading: const Icon(Icons.description_outlined),
-                  title: const Text('服务条款'),
-                  subtitle: const Text('点击查看'),
+                  title: Text(l.aboutTerms),
+                  subtitle: Text(l.aboutView),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.push(
@@ -41,8 +43,8 @@ class AboutPage extends StatelessWidget {
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.privacy_tip_outlined),
-                  title: const Text('隐私协议'),
-                  subtitle: const Text('点击查看'),
+                  title: Text(l.aboutPrivacy),
+                  subtitle: Text(l.aboutView),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.push(
@@ -64,4 +66,3 @@ class AboutPage extends StatelessWidget {
     );
   }
 }
-

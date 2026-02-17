@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../services/auth_api.dart';
 import '../services/session_manager.dart';
 import '../utils/log_utils.dart';
@@ -36,8 +37,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   Future<void> _handleResetPassword() async {
     if (!_formKey.currentState!.validate()) return;
     if (_currentUserEmail == null) {
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('获取用户信息失败，请重新登录')),
+        SnackBar(content: Text(l.tr('resetPasswordLoadUserFailed'))),
       );
       return;
     }
@@ -57,16 +59,18 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       LogUtils.i('ResetPassword', 'Password reset successfully for: $_currentUserEmail');
       
       if (!mounted) return;
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('密码修改成功')),
+        SnackBar(content: Text(l.resetPasswordSuccess)),
       );
       
       Navigator.of(context).pop();
     } catch (e) {
       LogUtils.e('ResetPassword', 'Failed to reset password', e);
       if (!mounted) return;
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('修改失败: ${e.toString()}')),
+        SnackBar(content: Text('${l.tr('resetPasswordFailed')}: ${e.toString()}')),
       );
     } finally {
       if (mounted) {
@@ -87,9 +91,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('重置密码'),
+        title: Text(l.resetPasswordTitle),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -101,14 +106,14 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               TextFormField(
                 controller: _oldPasswordController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: '旧密码',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock_outline),
+                decoration: InputDecoration(
+                  labelText: l.resetPasswordOld,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock_outline),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return '请输入旧密码';
+                    return l.tr('resetPasswordOldEmpty');
                   }
                   return null;
                 },
@@ -117,17 +122,17 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               TextFormField(
                 controller: _newPasswordController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: '新密码',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock),
+                decoration: InputDecoration(
+                  labelText: l.resetPasswordNew,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return '请输入新密码';
+                    return l.tr('resetPasswordNewEmpty');
                   }
                   if (value.length < 6) {
-                    return '密码长度至少为6位';
+                    return l.tr('resetPasswordTooShort');
                   }
                   return null;
                 },
@@ -136,17 +141,17 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               TextFormField(
                 controller: _confirmPasswordController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: '确认新密码',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock),
+                decoration: InputDecoration(
+                  labelText: l.resetPasswordConfirm,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return '请再次输入新密码';
+                    return l.tr('resetPasswordConfirmEmpty');
                   }
                   if (value != _newPasswordController.text) {
-                    return '两次输入的密码不一致';
+                    return l.tr('resetPasswordNotMatch');
                   }
                   return null;
                 },
@@ -168,7 +173,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('确认修改'),
+                      : Text(l.resetPasswordSubmit),
                 ),
               ),
             ],

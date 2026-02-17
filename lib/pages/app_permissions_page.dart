@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../l10n/app_localizations.dart';
 
 class AppPermissionsPage extends StatefulWidget {
   const AppPermissionsPage({super.key});
@@ -61,9 +62,10 @@ class _AppPermissionsPageState extends State<AppPermissionsPage> with WidgetsBin
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('应用权限'),
+        title: Text(l.appPermissionsTitle),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -71,27 +73,27 @@ class _AppPermissionsPageState extends State<AppPermissionsPage> with WidgetsBin
               children: [
                 _buildPermissionItem(
                   icon: Icons.camera_alt,
-                  title: '相机权限',
-                  subtitle: '用于视频通话和监控画面采集',
+                  title: l.appPermissionsCamera,
+                  subtitle: l.appPermissionsCameraSubtitle,
                   isGranted: _cameraGranted,
                 ),
                 _buildPermissionItem(
                   icon: Icons.mic,
-                  title: '麦克风权限',
-                  subtitle: '用于语音对讲和音频采集',
+                  title: l.appPermissionsMic,
+                  subtitle: l.appPermissionsMicSubtitle,
                   isGranted: _microphoneGranted,
                 ),
                 _buildPermissionItem(
                   icon: Icons.photo_library,
-                  title: '相册权限',
-                  subtitle: '用于保存截图和录像',
+                  title: l.appPermissionsPhotos,
+                  subtitle: l.appPermissionsPhotosSubtitle,
                   isGranted: _photosGranted,
                 ),
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
                   child: Text(
-                    '注意：权限开关需要跳转至系统设置中进行管理。',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                    l.appPermissionsNote,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                     textAlign: TextAlign.center,
                   ),
                 ),

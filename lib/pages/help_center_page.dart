@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../l10n/app_localizations.dart';
 import '../services/feedback_api.dart';
 import '../services/session_manager.dart';
 import '../utils/device_info.dart';
@@ -54,14 +55,16 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
     final contact = _contactController.text.trim();
 
     if (content.isEmpty) {
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请填写反馈内容')),
+        SnackBar(content: Text(l.helpFeedbackEmpty)),
       );
       return;
     }
     if (content.length > 5000) {
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('反馈内容过长（最多 5000 字符）')),
+        SnackBar(content: Text(l.helpFeedbackTooLong)),
       );
       return;
     }
@@ -77,8 +80,13 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
         contact: contact.isEmpty ? null : contact,
       );
       if (!mounted) return;
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('感谢反馈，我们会尽快处理${id != null ? '（ID: $id）' : ''}')),
+        SnackBar(
+          content: Text(
+            id != null ? '${l.helpFeedbackThanks} (ID: $id)' : l.helpFeedbackThanks,
+          ),
+        ),
       );
       _contentController.clear();
       _contactController.clear();
@@ -93,24 +101,26 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
   Future<void> _copyEmail() async {
     await Clipboard.setData(const ClipboardData(text: _supportEmail));
     if (!mounted) return;
+    final l = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('邮箱已复制')),
+      SnackBar(content: Text(l.helpEmailCopied)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('帮助中心'),
+        title: Text(l.helpCenterTitle),
         backgroundColor: theme.colorScheme.inversePrimary,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            '意见反馈',
+            l.helpFeedback,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -120,20 +130,20 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
             controller: _contentController,
             maxLines: 7,
             maxLength: 5000,
-            decoration: const InputDecoration(
-              labelText: '反馈内容',
-              hintText: '请描述你遇到的问题、期望的功能或改进建议…',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l.helpFeedback,
+              hintText: l.helpFeedbackHint,
+              border: const OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _contactController,
             textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(
-              labelText: '联系方式（可选）',
-              hintText: '微信 / 手机号（可选）',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l.helpContactOptional,
+              hintText: l.helpContactHint,
+              border: const OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
@@ -141,12 +151,12 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
             width: double.infinity,
             child: FilledButton(
               onPressed: _submitting ? null : _submitFeedback,
-              child: Text(_submitting ? '提交中...' : '提交反馈'),
+              child: Text(_submitting ? l.helpSubmitting : l.helpSubmit),
             ),
           ),
           const SizedBox(height: 24),
           Text(
-            '邮件反馈',
+            l.helpEmailFeedback,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -171,13 +181,13 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                       ),
                       TextButton(
                         onPressed: _copyEmail,
-                        child: const Text('复制邮箱'),
+                        child: Text(l.tr('helpCopyEmail')),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '也可以直接发送邮件到该邮箱',
+                    l.helpEmailTip,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: Colors.grey[600],
                     ),
@@ -191,4 +201,3 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
     );
   }
 }
-

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../l10n/app_localizations.dart';
 
 class WebViewPage extends StatefulWidget {
   const WebViewPage({
@@ -47,13 +48,14 @@ class _WebViewPageState extends State<WebViewPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
         backgroundColor: theme.colorScheme.inversePrimary,
         actions: [
           IconButton(
-            tooltip: '刷新',
+            tooltip: l.tr('webviewRefresh'),
             onPressed: () {
               setState(() {
                 _error = null;
@@ -79,7 +81,7 @@ class _WebViewPageState extends State<WebViewPage> {
                         children: [
                           const Icon(Icons.wifi_off, size: 42),
                           const SizedBox(height: 12),
-                          const Text('页面加载失败'),
+                        Text(l.webviewLoadFailed),
                           const SizedBox(height: 8),
                           Text(
                             _error!,
@@ -95,7 +97,7 @@ class _WebViewPageState extends State<WebViewPage> {
                               });
                               _controller.reload();
                             },
-                            child: const Text('重试'),
+                            child: Text(l.webviewRetry),
                           ),
                         ],
                       ),
@@ -108,4 +110,3 @@ class _WebViewPageState extends State<WebViewPage> {
     );
   }
 }
-

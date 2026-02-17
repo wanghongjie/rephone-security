@@ -8,6 +8,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:gallery_saver/gallery_saver.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../l10n/app_localizations.dart';
 import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
@@ -106,10 +107,11 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
           // 相机端已离线，返回上一页
           LogUtils.w('MonitorViewer', 'Camera $_connectedCameraId went offline, returning to previous page');
           if (mounted) {
+            final l = AppLocalizations.of(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('相机端已离线'),
-                duration: Duration(seconds: 2),
+              SnackBar(
+                content: Text(l.playbackConnectFailed),
+                duration: const Duration(seconds: 2),
               ),
             );
             Future.delayed(const Duration(milliseconds: 500), () {
@@ -157,10 +159,11 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
           });
           // 如果是相机端主动断开，返回上一页
           if (mounted) {
+            final l = AppLocalizations.of(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('相机端已断开连接'),
-                duration: Duration(seconds: 2),
+              SnackBar(
+                content: Text(l.playbackConnectFailed),
+                duration: const Duration(seconds: 2),
               ),
             );
             Future.delayed(const Duration(milliseconds: 500), () {
@@ -237,8 +240,9 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
   void _toggleCameraMic() {
     final sid = _session?.sid;
     if (sid == null) {
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('尚未建立连接，无法控制相机端声音')),
+        SnackBar(content: Text(l.cameraEndpointConnecting)),
       );
       return;
     }
@@ -251,8 +255,13 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     setState(() {
       _cameraMicEnabled = nextEnabled;
     });
+    final l = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(nextEnabled ? '已请求开启相机端声音' : '已请求关闭相机端声音')),
+      SnackBar(
+        content: Text(nextEnabled
+            ? l.cameraEndpointLogMicOn
+            : l.cameraEndpointLogMicOff),
+      ),
     );
   }
 
@@ -261,8 +270,9 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     final stream = _remoteStream;
     if (stream == null || stream.getVideoTracks().isEmpty) {
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('没有可录制的视频流')),
+          SnackBar(content: Text(l.playbackGetVideoFailed)),
         );
       }
       return;
@@ -285,8 +295,9 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       });
 
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('开始录制')),
+          SnackBar(content: Text(l.cameraEndpointRecording)),
         );
       }
     } catch (e) {
@@ -298,8 +309,9 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
         _recordingPath = null;
       });
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('开始录制失败: $e')),
+          SnackBar(content: Text('${l.cameraEndpointServiceStartFailed}$e')),
         );
       }
     }
@@ -324,8 +336,9 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     if (!mounted) return;
 
     if (showToast) {
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('录制已保存: ${savedPath ?? ''}')),
+        SnackBar(content: Text(l.cameraEndpointRecordSaved)),
       );
     }
 
@@ -337,6 +350,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
   Future<void> _showPostRecordingActionsSheet(String path) async {
     if (!mounted) return;
+    final l = AppLocalizations.of(context);
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -348,9 +362,9 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  '录制完成',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                Text(
+                  l.cameraEndpointRecordSaved,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
@@ -368,19 +382,22 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.photo_library_outlined),
-                  label:
-                      Text(_isSavingToGallery ? '保存中...' : '保存到相册'),
+                  label: Text(
+                    _isSavingToGallery
+                        ? l.playbackDownloadingAndSaving
+                        : l.playbackSaveToGallerySuccess,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
                   onPressed: null, // TODO: implement share
                   icon: const Icon(Icons.share_outlined),
-                  label: const Text('分享（待实现）'),
+                  label: Text(l.playbackGetVideoFailed),
                 ),
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('取消'),
+                  child: Text(l.commonCancel),
                 ),
               ],
             ),
@@ -400,8 +417,9 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       final permissionOk = await _requestGalleryPermissionIfNeeded();
       if (!permissionOk) {
         if (mounted) {
+          final l = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('未获得相册权限，无法保存到相册')),
+            SnackBar(content: Text(l.appPermissionsPhotosSubtitle)),
           );
         }
         return;
@@ -413,14 +431,20 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       );
 
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ok == true ? '已保存到相册' : '保存到相册失败')),
+          SnackBar(
+            content: Text(ok == true
+                ? l.playbackSaveToGallerySuccess
+                : l.playbackSaveToGalleryFailed),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存到相册失败: $e')),
+          SnackBar(content: Text('${l.playbackSaveToGalleryFailed}: $e')),
         );
       }
     } finally {
@@ -500,6 +524,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -511,12 +536,14 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       },
       child: Scaffold(
       appBar: AppBar(
-        title: Text('监控 - ${widget.cameraName}'),
+        title: Text(widget.cameraName),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           if (_inCall)
             IconButton(
-              tooltip: _cameraMicEnabled ? '关闭相机端声音' : '开启相机端声音',
+              tooltip: _cameraMicEnabled
+                  ? l.cameraEndpointLogMicOff
+                  : l.cameraEndpointLogMicOn,
               onPressed: _toggleCameraMic,
               icon: Icon(
                 _cameraMicEnabled ? Icons.volume_up : Icons.volume_off,
@@ -524,7 +551,8 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
             ),
           if (_inCall && _remoteStream != null)
             IconButton(
-              tooltip: _isRecording ? '结束录制' : '开始录制',
+              tooltip:
+                  _isRecording ? l.cameraEndpointRecordSaved : l.cameraEndpointRecord10s,
               onPressed: _isRecording ? _stopRecording : _startRecording,
               icon: Icon(
                 _isRecording ? Icons.stop : Icons.fiber_manual_record,
@@ -541,7 +569,10 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
             padding: const EdgeInsets.all(8),
             color: _isConnected ? Colors.green : Colors.red,
             child: Text(
-              _isConnected ? '已连接服务器 (ID: $_selfId)' : '连接服务器中...',
+              _isConnected
+                  ? l.cameraEndpointConnectedWithId
+                      .replaceFirst('{id}', _selfId ?? '')
+                  : l.cameraEndpointConnecting,
               style: const TextStyle(color: Colors.white),
               textAlign: TextAlign.center,
             ),
@@ -588,7 +619,9 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            _inCall ? '等待视频流...' : '点击下方按钮连接相机',
+                            _inCall
+                                ? l.playbackConnecting
+                                : l.cameraListEmptyHint,
                             style: TextStyle(
                               color: Colors.grey[400],
                               fontSize: 16,
@@ -605,7 +638,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
               padding: const EdgeInsets.all(16),
               child: Center(
                 child: Text(
-                  _peers.isEmpty ? '等待相机端上线...' : '正在连接相机端...',
+                  l.playbackConnecting,
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 14,

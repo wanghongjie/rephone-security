@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../services/auth_api.dart';
 import '../services/session_manager.dart';
 import '../utils/log_utils.dart';
@@ -34,27 +35,29 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
   Future<void> _handleDeleteAccount() async {
     if (!_formKey.currentState!.validate()) return;
     if (_currentUserEmail == null) {
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('获取用户信息失败，请重新登录')),
+        SnackBar(content: Text(l.tr('resetPasswordLoadUserFailed'))),
       );
       return;
     }
 
     // Show confirmation dialog
+    final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认注销账号？'),
-        content: const Text('注销后，您的所有数据将被永久删除且无法恢复。确定要继续吗？'),
+        title: Text(l.deleteAccountConfirmTitle),
+        content: Text(l.deleteAccountConfirmContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l.deleteAccountConfirmCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('确定注销'),
+            child: Text(l.deleteAccountConfirmOk),
           ),
         ],
       ),
@@ -75,8 +78,9 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
       await SessionManager.clear();
       
       if (!mounted) return;
+      final l2 = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('账号已注销')),
+        SnackBar(content: Text(l2.deleteAccountSuccess)),
       );
       
       Navigator.of(context).pushNamedAndRemoveUntil('/auth', (route) => false);
@@ -103,9 +107,10 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('注销账号'),
+        title: Text(l.deleteAccountTitle),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -114,28 +119,28 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '警告：注销账号是不可逆的操作。',
-                style: TextStyle(
+              Text(
+                l.tr('deleteAccountWarning'),
+                style: const TextStyle(
                   color: Colors.red,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text('请输入您的密码以确认身份。'),
+              Text(l.tr('deleteAccountPasswordTip')),
               const SizedBox(height: 24),
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: '密码',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock),
+                decoration: InputDecoration(
+                  labelText: l.tr('commonPassword'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return '请输入密码';
+                    return l.tr('deleteAccountPasswordEmpty');
                   }
                   return null;
                 },
@@ -159,7 +164,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('确认注销账号'),
+                      : Text(l.deleteAccountButton),
                 ),
               ),
             ],

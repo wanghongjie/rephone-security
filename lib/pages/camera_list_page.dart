@@ -11,6 +11,7 @@ import '../services/session_manager.dart';
 import 'qr_code_generator_page.dart';
 import '../models/camera_device.dart';
 import '../utils/log_utils.dart';
+import '../l10n/app_localizations.dart';
 
 class CameraListPage extends StatefulWidget {
   const CameraListPage({super.key});
@@ -124,13 +125,14 @@ class _CameraListPageState extends State<CameraListPage> {
       }
 
       final bindings = await _bindApi.getBindings(_currentUserEmail!);
-      
+      final l = AppLocalizations.of(context);
+
       setState(() {
         _cameras = bindings.map((binding) {
           return CameraDevice(
             id: binding.cameraDeviceId,
-            name: binding.cameraName ?? '未命名设备',
-            location: binding.cameraLocation ?? '未知位置',
+            name: binding.cameraName ?? l.tr('cameraListUnnamed'),
+            location: binding.cameraLocation ?? l.tr('cameraListUnknownLocation'),
             isOnline: binding.cameraOnline,
             lastSeen: binding.updatedAt,
             bindingId: binding.id,
@@ -147,9 +149,10 @@ class _CameraListPageState extends State<CameraListPage> {
         });
       }
       if (mounted && showLoading) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('加载绑定列表失败: $e'),
+            content: Text('${l.tr('cameraListLoadFailed')}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -179,11 +182,12 @@ class _CameraListPageState extends State<CameraListPage> {
           Navigator.pop(context);
         }
         
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('设备绑定成功！'),
+          SnackBar(
+            content: Text(l.tr('cameraListBindSuccess')),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -248,6 +252,7 @@ class _CameraListPageState extends State<CameraListPage> {
   }
 
   Widget _buildEmptyState() {
+    final l = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -259,14 +264,14 @@ class _CameraListPageState extends State<CameraListPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            '暂无摄像头设备',
+            l.cameraListEmpty,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   color: Colors.grey[600],
                 ),
           ),
           const SizedBox(height: 8),
           Text(
-            '点击右下角按钮添加设备',
+            l.cameraListEmptyHint,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.grey[500],
                 ),
@@ -332,13 +337,20 @@ class _CameraListPageState extends State<CameraListPage> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            camera.isOnline ? '在线' : '离线',
-                            style: TextStyle(
-                              color: camera.isOnline ? Colors.green : Colors.red,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
+                          Builder(
+                            builder: (context) {
+                              final l = AppLocalizations.of(context);
+                              return Text(
+                                camera.isOnline
+                                    ? l.tr('cameraListStatusOnline')
+                                    : l.tr('cameraListStatusOffline'),
+                                style: TextStyle(
+                                  color: camera.isOnline ? Colors.green : Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              );
+                            },
                           ),
                           Text(
                             _formatLastSeen(camera.lastSeen),
@@ -411,30 +423,40 @@ class _CameraListPageState extends State<CameraListPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                TextButton.icon(
-                  onPressed: () {
-                     Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => PlaybackPage(camera: camera)),
+                Builder(
+                  builder: (context) {
+                    final l = AppLocalizations.of(context);
+                    return TextButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => PlaybackPage(camera: camera)),
+                        );
+                      },
+                      icon: const Icon(Icons.history),
+                      label: Text(l.tr('cameraListActionPlayback')),
                     );
                   },
-                  icon: const Icon(Icons.history),
-                  label: const Text('回看'),
                 ),
-                TextButton.icon(
-                  onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => CameraSettingsPage(camera: camera),
-                      ),
+                Builder(
+                  builder: (context) {
+                    final l = AppLocalizations.of(context);
+                    return TextButton.icon(
+                      onPressed: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CameraSettingsPage(camera: camera),
+                          ),
+                        );
+                        if (mounted) {
+                          _loadBindings(showLoading: false);
+                        }
+                      },
+                      icon: const Icon(Icons.settings),
+                      label: Text(l.tr('cameraListActionSettings')),
                     );
-                    if (mounted) {
-                      _loadBindings(showLoading: false);
-                    }
                   },
-                  icon: const Icon(Icons.settings),
-                  label: const Text('设置'),
                 ),
               ],
             ),
@@ -449,21 +471,27 @@ class _CameraListPageState extends State<CameraListPage> {
     final difference = now.difference(lastSeen);
 
     if (difference.inMinutes < 1) {
-      return '刚刚';
+      return AppLocalizations.of(context).tr('cameraListTimeJustNow');
     } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}分钟前';
+      return AppLocalizations.of(context)
+          .tr('cameraListTimeMinutesAgo')
+          .replaceAll('{minutes}', difference.inMinutes.toString());
     } else if (difference.inHours < 24) {
-      return '${difference.inHours}小时前';
+      return AppLocalizations.of(context)
+          .tr('cameraListTimeHoursAgo')
+          .replaceAll('{hours}', difference.inHours.toString());
     } else {
-      return '${difference.inDays}天前';
+      return AppLocalizations.of(context)
+          .tr('cameraListTimeDaysAgo')
+          .replaceAll('{days}', difference.inDays.toString());
     }
   }
 
   void _addCamera() {
     if (_currentUserEmail == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('请先登录'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).tr('cameraListPleaseLogin')),
           backgroundColor: Colors.red,
         ),
       );

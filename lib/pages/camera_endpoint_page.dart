@@ -16,6 +16,7 @@ import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
 import '../utils/log_utils.dart';
+import '../l10n/app_localizations.dart';
 import 'package:image/image.dart' as img;
 
 
@@ -118,32 +119,32 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       final hasPermission = await _serviceChannel.invokeMethod<bool>('checkNotificationPermission') ?? false;
       
       if (!hasPermission) {
-        // 请求通知权限
         await _serviceChannel.invokeMethod('requestNotificationPermission');
-        
-        // 等待用户响应（权限对话框可能需要时间）
         await Future.delayed(const Duration(seconds: 1));
-        
-        // 再次检查权限状态
         final granted = await _serviceChannel.invokeMethod<bool>('checkNotificationPermission') ?? false;
-        
+
         if (granted) {
           await _startForegroundService();
           if (mounted) {
-            final isIgnoringBatteryOptimizations = await _serviceChannel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ?? false;
+            final isIgnoringBatteryOptimizations =
+                await _serviceChannel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ?? false;
+            final l = AppLocalizations.of(context);
             ScaffoldMessenger.of(context).showSnackBar(
-               SnackBar(
-                content: Text('权限已授予，前台服务已启动\n${isIgnoringBatteryOptimizations ? '电池优化已关闭，运行状态良好' : '建议在设置中关闭电池优化以保证连接稳定'}'),
+              SnackBar(
+                content: Text(
+                  '${l.cameraEndpointServiceStarted}\n${isIgnoringBatteryOptimizations ? l.cameraEndpointBatteryOptimizationsOff : l.cameraEndpointBatteryOptimizationsOn}',
+                ),
                 duration: const Duration(seconds: 4),
               ),
             );
           }
         } else {
           if (mounted) {
+            final l = AppLocalizations.of(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('需要通知权限以保持相机在后台运行，请在设置中授予权限'),
-                duration: Duration(seconds: 4),
+              SnackBar(
+                content: Text(l.cameraEndpointNotificationPermissionRequired),
+                duration: const Duration(seconds: 4),
               ),
             );
           }
@@ -153,9 +154,12 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         await _startForegroundService();
         if (mounted) {
           final isIgnoringBatteryOptimizations = await _serviceChannel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ?? false;
+          final l = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(
-              content: Text('前台服务已启动\n${isIgnoringBatteryOptimizations ? '电池优化已关闭，运行状态良好' : '建议在设置中关闭电池优化以保证连接稳定'}'),
+            SnackBar(
+              content: Text(
+                '${l.cameraEndpointServiceStarted}\n${isIgnoringBatteryOptimizations ? l.cameraEndpointBatteryOptimizationsOff : l.cameraEndpointBatteryOptimizationsOn}',
+              ),
               duration: const Duration(seconds: 3),
             ),
           );
@@ -177,12 +181,13 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     } catch (e) {
       LogUtils.e('CameraEndpoint', 'Failed to start foreground service', e);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('启动前台服务失败: $e'),
-            duration: const Duration(seconds: 3),
-          ),
-        );
+          final l = AppLocalizations.of(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${l.cameraEndpointServiceStartFailed}$e'),
+              duration: const Duration(seconds: 3),
+            ),
+          );
       }
     }
   }
@@ -299,9 +304,10 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
             LogUtils.i('CameraEndpoint', '监控端已连接');
           } else {
             _signaling?.reject(session.sid);
+            final l = AppLocalizations.of(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('拒绝连接：邮箱验证失败'),
+              SnackBar(
+                content: Text(l.cameraEndpointEmailVerifyFailed),
                 backgroundColor: Colors.red,
               ),
             );
@@ -434,7 +440,11 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
               _isMicMuted = !enabled;
             });
             if (mounted) {
-              LogUtils.i('CameraEndpoint', enabled ? '监控端已开启相机端声音' : '监控端已关闭相机端声音');
+              final l = AppLocalizations.of(context);
+              LogUtils.i(
+                'CameraEndpoint',
+                enabled ? l.cameraEndpointLogMicOn : l.cameraEndpointLogMicOff,
+              );
             }
             return;
           }
@@ -516,7 +526,8 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         }
       }
       if (!mounted) return;
-      LogUtils.i('CameraEndpoint', '监控端消息: $msg');
+      final l = AppLocalizations.of(context);
+      LogUtils.i('CameraEndpoint', '${l.cameraEndpointLogMonitorMessage}$msg');
     };
 
     // 连接到服务器
@@ -611,8 +622,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       
       await SessionManager.clear();
       if (!mounted) return;
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已退出登录')),
+        SnackBar(content: Text(l.settingsLogoutSuccess)),
       );
       // Go to login page and clear navigation stack.
       Navigator.of(context).pushNamedAndRemoveUntil('/auth', (route) => false);
@@ -626,15 +638,16 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   }
 
   void _showLogoutDialog() {
+    final l = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('确定要退出当前账户吗？'),
+        title: Text(l.settingsLogoutDialogTitle),
+        content: Text(l.settingsLogoutDialogContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l.settingsLogoutDialogCancel),
           ),
           ElevatedButton(
             onPressed: _isLoggingOut
@@ -648,7 +661,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('确定'),
+            child: Text(l.settingsLogoutDialogConfirm),
           ),
         ],
       ),
@@ -858,10 +871,13 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
       // 为避免编码器冷启动造成的时长偏差，增加轻微补偿（约500ms）
       Future.delayed(const Duration(milliseconds: 10500), () async {
-        await _mediaRecorder?.stop();
+        try {
+          await _mediaRecorder?.stop();
+        } catch (e) {
+          LogUtils.e('CameraEndpoint', 'Recording stop error', e);
+        }
         _isRecording = false;
         
-        // 记录到数据库
         await DatabaseHelper().insertEvent(DetectionEvent(
           timestamp: timestamp,
           imagePath: imagePath,
@@ -872,9 +888,8 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         LogUtils.i('CameraEndpoint', 'Recording finished. Cooldown for 10 seconds.');
         _mediaRecorder = null;
         
-        // 10秒冷却时间后恢复检测
         Future.delayed(const Duration(seconds: 10), () {
-          if (mounted) { // 确保页面还存在
+          if (mounted) {
              _startDetectionTimer();
              LogUtils.i('CameraEndpoint', 'Cooldown finished, detection resumed.');
           }
@@ -900,20 +915,23 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         
         final shouldExit = await showDialog<bool>(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('退出相机'),
-            content: const Text('确定要退出相机端吗？\n退出后将停止视频采集和前台服务。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('确定'),
-              ),
-            ],
-          ),
+          builder: (context) {
+            final l = AppLocalizations.of(context);
+            return AlertDialog(
+              title: Text(l.cameraEndpointExitDialogTitle),
+              content: Text(l.cameraEndpointExitDialogContent),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text(l.commonCancel),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: Text(l.commonConfirm),
+                ),
+              ],
+            );
+          },
         );
 
         if (shouldExit == true) {
@@ -928,7 +946,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         automaticallyImplyLeading: false,
         backgroundColor: theme.colorScheme.inversePrimary,
         centerTitle: true,
-        title: const Text('相机端'),
+        title: Text(AppLocalizations.of(context).cameraEndpointTitle),
         leadingWidth: 140,
         leading: Padding(
           padding: const EdgeInsets.only(left: 8),
@@ -954,7 +972,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.red),
             onPressed: _showLogoutDialog,
-            tooltip: '退出登录',
+            tooltip: AppLocalizations.of(context).settingsLogout,
           ),
           const SizedBox(width: 8),
         ],
@@ -966,10 +984,18 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
             width: double.infinity,
             padding: const EdgeInsets.all(8),
             color: _isConnected ? Colors.green : Colors.red,
-            child: Text(
-              _isConnected ? '已连接服务器 (ID: $_selfId)' : '连接服务器中...',
-              style: const TextStyle(color: Colors.white),
-              textAlign: TextAlign.center,
+            child: Builder(
+              builder: (context) {
+                final l = AppLocalizations.of(context);
+                final text = _isConnected
+                    ? l.cameraEndpointConnectedWithId.replaceFirst('{id}', _selfId ?? '')
+                    : l.cameraEndpointConnecting;
+                return Text(
+                  text,
+                  style: const TextStyle(color: Colors.white),
+                  textAlign: TextAlign.center,
+                );
+              },
             ),
           ),
           // 视频预览
@@ -1041,19 +1067,20 @@ class _CameraRoleMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final isMonitor = value == 'monitor';
     return PopupMenuButton<String>(
       position: PopupMenuPosition.under,
       offset: const Offset(0, 4),
       onSelected: onSelected,
-      itemBuilder: (context) => const [
+      itemBuilder: (context) => [
         PopupMenuItem(
           value: 'monitor',
-          child: Text('监控端'),
+          child: Text(l.cameraRoleMonitor),
         ),
         PopupMenuItem(
           value: 'camera',
-          child: Text('相机端'),
+          child: Text(l.cameraRoleCamera),
         ),
       ],
       child: Container(
@@ -1066,7 +1093,7 @@ class _CameraRoleMenu extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              isMonitor ? '监控端' : '相机端',
+              isMonitor ? l.cameraRoleMonitor : l.cameraRoleCamera,
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(width: 4),

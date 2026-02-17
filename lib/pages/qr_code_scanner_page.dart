@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../l10n/app_localizations.dart';
 import '../services/bind_api.dart';
 import '../services/session_manager.dart';
 import '../utils/device_info.dart';
@@ -33,12 +34,12 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
 
     final monitorEmail = barcode.rawValue!.trim();
     
-    // 简单的邮箱格式验证
     if (!monitorEmail.contains('@') || !monitorEmail.contains('.')) {
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('无效的二维码格式'),
+          SnackBar(
+            content: Text(l.qrScanInvalidFormat),
             backgroundColor: Colors.red,
           ),
         );
@@ -59,8 +60,11 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
 
   Future<void> _processBinding(String email) async {
     try {
+      final l = AppLocalizations.of(context);
       // 获取当前设备ID（相机端）
       final deviceId = await DeviceInfo.getOrCreateDeviceId('camera');
+      // 获取当前设备可读名称作为默认相机名称
+      final deviceName = await DeviceInfo.getReadableDeviceName();
       
       // 调用绑定接口
       // 监控端邮箱和相机端邮箱是同一个（同一个用户登录）
@@ -69,8 +73,8 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
         monitorEmail: email, // 扫描到的邮箱（监控端）
         cameraEmail: email, // 相机端邮箱（与监控端相同）
         cameraDeviceId: deviceId,
-        cameraName: '相机设备',
-        cameraLocation: '未知位置',
+        cameraName: deviceName,
+        cameraLocation: l.cameraDefaultLocationLivingRoom,
       );
 
       await bindApi.addBinding(request);
@@ -79,9 +83,10 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
       await SessionManager.saveCameraUser(email);
       
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('绑定成功！'),
+          SnackBar(
+            content: Text(l.cameraListBindSuccess),
             backgroundColor: Colors.green,
           ),
         );
@@ -99,9 +104,10 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
       }
     } catch (e) {
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('绑定失败: $e'),
+            content: Text('${l.qrScanBindFailedPrefix}$e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -116,9 +122,10 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('扫描二维码'),
+        title: Text(l.qrScanTitle),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Stack(
@@ -130,15 +137,15 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
           if (_isProcessing)
             Container(
               color: Colors.black.withOpacity(0.7),
-              child: const Center(
+              child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CircularProgressIndicator(color: Colors.white),
-                    SizedBox(height: 16),
+                    const CircularProgressIndicator(color: Colors.white),
+                    const SizedBox(height: 16),
                     Text(
-                      '正在处理绑定...',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+                      l.qrScanProcessing,
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
                     ),
                   ],
                 ),
@@ -156,9 +163,9 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
                     color: Colors.black.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
-                    '将二维码对准扫描框',
-                    style: TextStyle(
+                  child: Text(
+                    l.qrScanHint,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                     ),
@@ -171,4 +178,3 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
     );
   }
 }
-

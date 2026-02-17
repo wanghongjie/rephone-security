@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/bind_api.dart';
 import '../models/camera_device.dart';
+import '../l10n/app_localizations.dart';
 
 enum _CameraField { name, location }
 
@@ -37,7 +38,8 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
   }
 
   Future<void> _editField(_CameraField field) async {
-    final title = field == _CameraField.name ? '相机名称' : '相机位置';
+    final l = AppLocalizations.of(context);
+    final title = field == _CameraField.name ? l.cameraSettingsName : l.cameraSettingsLocation;
     final initialValue = field == _CameraField.name ? _name : _location;
 
     final value = await Navigator.push<String>(
@@ -55,7 +57,7 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
     if (trimmed.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$title 不能为空')),
+          SnackBar(content: Text(l.cameraSettingsFieldEmpty)),
         );
       }
       return;
@@ -74,20 +76,21 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
   }
 
   Future<void> _deleteDevice() async {
+    final l = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除设备'),
-        content: const Text('确定要删除此设备吗？此操作无法撤销。'),
+        title: Text(l.cameraSettingsDeleteTitle),
+        content: Text(l.cameraSettingsDeleteContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('删除'),
+            child: Text(l.cameraSettingsDeleteButton),
           ),
         ],
       ),
@@ -102,8 +105,9 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
     try {
       await BindApi().deleteCamera(cameraDeviceId: widget.camera.id);
       if (!mounted) return;
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('设备已删除')),
+        SnackBar(content: Text(l.cameraSettingsDeleted)),
       );
       // Return null to indicate the device is gone/deleted, or a special signal
       // Actually, since we return a CameraDevice usually, we can return null to signal deletion
@@ -125,8 +129,9 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
       // So I can just pop. The list will refresh via polling or manual refresh.
     } catch (e) {
       if (!mounted) return;
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('删除失败: $e')),
+        SnackBar(content: Text('${l.cameraSettingsDeleteFailed}: $e')),
       );
       setState(() {
         _isSaving = false;
@@ -140,6 +145,7 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
       _isSaving = true;
     });
     try {
+      final l = AppLocalizations.of(context);
       await BindApi().updateCameraInfo(
         cameraDeviceId: widget.camera.id,
         cameraName: _name,
@@ -147,13 +153,14 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('更新成功')),
+        SnackBar(content: Text(l.cameraSettingsSaved)),
       );
     } catch (e) {
       if (!mounted) return;
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('更新失败: $e'),
+          content: Text('${l.cameraSettingsSaveFailed}: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -168,6 +175,7 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     // Ensure we always return the latest edited values to the previous page,
     // including when user uses system back / gesture back.
     return PopScope(
@@ -178,7 +186,7 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('设备设置'),
+          title: Text(l.cameraSettingsTitle),
           backgroundColor: theme.colorScheme.inversePrimary,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
@@ -190,7 +198,7 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
             const SizedBox(height: 8),
             ListTile(
               leading: const Icon(Icons.videocam_outlined),
-              title: const Text('相机名称'),
+              title: Text(l.cameraSettingsName),
               subtitle: Text(_name),
               trailing: const Icon(Icons.chevron_right),
               onTap: _isSaving ? null : () => _editField(_CameraField.name),
@@ -198,7 +206,7 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.place_outlined),
-              title: const Text('相机位置'),
+              title: Text(l.cameraSettingsLocation),
               subtitle: Text(_location),
               trailing: const Icon(Icons.chevron_right),
               onTap: _isSaving ? null : () => _editField(_CameraField.location),
@@ -209,22 +217,25 @@ class _CameraSettingsPageState extends State<CameraSettingsPage> {
                 padding: const EdgeInsets.only(top: 24.0),
                 child: ListTile(
                   leading: const Icon(Icons.delete_forever, color: Colors.red),
-                  title: const Text('删除设备', style: TextStyle(color: Colors.red)),
+                  title: Text(
+                    l.cameraSettingsDeleteTitle,
+                    style: const TextStyle(color: Colors.red),
+                  ),
                   onTap: _deleteDevice,
                 ),
               ),
             if (_isSaving)
-              const Padding(
-                padding: EdgeInsets.all(16),
+              Padding(
+                padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    SizedBox(
+                    const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                    SizedBox(width: 12),
-                    Text('保存中...'),
+                    const SizedBox(width: 12),
+                    Text(l.cameraSettingsSaving),
                   ],
                 ),
               ),
@@ -293,5 +304,3 @@ class _CameraEditPageState extends State<_CameraEditPage> {
     );
   }
 }
-
-

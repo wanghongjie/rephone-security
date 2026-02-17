@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
@@ -6,6 +7,7 @@ class WelcomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       body: SafeArea(
@@ -15,7 +17,7 @@ class WelcomePage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'RePhone Security',
+                l.appTitle,
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: theme.colorScheme.primary,
                   fontWeight: FontWeight.w700,
@@ -24,7 +26,7 @@ class WelcomePage extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                '只要两台装置，\n立即实现优质安心生活',
+                l.welcomeTitle,
                 style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   height: 1.2,
@@ -32,8 +34,7 @@ class WelcomePage extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                '快速连接手机与摄像头，随时随地掌握家中动向，'
-                '让科技守护每一刻的安心。',
+                l.welcomeDesc,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: Colors.grey[700],
                   height: 1.4,
@@ -74,11 +75,11 @@ class WelcomePage extends StatelessWidget {
                   onPressed: () {
                     Navigator.pushNamed(context, '/auth');
                   },
-                  label: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
+                  label: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Text(
-                      '登录 / 注册',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      l.authTitle,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -86,7 +87,7 @@ class WelcomePage extends StatelessWidget {
               const SizedBox(height: 12),
               Center(
                 child: Text(
-                  '只需一次登录，即可开启跨设备守护体验',
+                  l.tr('welcomeFooter'),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: Colors.grey[600],
                   ),
@@ -99,4 +100,3 @@ class WelcomePage extends StatelessWidget {
     );
   }
 }
-
