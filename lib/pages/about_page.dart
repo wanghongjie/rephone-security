@@ -5,9 +5,6 @@ import 'webview_page.dart';
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
 
-  static const String _termsUrl = 'https://rephone-h5.pages.dev/terms.html';
-  static const String _privacyUrl = 'https://rephone-h5.pages.dev/privacy.html';
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -29,12 +26,16 @@ class AboutPage extends StatelessWidget {
                   subtitle: Text(l.aboutView),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
+                    final lang = Localizations.localeOf(context).languageCode;
+                    final url = lang == 'en'
+                        ? 'https://rephone.top/terms_us.html'
+                        : 'https://rephone.top/terms.html';
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const WebViewPage(
-                          title: '服务条款',
-                          url: _termsUrl,
+                        builder: (_) => WebViewPage(
+                          title: l.aboutTerms,
+                          url: url,
                         ),
                       ),
                     );
@@ -47,12 +48,16 @@ class AboutPage extends StatelessWidget {
                   subtitle: Text(l.aboutView),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
+                    final lang = Localizations.localeOf(context).languageCode;
+                    final url = lang == 'en'
+                        ? 'https://rephone.top/privacy_us.html'
+                        : 'https://rephone.top/privacy.html';
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const WebViewPage(
-                          title: '隐私协议',
-                          url: _privacyUrl,
+                        builder: (_) => WebViewPage(
+                          title: l.aboutPrivacy,
+                          url: url,
                         ),
                       ),
                     );

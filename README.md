@@ -68,7 +68,7 @@
    
    编辑 `lib/config/server_config.dart`：
    ```dart
-   const String defaultAuthHost = '47.86.29.177';  // 你的服务器IP
+   const String defaultAuthHost = '47.251.242.213';  // 你的服务器IP
    const int defaultAuthPort = 8086;
    ```
 

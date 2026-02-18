@@ -7,9 +7,6 @@ import 'webview_page.dart';
 class AuthPage extends StatelessWidget {
   const AuthPage({super.key});
 
-  static const String _termsUrl = 'https://rephone-h5.pages.dev/terms.html';
-  static const String _privacyUrl = 'https://rephone-h5.pages.dev/privacy.html';
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -77,12 +74,16 @@ class AuthPage extends StatelessWidget {
                         visualDensity: VisualDensity.compact,
                       ),
                       onPressed: () {
+                        final lang = Localizations.localeOf(context).languageCode;
+                        final url = lang == 'en'
+                            ? 'https://rephone.top/terms_us.html'
+                            : 'https://rephone.top/terms.html';
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const WebViewPage(
-                              title: '服务条款',
-                              url: _termsUrl,
+                            builder: (_) => WebViewPage(
+                              title: l.authTermsLink,
+                              url: url,
                             ),
                           ),
                         );
@@ -103,12 +104,16 @@ class AuthPage extends StatelessWidget {
                         visualDensity: VisualDensity.compact,
                       ),
                       onPressed: () {
+                        final lang = Localizations.localeOf(context).languageCode;
+                        final url = lang == 'en'
+                            ? 'https://rephone.top/privacy_us.html'
+                            : 'https://rephone.top/privacy.html';
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const WebViewPage(
-                              title: '隐私协议',
-                              url: _privacyUrl,
+                            builder: (_) => WebViewPage(
+                              title: l.authPrivacyLink,
+                              url: url,
                             ),
                           ),
                         );
