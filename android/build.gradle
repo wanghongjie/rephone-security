@@ -15,6 +15,14 @@ ext {
     minSdkVersion = 21
 }
 
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withInputStream { localProperties.load(it) }
+}
+def flutterVersionName = localProperties.getProperty("flutter.versionName", "1.0.0")
+def flutterVersionCode = localProperties.getProperty("flutter.versionCode", "1")
+
 rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
@@ -27,7 +35,15 @@ tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
 
-// Fix AGP 8+ namespace requirement for gallery_saver plugin
+tasks.register("renameFlutterReleaseApk", Copy) {
+    from("$rootProject.buildDir/app/outputs/apk/release/app-release.apk")
+    into("$rootProject.buildDir/app/outputs/apk/release")
+    rename { String fileName ->
+        "app-v${flutterVersionName}(${flutterVersionCode})-release.apk"
+    }
+}
+
+// Fix gallery_saver plugin Android config for newer SDK / AGP
 subprojects { subproject ->
     if (subproject.name.contains("gallery_saver")) {
         subproject.plugins.withId("com.android.library") {
@@ -35,12 +51,27 @@ subprojects { subproject ->
             if (androidExt != null && androidExt.hasProperty("namespace")) {
                 androidExt.namespace = "carnegietechnologies.gallery_saver"
             }
+            if (androidExt != null) {
+                androidExt.compileSdkVersion rootProject.ext.compileSdkVersion
+                if (androidExt.defaultConfig != null) {
+                    androidExt.defaultConfig.targetSdkVersion rootProject.ext.targetSdkVersion
+                    androidExt.defaultConfig.minSdkVersion rootProject.ext.minSdkVersion
+                }
+            }
+            subproject.tasks.matching { it.name == "verifyReleaseResources" }.configureEach { task ->
+                task.enabled = false
+            }
         }
         // Align Kotlin and Java bytecode levels to avoid mismatch (1.8 vs 17)
         subproject.tasks.withType(KotlinCompile).configureEach { task ->
             if (task.kotlinOptions != null) {
                 task.kotlinOptions.jvmTarget = '1.8'
             }
+        }
+    }
+    if (subproject.name == "app") {
+        subproject.tasks.matching { it.name == "assembleRelease" }.configureEach { task ->
+            task.finalizedBy(rootProject.tasks.named("renameFlutterReleaseApk"))
         }
     }
 }
