@@ -533,7 +533,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
     final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.camera.name}${l.playbackTitleSuffix}'),
+        title: Text(l.playbackTitleSuffix),
       ),
       body: _buildBody(),
     );
