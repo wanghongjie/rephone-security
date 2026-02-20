@@ -43,6 +43,14 @@ tasks.register("renameFlutterReleaseApk", Copy) {
     }
 }
 
+tasks.register("renameFlutterReleaseBundle", Copy) {
+    from("$rootProject.buildDir/app/outputs/bundle/release/app-release.aab")
+    into("$rootProject.buildDir/app/outputs/bundle/release")
+    rename { String fileName ->
+        "app-v${flutterVersionName}(${flutterVersionCode})-release.aab"
+    }
+}
+
 // Fix gallery_saver plugin Android config for newer SDK / AGP
 subprojects { subproject ->
     if (subproject.name.contains("gallery_saver")) {
@@ -72,6 +80,9 @@ subprojects { subproject ->
     if (subproject.name == "app") {
         subproject.tasks.matching { it.name == "assembleRelease" }.configureEach { task ->
             task.finalizedBy(rootProject.tasks.named("renameFlutterReleaseApk"))
+        }
+        subproject.tasks.matching { it.name == "bundleRelease" }.configureEach { task ->
+            task.finalizedBy(rootProject.tasks.named("renameFlutterReleaseBundle"))
         }
     }
 }
