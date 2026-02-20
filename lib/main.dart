@@ -1,3 +1,5 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -9,8 +11,15 @@ import 'pages/camera_endpoint_page.dart';
 import 'pages/membership_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/welcome_page.dart';
+import 'services/push_service.dart';
 import 'services/session_manager.dart';
 import 'utils/log_utils.dart';
+
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  LogUtils.i('PushBackground', 'Message: ${message.messageId ?? ''}');
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +27,9 @@ void main() async {
   // 初始化日志工具
   await LogUtils.init();
   await LocaleManager.init();
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  await PushService.init();
 
   // 设置沉浸式状态栏
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(

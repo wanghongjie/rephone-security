@@ -12,7 +12,7 @@ allprojects {
 ext {
     compileSdkVersion = 36
     targetSdkVersion = 36
-    minSdkVersion = 21
+    minSdkVersion = 23
 }
 
 def localProperties = new Properties()

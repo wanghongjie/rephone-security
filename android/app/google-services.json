@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "35973410650",
+    "project_id": "fir-rtc-ed975",
+    "storage_bucket": "fir-rtc-ed975.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:35973410650:android:b99e124b597585fd4b8d63",
+        "android_client_info": {
+          "package_name": "com.rephone.security"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0C4s880XZeBbpxCP3sSXurDCjgZA5kQU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
