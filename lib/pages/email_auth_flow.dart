@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_api.dart';
 import '../services/session_manager.dart';
+import '../services/push_service.dart';
 import '../l10n/app_localizations.dart';
 
 class EmailInputPage extends StatefulWidget {
@@ -183,6 +184,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
       final user =
           await widget.api.login(widget.email, _passwordController.text.trim());
       await SessionManager.saveUser(user);
+      await PushService.reportTokenForLoggedInMonitor();
       if (!mounted) return;
       final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -456,6 +458,7 @@ class _PasswordRegisterPageState extends State<PasswordRegisterPage> {
         password: _passwordController.text.trim(),
       );
       await SessionManager.saveUser(user);
+      await PushService.reportTokenForLoggedInMonitor();
       if (!mounted) return;
       final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(

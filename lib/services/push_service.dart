@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 
+import '../models/auth_user.dart';
 import '../utils/log_utils.dart';
+import 'session_manager.dart';
 
 class PushService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -25,15 +28,80 @@ class PushService {
 
     await _messaging.setAutoInitEnabled(true);
 
-    final token = await _messaging.getToken();
-    if (token != null) {
-      LogUtils.i('PushService', 'FCM token: $token');
-    }
-
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       LogUtils.i('PushService', 'Foreground message: ${message.messageId ?? ''}');
     });
 
+    _messaging.onTokenRefresh.listen((String newToken) async {
+      LogUtils.i('PushService', 'FCM token refreshed: $newToken');
+      await reportTokenForLoggedInMonitor(forceToken: newToken);
+    });
+
     _initialized = true;
+  }
+
+  static Future<void> reportTokenForLoggedInMonitor({String? forceToken}) async {
+    try {
+      final user = await SessionManager.getUser();
+      final role = await SessionManager.getDeviceRole() ?? 'monitor';
+      if (user == null) {
+        LogUtils.i('PushService', 'Skip reporting token: no logged in user');
+        return;
+      }
+      if (role != 'monitor') {
+        LogUtils.i(
+          'PushService',
+          'Skip reporting token for non-monitor role: $role',
+        );
+        return;
+      }
+      final token = forceToken ?? await _messaging.getToken();
+      if (token == null) {
+        LogUtils.w('PushService', 'FCM token is null, cannot report');
+        return;
+      }
+      await _reportTokenToBackend(token, user: user, role: role);
+    } catch (e, st) {
+      LogUtils.e('PushService', 'Failed to prepare FCM token report', e, st);
+    }
+  }
+
+  static Future<void> _reportTokenToBackend(
+    String token, {
+    required AuthUser user,
+    required String role,
+  }) async {
+    try {
+      final platform = Platform.isAndroid
+          ? 'android'
+          : Platform.isIOS
+              ? 'ios'
+              : Platform.operatingSystem;
+
+      final body = <String, dynamic>{
+        'email': user.email,
+        'platform': platform,
+        'fcm_token': token,
+      };
+
+      final uri = Uri.parse('https://rephone.top/api/push/register');
+
+      final client = HttpClient();
+
+      final request = await client.postUrl(uri);
+      request.headers.contentType = ContentType.json;
+      request.add(utf8.encode(jsonEncode(body)));
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      LogUtils.i(
+        'PushService',
+        'Report token response [${response.statusCode}]: $responseBody',
+      );
+
+      client.close(force: true);
+    } catch (e, st) {
+      LogUtils.e('PushService', 'Failed to report FCM token', e, st);
+    }
   }
 }
