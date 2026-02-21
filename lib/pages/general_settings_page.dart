@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/session_manager.dart';
+import '../services/auth_api.dart';
 import '../l10n/app_localizations.dart';
 import 'app_permissions_page.dart';
 import 'delete_account_page.dart';
@@ -208,6 +209,7 @@ class LanguageSettingsPage extends StatefulWidget {
 
 class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
   late LanguageOption _option;
+  final AuthApi _authApi = AuthApi();
 
   @override
   void initState() {
@@ -241,6 +243,8 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
                 _option = value;
               });
               LocaleManager.setSystem();
+              final language = _languageTagForOption(value);
+              _reportLanguageToServer(language);
             },
             title: Text(l.languageOptionSystem),
             subtitle: Text(l.languageOptionSystemDetail),
@@ -255,6 +259,8 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
                 _option = value;
               });
               LocaleManager.setChinese();
+              final language = _languageTagForOption(value);
+              _reportLanguageToServer(language);
             },
             title: Text(l.languageOptionChinese),
             subtitle: Text(l.languageOptionChineseDetail),
@@ -269,6 +275,8 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
                 _option = value;
               });
               LocaleManager.setEnglish();
+              final language = _languageTagForOption(value);
+              _reportLanguageToServer(language);
             },
             title: Text(l.languageOptionEnglish),
             subtitle: Text(l.languageOptionEnglishDetail),
@@ -276,5 +284,20 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
         ],
       ),
     );
+  }
+
+  String _languageTagForOption(LanguageOption option) {
+    if (option == LanguageOption.chinese) {
+      return 'zh-CN';
+    }
+    return 'en-US';
+  }
+
+  Future<void> _reportLanguageToServer(String language) async {
+    try {
+      final user = await SessionManager.getUser();
+      if (user == null) return;
+      await _authApi.updateLanguage(email: user.email, language: language);
+    } catch (_) {}
   }
 }

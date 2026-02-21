@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../config/server_config.dart';
 import '../models/auth_user.dart';
+import '../l10n/app_localizations.dart';
 
 /// Simple API client for auth endpoints, using host/port style like turn.dart.
 /// Accepts self-signed certs for dev, matching existing TURN client behavior.
@@ -26,6 +27,13 @@ class AuthApi {
         path: '/api/auth/$path',
       );
 
+  Uri _buildUserUri(String path) => Uri(
+        scheme: useHttps ? 'https' : 'http',
+        host: host,
+        port: port,
+        path: '/api/user/$path',
+      );
+
   Future<_HttpResult> _post(String path, Map<String, dynamic> body) async {
     final client = HttpClient();
     client.badCertificateCallback = (cert, h, p) => true;
@@ -45,6 +53,38 @@ class AuthApi {
     } finally {
       client.close(force: true);
     }
+  }
+
+  Future<_HttpResult> _postUser(String path, Map<String, dynamic> body) async {
+    final client = HttpClient();
+    client.badCertificateCallback = (cert, h, p) => true;
+    try {
+      final req = await client.postUrl(_buildUserUri(path));
+      req.headers.contentType = ContentType.json;
+      req.write(jsonEncode(body));
+      final resp = await req.close();
+      final text = await utf8.decodeStream(resp);
+      dynamic data;
+      try {
+        data = jsonDecode(text);
+      } catch (_) {
+        data = text;
+      }
+      return _HttpResult(statusCode: resp.statusCode, data: data);
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  String _resolveLanguageTag() {
+    final locale = LocaleManager.localeNotifier.value;
+    if (locale == null) {
+      return 'en-US';
+    }
+    if (locale.languageCode == 'zh') {
+      return 'zh-CN';
+    }
+    return 'en-US';
   }
 
   String _extractMessage(dynamic data, String fallback) {
@@ -68,7 +108,11 @@ class AuthApi {
   }
 
   Future<AuthUser> login(String email, String password) async {
-    final res = await _post('login', {'email': email, 'password': password});
+    final res = await _post('login', {
+      'email': email,
+      'password': password,
+      'language': _resolveLanguageTag(),
+    });
     if (res.statusCode >= 400) {
       throw AuthApiException(_extractMessage(res.data, '登录失败'));
     }
@@ -102,6 +146,7 @@ class AuthApi {
     final res = await _post('register', {
       'email': email,
       'password': password,
+      'language': _resolveLanguageTag(),
     });
     if (res.statusCode >= 400) {
       throw AuthApiException(_extractMessage(res.data, '注册失败'));
@@ -130,6 +175,19 @@ class AuthApi {
       throw AuthApiException(_extractMessage(res.data, '重置密码失败'));
     }
   }
+
+  Future<void> updateLanguage({
+    required String email,
+    required String language,
+  }) async {
+    final res = await _postUser('update-language', {
+      'email': email,
+      'language': language,
+    });
+    if (res.statusCode >= 400) {
+      throw AuthApiException(_extractMessage(res.data, '更新语言失败'));
+    }
+  }
 }
 
 class _HttpResult {
@@ -146,4 +204,3 @@ class AuthApiException implements Exception {
   @override
   String toString() => message;
 }
-
