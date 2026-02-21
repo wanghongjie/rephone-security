@@ -703,8 +703,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       
       if (isDetected) {
         LogUtils.i('CameraEndpoint', '检测到人物 (严格模式)，准备录制');
-        
-        // 保存快照
         final tempDir = await getTemporaryDirectory();
         final file = File('${tempDir.path}/captureFrame.png');
         if (await file.exists()) {
@@ -717,14 +715,55 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
           final imagePath = '${snapshotDir.path}/snapshot_$timestamp.png';
           
           await file.copy(imagePath);
-          
           _startTenSecondsRecording(imagePath);
+          await _sendAlertWithSnapshot(imagePath);
         }
       }
     } catch (e) {
       LogUtils.e('CameraEndpoint', 'Error in detection loop', e);
     } finally {
       _isDetecting = false;
+    }
+  }
+
+  Future<void> _sendAlertWithSnapshot(String imagePath) async {
+    try {
+      final user = await SessionManager.getUser();
+      if (user == null) {
+        LogUtils.w('CameraEndpoint', 'No logged in user, skip alert upload');
+        return;
+      }
+
+      final platform = Platform.isAndroid
+          ? 'android'
+          : Platform.isIOS
+              ? 'ios'
+              : Platform.operatingSystem;
+
+      final body = <String, dynamic>{
+        'email': user.email,
+        'platform': platform,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'camera_id': _selfId,
+      };
+
+      final uri = Uri.parse('https://rephone.top/api/push/alert');
+      final client = HttpClient();
+
+      final request = await client.postUrl(uri);
+      request.headers.contentType = ContentType.json;
+      request.add(utf8.encode(jsonEncode(body)));
+
+      final response = await request.close();
+      final respBody = await response.transform(utf8.decoder).join();
+      LogUtils.i(
+        'CameraEndpoint',
+        'Alert push response [${response.statusCode}]: $respBody',
+      );
+
+      client.close(force: true);
+    } catch (e, st) {
+      LogUtils.e('CameraEndpoint', 'Failed to send alert snapshot', e, st);
     }
   }
 

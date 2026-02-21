@@ -37,6 +37,9 @@ class PushService {
       await reportTokenForLoggedInMonitor(forceToken: newToken);
     });
 
+    // 如果已经是登录状态，并且是 monitor 端，启动时主动刷新一次 token
+    await reportTokenForLoggedInMonitor();
+
     _initialized = true;
   }
 
