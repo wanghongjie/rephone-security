@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="camera_service_channel_name">相机服务</string>
+    <string name="camera_service_channel_description">保持相机在后台持续采集视频与音频。</string>
+    <string name="camera_service_notification_title">相机端运行中</string>
+    <string name="camera_service_notification_text">正在持续采集视频/音频，锁屏后仍可接收监控请求。</string>
+</resources>

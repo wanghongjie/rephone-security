@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import com.rephone.security.R
 
 class CameraForegroundService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
@@ -75,10 +76,10 @@ class CameraForegroundService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "相机服务",
+                getString(R.string.camera_service_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "保持相机在后台持续采集视频与音频"
+                description = getString(R.string.camera_service_channel_description)
                 setShowBadge(false)
             }
             val notificationManager = getSystemService(NotificationManager::class.java)
@@ -94,8 +95,8 @@ class CameraForegroundService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("相机端运行中")
-            .setContentText("正在持续采集视频/音频，锁屏后仍可接收监控请求")
+            .setContentTitle(getString(R.string.camera_service_notification_title))
+            .setContentText(getString(R.string.camera_service_notification_text))
             .setSmallIcon(android.R.drawable.ic_menu_camera)
             .setContentIntent(pendingIntent)
             .setOngoing(true)

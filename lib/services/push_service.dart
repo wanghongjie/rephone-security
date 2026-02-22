@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/services.dart';
 
 import '../models/auth_user.dart';
 import '../utils/log_utils.dart';
@@ -10,9 +11,21 @@ import 'session_manager.dart';
 class PushService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   static bool _initialized = false;
+  static const MethodChannel _platformChannel = MethodChannel('camera_service');
 
   static Future<void> init() async {
     if (_initialized) return;
+
+    if (Platform.isAndroid) {
+      final hasPlayServices = await _isGooglePlayServicesAvailable();
+      if (!hasPlayServices) {
+        LogUtils.w(
+          'PushService',
+          'Google Play services not available, skip FCM initialization',
+        );
+        return;
+      }
+    }
 
     if (Platform.isIOS) {
       final settings = await _messaging.requestPermission(
@@ -41,6 +54,28 @@ class PushService {
     await reportTokenForLoggedInMonitor();
 
     _initialized = true;
+  }
+
+  static Future<bool> _isGooglePlayServicesAvailable() async {
+    try {
+      final result = await _platformChannel.invokeMethod<bool>(
+        'isGooglePlayServicesAvailable',
+      );
+      final available = result ?? false;
+      LogUtils.i(
+        'PushService',
+        'Google Play services availability (Android): $available',
+      );
+      return available;
+    } catch (e, st) {
+      LogUtils.e(
+        'PushService',
+        'Failed to check Google Play services availability',
+        e,
+        st,
+      );
+      return false;
+    }
   }
 
   static Future<void> reportTokenForLoggedInMonitor({String? forceToken}) async {

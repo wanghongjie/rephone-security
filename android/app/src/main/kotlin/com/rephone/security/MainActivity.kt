@@ -11,6 +11,8 @@ import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -79,6 +81,13 @@ class MainActivity: FlutterActivity() {
                         result.success(isIgnoringBatteryOptimizations())
                     } catch (e: Exception) {
                         result.error("CHECK_ERROR", "Failed to check battery optimization: ${e.message}", null)
+                    }
+                }
+                "isGooglePlayServicesAvailable" -> {
+                    try {
+                        result.success(isGooglePlayServicesAvailable())
+                    } catch (e: Exception) {
+                        result.error("CHECK_ERROR", "Failed to check Google Play services: ${e.message}", null)
                     }
                 }
                 else -> {
@@ -157,6 +166,12 @@ class MainActivity: FlutterActivity() {
             return powerManager.isIgnoringBatteryOptimizations(packageName)
         }
         return true
+    }
+
+    private fun isGooglePlayServicesAvailable(): Boolean {
+        val apiAvailability = GoogleApiAvailability.getInstance()
+        val status = apiAvailability.isGooglePlayServicesAvailable(this)
+        return status == ConnectionResult.SUCCESS
     }
 
     override fun onDestroy() {

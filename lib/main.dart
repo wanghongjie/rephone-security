@@ -29,7 +29,7 @@ void main() async {
   await LocaleManager.init();
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  await PushService.init();
+  PushService.init();
 
   // 设置沉浸式状态栏
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(

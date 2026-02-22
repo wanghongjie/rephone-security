@@ -995,14 +995,17 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
               value: _role,
               onSelected: (role) async {
                 if (role == 'monitor') {
-                  widget.onSwitchToMonitor();
-                  return;
+                  await _releaseResources();
+                  if (mounted) {
+                    widget.onSwitchToMonitor();
+                  }
+                } else {
+                  setState(() {
+                    _role = 'camera';
+                  });
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('camera_role', 'camera');
                 }
-                setState(() {
-                  _role = 'camera';
-                });
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('camera_role', 'camera');
               },
             ),
           ),

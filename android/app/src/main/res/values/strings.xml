@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="camera_service_channel_name">Camera service</string>
+    <string name="camera_service_channel_description">Keeps the camera running in the background for continuous video and audio capture.</string>
+    <string name="camera_service_notification_title">Camera mode active</string>
+    <string name="camera_service_notification_text">RePhone Security is capturing video and audio so it can receive monitor requests even when the screen is off.</string>
+</resources>
