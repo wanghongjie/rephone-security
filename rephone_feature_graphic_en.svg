@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="500" viewBox="0 0 1024 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E88E5"/>
+      <stop offset="100%" stop-color="#42A5F5"/>
+    </linearGradient>
+    <linearGradient id="lightGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.10"/>
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.08"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="500" rx="40" ry="40" fill="url(#bgGradient)"/>
+
+  <rect x="-120" y="110" width="820" height="260" fill="url(#lightGradient)" transform="rotate(-6 0 0)" opacity="0.85"/>
+
+  <g transform="translate(280 250)">
+    <path d="
+      M 0 -170
+      C -88 -170 -158 -104 -158 -20
+      C -158 54 -102 132 -30 194
+      C -20 202 20 202 30 194
+      C 102 132 158 54 158 -20
+      C 158 -104 88 -170 0 -170
+      Z
+    " fill="#E3F2FD"/>
+
+    <circle cx="0" cy="-40" r="90" fill="#1976D2"/>
+    <circle cx="0" cy="-40" r="64" fill="#42A5F5"/>
+
+    <circle cx="0" cy="-40" r="36" fill="#0D47A1"/>
+
+    <circle cx="30" cy="-68" r="11" fill="#E3F2FD" opacity="0.9"/>
+  </g>
+
+  <g transform="translate(440 185)" fill="#FFFFFF">
+    <text x="0" y="0"
+          font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+          font-size="44"
+          font-weight="700">
+      RePhone Security
+    </text>
+    <text x="0" y="56"
+          font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+          font-size="21"
+          opacity="0.96">
+      Turn spare phones into home security cameras.
+    </text>
+    <text x="0" y="96"
+          font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+          font-size="18"
+          opacity="0.9">
+      Smart monitoring · Human detection · Event recording &amp; playback
+    </text>
+  </g>
+</svg>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景：蓝色渐变带圆角 -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E88E5"/>
+      <stop offset="100%" stop-color="#42A5F5"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" rx="110" ry="110" fill="url(#bgGradient)"/>
+
+  <!-- 中间的定位+眼睛形状背景 -->
+  <g transform="translate(256 260)">
+    <!-- 定位图标形状 -->
+    <path d="
+      M 0 -160
+      C -82 -160 -148 -96 -148 -16
+      C -148 54 -96 126 -26 184
+      C -16 192 16 192 26 184
+      C 96 126 148 54 148 -16
+      C 148 -96 82 -160 0 -160
+      Z
+    " fill="#E3F2FD"/>
+
+    <!-- 镜头外圈 -->
+    <circle cx="0" cy="-40" r="82" fill="#1976D2"/>
+    <circle cx="0" cy="-40" r="58" fill="#42A5F5"/>
+
+    <!-- 镜头内圈 -->
+    <circle cx="0" cy="-40" r="32" fill="#0D47A1"/>
+
+    <!-- 高光点 -->
+    <circle cx="26" cy="-64" r="10" fill="#E3F2FD" opacity="0.9"/>
+  </g>
+</svg>

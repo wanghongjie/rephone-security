@@ -60,6 +60,7 @@ dependencies:
   chewie: ^1.8.1
   firebase_core: any
   firebase_messaging: any
+  in_app_purchase: ^3.2.0
 
 dependency_overrides:
   package_info_plus: ^8.0.2

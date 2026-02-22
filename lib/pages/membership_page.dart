@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
+import '../services/iap_service.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 
 class MembershipPage extends StatefulWidget {
   const MembershipPage({super.key});
@@ -11,6 +13,10 @@ class MembershipPage extends StatefulWidget {
 class _MembershipPageState extends State<MembershipPage> {
   bool _isCurrentlyMember = false;
   DateTime? _membershipExpiry;
+  bool _loadingProducts = true;
+  String? _error;
+
+  final IapService _iap = IapService.instance;
 
   final List<MembershipPlan> _plans = [
     MembershipPlan(
@@ -18,14 +24,57 @@ class _MembershipPageState extends State<MembershipPage> {
       price: null,
       isRecommended: false,
       isCurrentPlan: true,
+      productId: null,
+      displayPrice: null,
     ),
     MembershipPlan(
       id: 'pro',
       price: 19.9,
       isRecommended: true,
       isCurrentPlan: false,
+      productId: 'rephone_premium_monthly',
+      displayPrice: null,
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initIap();
+  }
+
+  Future<void> _initIap() async {
+    try {
+      await _iap.init();
+      if (!mounted) return;
+      setState(() {
+        _loadingProducts = false;
+        final proIndex = _plans.indexWhere((p) => p.id == 'pro');
+        if (proIndex != -1) {
+          final proPlan = _plans[proIndex];
+          final product = proPlan.productId == null
+              ? null
+              : _iap.getProduct(proPlan.productId!);
+          if (product != null) {
+            _plans[proIndex] = MembershipPlan(
+              id: proPlan.id,
+              price: proPlan.price,
+              isRecommended: proPlan.isRecommended,
+              isCurrentPlan: proPlan.isCurrentPlan,
+              productId: proPlan.productId,
+              displayPrice: product.price,
+            );
+          }
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingProducts = false;
+        _error = 'failed';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +86,10 @@ class _MembershipPageState extends State<MembershipPage> {
           children: [
             _buildMembershipStatus(),
             const SizedBox(height: 32),
-            _buildPlansSection(),
+            if (_loadingProducts)
+              const Center(child: CircularProgressIndicator())
+            else
+              _buildPlansSection(),
             const SizedBox(height: 32),
             _buildFAQSection(),
           ],
@@ -220,7 +272,7 @@ class _MembershipPageState extends State<MembershipPage> {
                       TextSpan(
                         text: plan.isFree
                             ? l.membershipPriceFree
-                            : '¥${plan.price!.toStringAsFixed(1)}',
+                            : plan.displayPrice ?? '¥${plan.price!.toStringAsFixed(1)}',
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -346,12 +398,20 @@ class _MembershipPageState extends State<MembershipPage> {
             child: Text(l.commonCancel),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
+              final productId = plan.productId;
+              final product = productId == null ? null : _iap.getProduct(productId);
+              if (product == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l.membershipDialogSubscribeContent)),
+                );
+                return;
+              }
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('${l.membershipDialogProcessing} $planName')),
               );
-              // TODO: 实现订阅逻辑
+              await _iap.buy(product);
             },
             child: Text(l.commonConfirm),
           ),
@@ -366,12 +426,16 @@ class MembershipPlan {
   final double? price;
   final bool isRecommended;
   final bool isCurrentPlan;
+  final String? productId;
+  final String? displayPrice;
 
   MembershipPlan({
     required this.id,
     required this.price,
     required this.isRecommended,
     required this.isCurrentPlan,
+    this.productId,
+    this.displayPrice,
   });
 
   bool get isFree => price == null || price == 0;
