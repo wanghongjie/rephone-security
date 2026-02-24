@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:gallery_saver/gallery_saver.dart';
+import 'package:gallery_saver_plus/gallery_saver.dart';
 import 'video_player_page.dart';
 import '../models/camera_device.dart';
 import '../models/detection_event.dart'; // 需要用到 DetectionEvent 模型来解析，或者直接用 Map

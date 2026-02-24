@@ -4,6 +4,7 @@ allprojects {
         maven { url 'https://maven.aliyun.com/repository/google' }
         maven { url 'https://maven.aliyun.com/repository/public' }
         maven { url 'https://storage.flutter-io.cn/download.flutter.io' }
+        maven { url 'https://jitpack.io' }
         google()
         mavenCentral()
     }
@@ -51,9 +52,23 @@ tasks.register("renameFlutterReleaseBundle", Copy) {
     }
 }
 
-// Fix gallery_saver plugin Android config for newer SDK / AGP
+// Force all Android library subprojects (e.g. wakelock_plus) to use root compileSdk so we don't
+// need to install extra SDK platforms (avoids corrupted Platform 33 download).
 subprojects { subproject ->
-    if (subproject.name.contains("gallery_saver")) {
+    subproject.plugins.withId("com.android.library") {
+        def androidExt = subproject.extensions.findByName("android")
+        if (androidExt != null) {
+            androidExt.compileSdkVersion rootProject.ext.compileSdkVersion
+            if (androidExt.defaultConfig != null) {
+                androidExt.defaultConfig.targetSdkVersion rootProject.ext.targetSdkVersion
+                androidExt.defaultConfig.minSdkVersion rootProject.ext.minSdkVersion
+            }
+        }
+    }
+}
+// Legacy fix for old gallery_saver only (not used when using gallery_saver_plus)
+subprojects { subproject ->
+    if (subproject.name == "gallery_saver") {
         subproject.plugins.withId("com.android.library") {
             def androidExt = subproject.extensions.findByName("android")
             if (androidExt != null && androidExt.hasProperty("namespace")) {
