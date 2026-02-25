@@ -48,7 +48,7 @@ dependencies:
   # so we let pub choose the newest compatible version. Upgrade Flutter/Dart to use ^7.0.0.
   google_mobile_ads: any
   qr_flutter: ^4.1.0
-  mobile_scanner: ^5.2.3
+  qr_code_scanner: ^1.0.1
   webview_flutter: ^4.10.0
   # 与当前 Flutter SDK 内置的 flutter_localizations 保持一致
   intl: ^0.20.2

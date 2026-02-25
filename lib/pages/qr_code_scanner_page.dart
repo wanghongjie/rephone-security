@@ -1,5 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_code_scanner/qr_code_scanner.dart';
 import '../l10n/app_localizations.dart';
 import '../services/bind_api.dart';
 import '../services/session_manager.dart';
@@ -14,26 +15,34 @@ class QRCodeScannerPage extends StatefulWidget {
 }
 
 class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
-  final MobileScannerController _controller = MobileScannerController();
-  bool _isProcessing = false;
+  final GlobalKey _qrKey = GlobalKey(debugLabel: 'QR');
+  QRViewController? _controller;
+  bool _isProcessing = false; // 绑定处理中
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
-  void _onDetect(BarcodeCapture capture) async {
+  void _onQRViewCreated(QRViewController controller) {
+    _controller = controller;
+    controller.scannedDataStream.listen(_onScan);
+  }
+
+  Future<void> _onScan(Barcode barcode) async {
     if (_isProcessing) return;
 
-    final List<Barcode> barcodes = capture.barcodes;
-    if (barcodes.isEmpty) return;
+    final code = barcode.code;
+    if (code == null) return;
 
-    final barcode = barcodes.first;
-    if (barcode.rawValue == null) return;
+    final monitorEmail = code.trim();
 
-    final monitorEmail = barcode.rawValue!.trim();
-    
     if (!monitorEmail.contains('@') || !monitorEmail.contains('.')) {
       if (mounted) {
         final l = AppLocalizations.of(context);
@@ -51,8 +60,7 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
       _isProcessing = true;
     });
 
-    // 停止扫描
-    await _controller.stop();
+    await _controller?.pauseCamera();
 
     // 直接处理绑定，监控端邮箱和相机端邮箱是同一个
     await _processBinding(monitorEmail);
@@ -115,7 +123,7 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
           _isProcessing = false;
         });
         // 重新开始扫描
-        await _controller.start();
+        await _controller?.resumeCamera();
       }
     }
   }
@@ -130,9 +138,27 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
       ),
       body: Stack(
         children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: _onDetect,
+          QRView(
+            key: _qrKey,
+            onQRViewCreated: _onQRViewCreated,
+            overlay: QrScannerOverlayShape(
+              borderColor: Colors.white,
+              borderRadius: 8,
+              borderLength: 24,
+              borderWidth: 8,
+              cutOutSize: 260,
+            ),
+            onPermissionSet: (ctrl, p) {
+              if (!p && mounted) {
+                final l = AppLocalizations.of(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(l.qrScanInvalidFormat),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
           ),
           if (_isProcessing)
             Container(

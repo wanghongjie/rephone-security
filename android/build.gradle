@@ -92,6 +92,14 @@ subprojects { subproject ->
             }
         }
     }
+    // Align Kotlin and Java bytecode levels for qr_code_scanner plugin as well
+    if (subproject.name == "qr_code_scanner") {
+        subproject.tasks.withType(KotlinCompile).configureEach { task ->
+            if (task.kotlinOptions != null) {
+                task.kotlinOptions.jvmTarget = '1.8'
+            }
+        }
+    }
     if (subproject.name == "app") {
         subproject.tasks.matching { it.name == "assembleRelease" }.configureEach { task ->
             task.finalizedBy(rootProject.tasks.named("renameFlutterReleaseApk"))
