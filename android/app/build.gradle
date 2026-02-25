@@ -49,6 +49,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // 使用 release 签名，便于 debug 包也能从 Play 查询 IAP 价格（需与上传证书一致）
+            if (keystoreProperties['storeFile']) {
+                signingConfig = signingConfigs.release
+            }
+        }
         release {
             if (keystoreProperties['storeFile']) {
                 signingConfig = signingConfigs.release

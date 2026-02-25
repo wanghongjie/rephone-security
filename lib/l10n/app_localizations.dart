@@ -175,6 +175,9 @@ class AppLocalizations {
       'membershipPriceFree': 'Free',
       'membershipDurationForever': 'Forever',
       'membershipDurationMonth': 'month',
+      'membershipDurationYear': 'year',
+      'membershipPlanMonthly': 'Monthly',
+      'membershipPlanYearly': 'Yearly',
       'membershipFaqTitle': 'FAQ',
       'membershipFaqCancelTitle': 'How to cancel subscription?',
       'membershipFaqCancelContent':
@@ -436,6 +439,9 @@ class AppLocalizations {
       'membershipPriceFree': '免费',
       'membershipDurationForever': '永久',
       'membershipDurationMonth': '月',
+      'membershipDurationYear': '年',
+      'membershipPlanMonthly': '月付',
+      'membershipPlanYearly': '年付',
       'membershipFaqTitle': '常见问题',
       'membershipFaqCancelTitle': '如何取消订阅？',
       'membershipFaqCancelContent':
@@ -688,6 +694,9 @@ class AppLocalizations {
   String get membershipPriceFree => _t('membershipPriceFree');
   String get membershipDurationForever => _t('membershipDurationForever');
   String get membershipDurationMonth => _t('membershipDurationMonth');
+  String get membershipDurationYear => _t('membershipDurationYear');
+  String get membershipPlanMonthly => _t('membershipPlanMonthly');
+  String get membershipPlanYearly => _t('membershipPlanYearly');
   String get membershipFaqTitle => _t('membershipFaqTitle');
   String get membershipFaqCancelTitle => _t('membershipFaqCancelTitle');
   String get membershipFaqCancelContent => _t('membershipFaqCancelContent');

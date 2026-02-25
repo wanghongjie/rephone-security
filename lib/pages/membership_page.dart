@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
+
 import '../l10n/app_localizations.dart';
 import '../services/iap_service.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 
 class MembershipPage extends StatefulWidget {
   const MembershipPage({super.key});
@@ -15,32 +18,51 @@ class _MembershipPageState extends State<MembershipPage> {
   DateTime? _membershipExpiry;
   bool _loadingProducts = true;
   String? _error;
+  StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
 
   final IapService _iap = IapService.instance;
 
-  final List<MembershipPlan> _plans = [
-    MembershipPlan(
-      id: 'basic',
-      price: null,
-      isRecommended: false,
-      isCurrentPlan: true,
-      productId: null,
-      displayPrice: null,
-    ),
-    MembershipPlan(
-      id: 'pro',
-      price: 19.9,
-      isRecommended: true,
-      isCurrentPlan: false,
-      productId: 'rephone_premium_monthly',
-      displayPrice: null,
-    ),
-  ];
+  /// 基础版(免费) + 月付 + 年付；年付推荐
+  late List<MembershipPlan> _plans;
 
   @override
   void initState() {
     super.initState();
+    _plans = _defaultPlans();
     _initIap();
+    _listenPurchases();
+  }
+
+  List<MembershipPlan> _defaultPlans() {
+    return [
+      MembershipPlan(
+        id: 'basic',
+        planType: MembershipPlanType.basic,
+        price: null,
+        isRecommended: false,
+        isCurrentPlan: true,
+        productId: null,
+        displayPrice: null,
+      ),
+      MembershipPlan(
+        id: 'monthly',
+        planType: MembershipPlanType.monthly,
+        price: null,
+        isRecommended: false,
+        isCurrentPlan: false,
+        productId: 'rephone_premium_monthly',
+        displayPrice: null,
+      ),
+      MembershipPlan(
+        id: 'yearly',
+        planType: MembershipPlanType.yearly,
+        price: null,
+        isRecommended: true,
+        isCurrentPlan: false,
+        productId: 'rephone_premium_yearly',
+        displayPrice: null,
+      ),
+    ];
   }
 
   Future<void> _initIap() async {
@@ -49,31 +71,69 @@ class _MembershipPageState extends State<MembershipPage> {
       if (!mounted) return;
       setState(() {
         _loadingProducts = false;
-        final proIndex = _plans.indexWhere((p) => p.id == 'pro');
-        if (proIndex != -1) {
-          final proPlan = _plans[proIndex];
-          final product = proPlan.productId == null
-              ? null
-              : _iap.getProduct(proPlan.productId!);
-          if (product != null) {
-            _plans[proIndex] = MembershipPlan(
-              id: proPlan.id,
-              price: proPlan.price,
-              isRecommended: proPlan.isRecommended,
-              isCurrentPlan: proPlan.isCurrentPlan,
-              productId: proPlan.productId,
-              displayPrice: product.price,
-            );
+        for (var i = 0; i < _plans.length; i++) {
+          final plan = _plans[i];
+          if (plan.productId != null) {
+            final product = _iap.getProduct(plan.productId!);
+            if (product != null) {
+              _plans[i] = plan.copyWith(displayPrice: product.price);
+            }
           }
         }
       });
-    } catch (_) {
+    } catch (e, st) {
       if (!mounted) return;
       setState(() {
         _loadingProducts = false;
         _error = 'failed';
       });
+      debugPrint('[MembershipPage] _initIap error: $e $st');
     }
+  }
+
+  void _listenPurchases() {
+    _purchaseSubscription = _iap.purchasesStream.listen((list) async {
+      if (!mounted) return;
+      for (final purchase in list) {
+        switch (purchase.status) {
+          case PurchaseStatus.pending:
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(AppLocalizations.of(context).membershipDialogProcessing)),
+              );
+            }
+            break;
+          case PurchaseStatus.purchased:
+          case PurchaseStatus.restored:
+            await _iap.completePurchase(purchase);
+            if (!mounted) return;
+            setState(() {
+              _isCurrentlyMember = true;
+              // 若服务端有到期时间可在此更新 _membershipExpiry
+            });
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${AppLocalizations.of(context).membershipStatusPremium} ✓')),
+              );
+            }
+            break;
+          case PurchaseStatus.error:
+            if (mounted) {
+              final msg = purchase.error?.message ?? 'Purchase failed';
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+            }
+            break;
+          case PurchaseStatus.canceled:
+            break;
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _purchaseSubscription?.cancel();
+    super.dispose();
   }
 
   @override
@@ -85,12 +145,19 @@ class _MembershipPageState extends State<MembershipPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildMembershipStatus(),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
             if (_loadingProducts)
-              const Center(child: CircularProgressIndicator())
+              const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+            else if (_error != null)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                ),
+              )
             else
               _buildPlansSection(),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
             _buildFAQSection(),
           ],
         ),
@@ -140,26 +207,27 @@ class _MembershipPageState extends State<MembershipPage> {
                     if (_isCurrentlyMember && _membershipExpiry != null)
                       Text(
                         '${l.membershipExpiryPrefix}${_formatDate(_membershipExpiry!)}',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
+                        style: const TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          if (!_isCurrentlyMember)
+          if (!_isCurrentlyMember) ...[
+            const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _showUpgradeDialog,
+              onPressed: () {
+                // 滚动到套餐区域或直接展开
+                _showUpgradeDialog();
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.grey[800],
               ),
               child: Text(l.membershipButtonUpgrade),
             ),
+          ],
         ],
       ),
     );
@@ -173,25 +241,41 @@ class _MembershipPageState extends State<MembershipPage> {
       children: [
         Text(
           l.membershipSectionTitle,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
         ),
-        const SizedBox(height: 16),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _plans.length,
-          itemBuilder: (context, index) {
-            return _buildPlanCard(_plans[index]);
-          },
+        const SizedBox(height: 8),
+        Text(
+          l.membershipDialogUpgradeContent,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
         ),
+        const SizedBox(height: 16),
+        ..._plans.map((plan) => _buildPlanCard(plan)),
       ],
     );
   }
 
   Widget _buildPlanCard(MembershipPlan plan) {
     final l = AppLocalizations.of(context);
+    final isBasic = plan.planType == MembershipPlanType.basic;
+    final isMonthly = plan.planType == MembershipPlanType.monthly;
+    final isYearly = plan.planType == MembershipPlanType.yearly;
+
+    String title;
+    String durationSuffix;
+    if (isBasic) {
+      title = l.membershipPlanBasic;
+      durationSuffix = l.membershipDurationForever;
+    } else if (isMonthly) {
+      title = '${l.membershipPlanPro} · ${l.membershipPlanMonthly}';
+      durationSuffix = l.membershipDurationMonth;
+    } else {
+      title = '${l.membershipPlanPro} · ${l.membershipPlanYearly}';
+      durationSuffix = l.membershipDurationYear;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -205,6 +289,7 @@ class _MembershipPageState extends State<MembershipPage> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
           if (plan.isRecommended)
             Positioned(
@@ -238,7 +323,7 @@ class _MembershipPageState extends State<MembershipPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      plan.id == 'basic' ? l.membershipPlanBasic : l.membershipPlanPro,
+                      title,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -246,20 +331,14 @@ class _MembershipPageState extends State<MembershipPage> {
                     ),
                     if (plan.isCurrentPlan)
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.green,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           l.membershipBadgeCurrent,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
                         ),
                       ),
                   ],
@@ -272,7 +351,7 @@ class _MembershipPageState extends State<MembershipPage> {
                       TextSpan(
                         text: plan.isFree
                             ? l.membershipPriceFree
-                            : plan.displayPrice ?? '¥${plan.price!.toStringAsFixed(1)}',
+                            : (plan.displayPrice ?? '¥${plan.price?.toStringAsFixed(1) ?? "—"}'),
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -280,11 +359,8 @@ class _MembershipPageState extends State<MembershipPage> {
                         ),
                       ),
                       TextSpan(
-                        text: plan.isFree ? ' · ${l.membershipDurationForever}' : '/${l.membershipDurationMonth}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        text: plan.isFree ? ' · $durationSuffix' : '/$durationSuffix',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -321,11 +397,11 @@ class _MembershipPageState extends State<MembershipPage> {
       children: [
         Text(
           l.membershipFaqTitle,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         ExpansionTile(
           title: Text(l.membershipFaqCancelTitle),
           children: [
@@ -374,7 +450,6 @@ class _MembershipPageState extends State<MembershipPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // TODO: 跳转到订阅页面
             },
             child: Text(l.membershipButtonUpgrade),
           ),
@@ -385,7 +460,15 @@ class _MembershipPageState extends State<MembershipPage> {
 
   void _subscribeToPlan(MembershipPlan plan) {
     final l = AppLocalizations.of(context);
-    final planName = plan.id == 'basic' ? l.membershipPlanBasic : l.membershipPlanPro;
+    final productId = plan.productId;
+    final product = productId == null ? null : _iap.getProduct(productId);
+
+    if (product == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.membershipDialogSubscribeContent)),
+      );
+      return;
+    }
 
     showDialog(
       context: context,
@@ -400,16 +483,8 @@ class _MembershipPageState extends State<MembershipPage> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              final productId = plan.productId;
-              final product = productId == null ? null : _iap.getProduct(productId);
-              if (product == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l.membershipDialogSubscribeContent)),
-                );
-                return;
-              }
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${l.membershipDialogProcessing} $planName')),
+                SnackBar(content: Text('${l.membershipDialogProcessing} ${product.title}')),
               );
               await _iap.buy(product);
             },
@@ -421,8 +496,11 @@ class _MembershipPageState extends State<MembershipPage> {
   }
 }
 
+enum MembershipPlanType { basic, monthly, yearly }
+
 class MembershipPlan {
   final String id;
+  final MembershipPlanType planType;
   final double? price;
   final bool isRecommended;
   final bool isCurrentPlan;
@@ -431,6 +509,7 @@ class MembershipPlan {
 
   MembershipPlan({
     required this.id,
+    required this.planType,
     required this.price,
     required this.isRecommended,
     required this.isCurrentPlan,
@@ -439,10 +518,25 @@ class MembershipPlan {
   });
 
   bool get isFree => price == null || price == 0;
+
+  MembershipPlan copyWith({
+    String? displayPrice,
+    bool? isCurrentPlan,
+  }) {
+    return MembershipPlan(
+      id: id,
+      planType: planType,
+      price: price,
+      isRecommended: isRecommended,
+      isCurrentPlan: isCurrentPlan ?? this.isCurrentPlan,
+      productId: productId,
+      displayPrice: displayPrice ?? this.displayPrice,
+    );
+  }
 }
 
 List<Widget> _buildFeatureWidgets(MembershipPlan plan, AppLocalizations l) {
-  final featureKeys = plan.id == 'basic'
+  final featureKeys = plan.planType == MembershipPlanType.basic
       ? [
           'membershipFeatureNoDeviceLimit',
           'membershipFeatureBasicCloudImages',
@@ -461,13 +555,9 @@ List<Widget> _buildFeatureWidgets(MembershipPlan plan, AppLocalizations l) {
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
             children: [
-              Icon(
-                Icons.check_circle,
-                size: 16,
-                color: Colors.green,
-              ),
+              Icon(Icons.check_circle, size: 16, color: Colors.green),
               const SizedBox(width: 8),
-              Text(l.tr(key)),
+              Expanded(child: Text(l.tr(key))),
             ],
           ),
         ),
