@@ -24,6 +24,7 @@ class _MembershipPageState extends State<MembershipPage> {
 
   /// 基础版(免费) + 月付 + 年付；年付推荐
   late List<MembershipPlan> _plans;
+  String _selectedPremiumPlanId = 'yearly';
 
   @override
   void initState() {
@@ -236,6 +237,40 @@ class _MembershipPageState extends State<MembershipPage> {
   Widget _buildPlansSection() {
     final l = AppLocalizations.of(context);
 
+    final monthlyPlan = _plans.firstWhere((p) => p.planType == MembershipPlanType.monthly);
+    final yearlyPlan = _plans.firstWhere((p) => p.planType == MembershipPlanType.yearly);
+
+    final pricesMissing = !_loadingProducts &&
+        (monthlyPlan.displayPrice == null || yearlyPlan.displayPrice == null);
+
+    if (pricesMissing) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 24),
+            Text(
+              l.membershipDialogSubscribeContent,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _loadingProducts = true;
+                  _error = null;
+                });
+                _initIap();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -253,138 +288,147 @@ class _MembershipPageState extends State<MembershipPage> {
               ),
         ),
         const SizedBox(height: 16),
-        ..._plans.map((plan) => _buildPlanCard(plan)),
+        _buildCombinedPremiumCard(monthlyPlan, yearlyPlan),
       ],
     );
   }
 
-  Widget _buildPlanCard(MembershipPlan plan) {
+  Widget _buildCombinedPremiumCard(MembershipPlan monthly, MembershipPlan yearly) {
     final l = AppLocalizations.of(context);
-    final isBasic = plan.planType == MembershipPlanType.basic;
-    final isMonthly = plan.planType == MembershipPlanType.monthly;
-    final isYearly = plan.planType == MembershipPlanType.yearly;
-
-    String title;
-    String durationSuffix;
-    if (isBasic) {
-      title = l.membershipPlanBasic;
-      durationSuffix = l.membershipDurationForever;
-    } else if (isMonthly) {
-      title = '${l.membershipPlanPro} · ${l.membershipPlanMonthly}';
-      durationSuffix = l.membershipDurationMonth;
-    } else {
-      title = '${l.membershipPlanPro} · ${l.membershipPlanYearly}';
-      durationSuffix = l.membershipDurationYear;
-    }
+    final isYearlySelected = _selectedPremiumPlanId == yearly.id;
+    final selectedPlan = isYearlySelected ? yearly : monthly;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: plan.isRecommended
-              ? Theme.of(context).colorScheme.primary
-              : Colors.grey[300]!,
-          width: plan.isRecommended ? 2 : 1,
-        ),
-        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).colorScheme.primary, width: 2),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
+      child: Column(
         children: [
-          if (plan.isRecommended)
-            Positioned(
-              top: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(12),
-                    bottomLeft: Radius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  l.membershipBadgeRecommended,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(14),
+                topRight: Radius.circular(14),
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (plan.isCurrentPlan)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          l.membershipBadgeCurrent,
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                RichText(
-                  text: TextSpan(
-                    style: DefaultTextStyle.of(context).style,
-                    children: [
-                      TextSpan(
-                        text: plan.isFree
-                            ? l.membershipPriceFree
-                            : (plan.displayPrice ?? '¥${plan.price?.toStringAsFixed(1) ?? "—"}'),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange,
-                        ),
-                      ),
-                      TextSpan(
-                        text: plan.isFree ? ' · $durationSuffix' : '/$durationSuffix',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                    ],
+                Icon(Icons.star, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  l.membershipPlanPro,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                const SizedBox(height: 16),
-                ..._buildFeatureWidgets(plan, l),
-                const SizedBox(height: 16),
-                if (!plan.isCurrentPlan)
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => _subscribeToPlan(plan),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: plan.isRecommended
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
-                      child: Text(l.membershipActionSubscribe),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                ..._buildFeatureWidgets(yearly, l),
+                const Divider(height: 32),
+                _buildPlanOption(monthly, l),
+                const SizedBox(height: 12),
+                _buildPlanOption(yearly, l),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => _subscribeToPlan(selectedPlan),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: Text(
+                      '${l.membershipActionSubscribe} ${selectedPlan.displayPrice ?? ""}',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
+                ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPlanOption(MembershipPlan plan, AppLocalizations l) {
+    final isSelected = _selectedPremiumPlanId == plan.id;
+    final isYearly = plan.planType == MembershipPlanType.yearly;
+
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedPremiumPlanId = plan.id;
+        });
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          color: isSelected
+              ? Theme.of(context).colorScheme.primary.withOpacity(0.05)
+              : null,
+        ),
+        child: Row(
+          children: [
+            Radio<String>(
+              value: plan.id,
+              groupValue: _selectedPremiumPlanId,
+              onChanged: (v) {
+                if (v != null) setState(() => _selectedPremiumPlanId = v);
+              },
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isYearly ? l.membershipPlanYearly : l.membershipPlanMonthly,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  if (isYearly)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        l.membershipBadgeRecommended,
+                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Text(
+              plan.displayPrice ?? '--',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.black87,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
