@@ -22,11 +22,19 @@ class _ProfilePageState extends State<ProfilePage> {
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
 
+  // 新增 VIP 状态
+  bool _isVip = false;
+  DateTime? _expireAt;
+
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
     _loadBannerAd();
+  }
+
+  Future<void> refresh() async {
+    await _loadUserInfo();
   }
 
   @override
@@ -79,6 +87,8 @@ class _ProfilePageState extends State<ProfilePage> {
     if (!mounted) return;
     setState(() {
       _currentUserEmail = user?.email;
+      _isVip = (user?.vipLevel ?? 0) > 0;
+      _expireAt = user?.expireAt;
     });
   }
 
@@ -165,16 +175,28 @@ class _ProfilePageState extends State<ProfilePage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: (_isVip ? Colors.orange : Colors.white).withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              l.membershipPlanBasic,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_isVip)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 4),
+                    child: Icon(Icons.star, color: Colors.yellow, size: 14),
+                  ),
+                Text(
+                  _isVip
+                      ? '${l.membershipStatusPremium}${_expireAt != null ? " (${_formatDate(_expireAt!)})" : ""}'
+                      : l.membershipPlanBasic,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -182,6 +204,10 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
 
   Widget _buildSettingsList() {
     final l = AppLocalizations.of(context);

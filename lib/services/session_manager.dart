@@ -8,10 +8,12 @@ class SessionManager {
   static const _keyUserId = 'user_id';
   static const _keyDeviceRole = 'device_role';
    static const _keyVipLevel = 'vip_level';
+  static const _keyExpireAt = 'expire_at';
   static bool _fallbackLoggedIn = false;
   static String? _fallbackEmail;
   static int? _fallbackUserId;
   static int? _fallbackVipLevel;
+  static DateTime? _fallbackExpireAt;
 
   /// Returns true if a previous login session is stored.
   static Future<bool> isLoggedIn() async {
@@ -32,8 +34,10 @@ class SessionManager {
       final email = prefs.getString(_keyEmail);
       final id = prefs.getInt(_keyUserId);
       final vipLevel = prefs.getInt(_keyVipLevel) ?? 0;
+      final expireAtStr = prefs.getString(_keyExpireAt);
+      final expireAt = expireAtStr != null ? DateTime.tryParse(expireAtStr) : null;
       if (email == null || id == null) return null;
-      return AuthUser(id: id, email: email, vipLevel: vipLevel);
+      return AuthUser(id: id, email: email, vipLevel: vipLevel, expireAt: expireAt);
     } catch (e) {
       if (!_fallbackLoggedIn || _fallbackEmail == null || _fallbackUserId == null) {
         return null;
@@ -42,6 +46,7 @@ class SessionManager {
         id: _fallbackUserId!,
         email: _fallbackEmail!,
         vipLevel: _fallbackVipLevel ?? 0,
+        expireAt: _fallbackExpireAt,
       );
     }
   }
@@ -53,6 +58,11 @@ class SessionManager {
       await prefs.setString(_keyEmail, user.email);
       await prefs.setInt(_keyUserId, user.id);
       await prefs.setInt(_keyVipLevel, user.vipLevel);
+      if (user.expireAt != null) {
+        await prefs.setString(_keyExpireAt, user.expireAt!.toIso8601String());
+      } else {
+        await prefs.remove(_keyExpireAt);
+      }
       // 登录时默认设置为监控端
       if (!prefs.containsKey(_keyDeviceRole)) {
         await prefs.setString(_keyDeviceRole, 'monitor');
@@ -62,6 +72,7 @@ class SessionManager {
       _fallbackEmail = user.email;
       _fallbackUserId = user.id;
       _fallbackVipLevel = user.vipLevel;
+      _fallbackExpireAt = user.expireAt;
     }
   }
 
@@ -74,11 +85,13 @@ class SessionManager {
       await prefs.remove(_keyDeviceRole);
       await prefs.remove('camera_role');
       await prefs.remove(_keyVipLevel);
+      await prefs.remove(_keyExpireAt);
     } catch (e) {
       _fallbackLoggedIn = false;
       _fallbackEmail = null;
       _fallbackUserId = null;
       _fallbackVipLevel = null;
+      _fallbackExpireAt = null;
     }
   }
 
@@ -94,12 +107,14 @@ class SessionManager {
       // 临时用户ID，实际应该从登录接口获取
       await prefs.setInt(_keyUserId, 0);
       await prefs.setInt(_keyVipLevel, 0);
+      await prefs.remove(_keyExpireAt);
     } catch (e) {
       // Fallback
       _fallbackLoggedIn = true;
       _fallbackEmail = email;
       _fallbackUserId = 0;
       _fallbackVipLevel = 0;
+      _fallbackExpireAt = null;
     }
   }
 

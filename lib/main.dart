@@ -164,6 +164,7 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
   String _cameraRole = 'monitor'; // monitor 或 camera
+  final GlobalKey _profilePageKey = GlobalKey();
 
   @override
   void initState() {
@@ -198,7 +199,7 @@ class _MainPageState extends State<MainPage> {
   final List<Widget> _pages = [
     const CameraListPage(),
     const MembershipPage(),
-    const ProfilePage(),
+    ProfilePage(key: _profilePageKey),
   ];
 
   @override
@@ -222,6 +223,13 @@ class _MainPageState extends State<MainPage> {
           setState(() {
             _currentIndex = index;
           });
+          if (index == 2) {
+            Future.microtask(() async {
+              final state = _profilePageKey.currentState;
+              if (state == null) return;
+              await (state as dynamic).refresh();
+            });
+          }
         },
         selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,

@@ -5,6 +5,8 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/iap_service.dart';
+import '../services/payment_api.dart';
+import '../services/session_manager.dart';
 
 class MembershipPage extends StatefulWidget {
   const MembershipPage({super.key});
@@ -32,6 +34,18 @@ class _MembershipPageState extends State<MembershipPage> {
     _plans = _defaultPlans();
     _initIap();
     _listenPurchases();
+    _checkStatus();
+  }
+
+  Future<void> _checkStatus() async {
+    final user = await SessionManager.getUser();
+    if (user != null) {
+      if (!mounted) return;
+      setState(() {
+        _isCurrentlyMember = user.vipLevel > 0;
+        _membershipExpiry = user.expireAt;
+      });
+    }
   }
 
   List<MembershipPlan> _defaultPlans() {
@@ -106,16 +120,57 @@ class _MembershipPageState extends State<MembershipPage> {
             break;
           case PurchaseStatus.purchased:
           case PurchaseStatus.restored:
-            await _iap.completePurchase(purchase);
-            if (!mounted) return;
-            setState(() {
-              _isCurrentlyMember = true;
-              // 若服务端有到期时间可在此更新 _membershipExpiry
-            });
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${AppLocalizations.of(context).membershipStatusPremium} ✓')),
+                const SnackBar(content: Text('Verifying purchase...')),
               );
+            }
+
+            final user = await SessionManager.getUser();
+            if (user == null) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please login first')),
+                );
+              }
+              return;
+            }
+
+            final result = await PaymentApi().verifyGooglePurchase(
+              orderId: purchase.purchaseID ?? '',
+              productId: purchase.productID,
+              purchaseToken: purchase.verificationData.serverVerificationData,
+              email: user.email,
+            );
+
+            if (result != null) {
+              await _iap.completePurchase(purchase);
+              
+              // 更新本地用户信息
+              final vipLevel = result['vip_level'] as int? ?? 0;
+              final expireAtStr = result['expire_at'] as String?;
+              final newUser = user.copyWith(
+                vipLevel: vipLevel,
+                expireAt: expireAtStr != null ? DateTime.tryParse(expireAtStr) : null,
+              );
+              await SessionManager.saveUser(newUser);
+
+              if (!mounted) return;
+              setState(() {
+                _isCurrentlyMember = vipLevel > 0;
+                _membershipExpiry = newUser.expireAt;
+              });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${AppLocalizations.of(context).membershipStatusPremium} ✓')),
+                );
+              }
+            } else {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Purchase verification failed')),
+                );
+              }
             }
             break;
           case PurchaseStatus.error:
