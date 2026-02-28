@@ -69,4 +69,43 @@ class PaymentApi {
       client.close(force: true);
     }
   }
+
+  Future<Map<String, dynamic>?> refreshSubscription({
+    required String email,
+  }) async {
+    final client = HttpClient();
+    client.badCertificateCallback = (cert, h, p) => true;
+    try {
+      final req = await client.postUrl(_buildUri('refresh'));
+      req.headers.contentType = ContentType.json;
+      
+      final body = {
+        'email': email,
+      };
+      
+      LogUtils.d('PaymentApi', 'Refreshing subscription: $body');
+      req.write(jsonEncode(body));
+      
+      final resp = await req.close();
+      final text = await utf8.decodeStream(resp);
+      LogUtils.d('PaymentApi', 'Refresh response: ${resp.statusCode} $text');
+      
+      if (resp.statusCode == 200) {
+        try {
+          final data = jsonDecode(text);
+          if (data['success'] == true || data['status'] == 'success') {
+            return data;
+          }
+        } catch (_) {
+          return null;
+        }
+      }
+      return null;
+    } catch (e, st) {
+      LogUtils.e('PaymentApi', 'Refresh failed', e, st);
+      return null;
+    } finally {
+      client.close(force: true);
+    }
+  }
 }

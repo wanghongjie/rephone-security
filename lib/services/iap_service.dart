@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import '../utils/log_utils.dart';
 
@@ -15,6 +16,7 @@ class IapService {
   final Set<String> _productIds = {
     'rephone_premium_monthly',
     'rephone_premium_yearly',
+    'rephone_pro', // New subscription model (Single Product + Base Plans)
   };
 
   final StreamController<List<PurchaseDetails>> _purchasesController =
@@ -95,9 +97,18 @@ class IapService {
     }
   }
 
-  Future<void> buy(ProductDetails product) async {
-    LogUtils.d(_kIapTag, 'buy: productId=${product.id} price=${product.price}');
-    final param = PurchaseParam(productDetails: product);
+  Future<void> buy(ProductDetails product, {String? offerToken}) async {
+    LogUtils.d(_kIapTag, 'buy: productId=${product.id} price=${product.price} offerToken=$offerToken');
+    late PurchaseParam param;
+    if (offerToken != null && product is GooglePlayProductDetails) {
+      param = GooglePlayPurchaseParam(
+        productDetails: product,
+        changeSubscriptionParam: null,
+        offerToken: offerToken,
+      );
+    } else {
+      param = PurchaseParam(productDetails: product);
+    }
     await _iap.buyNonConsumable(purchaseParam: param);
     LogUtils.d(_kIapTag, 'buy: buyNonConsumable called');
   }

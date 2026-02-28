@@ -165,11 +165,17 @@ class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
   String _cameraRole = 'monitor'; // monitor 或 camera
   final GlobalKey _profilePageKey = GlobalKey();
+  late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     _loadCameraRole();
+    _pages = [
+      const CameraListPage(),
+      const MembershipPage(),
+      ProfilePage(key: _profilePageKey),
+    ];
   }
 
   Future<void> _loadCameraRole() async {
@@ -196,11 +202,7 @@ class _MainPageState extends State<MainPage> {
     await SessionManager.setDeviceRole('camera');
   }
 
-  final List<Widget> _pages = [
-    const CameraListPage(),
-    const MembershipPage(),
-    ProfilePage(key: _profilePageKey),
-  ];
+
 
   @override
   Widget build(BuildContext context) {

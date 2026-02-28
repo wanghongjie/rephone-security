@@ -61,6 +61,7 @@ dependencies:
   firebase_core: any
   firebase_messaging: any
   in_app_purchase: ^3.2.0
+  in_app_purchase_android: ^0.4.0+8
 
 dependency_overrides:
   package_info_plus: ^8.0.2

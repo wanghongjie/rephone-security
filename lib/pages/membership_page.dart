@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/iap_service.dart';
 import '../services/payment_api.dart';
 import '../services/session_manager.dart';
+import '../utils/log_utils.dart';
 
 class MembershipPage extends StatefulWidget {
   const MembershipPage({super.key});
@@ -34,6 +38,7 @@ class _MembershipPageState extends State<MembershipPage> {
     _plans = _defaultPlans();
     _initIap();
     _listenPurchases();
+    // 启动时检查一次
     _checkStatus();
   }
 
@@ -45,6 +50,32 @@ class _MembershipPageState extends State<MembershipPage> {
         _isCurrentlyMember = user.vipLevel > 0;
         _membershipExpiry = user.expireAt;
       });
+
+      // 触发服务端“按需校验”
+      // 只需要发起一次请求，服务端会根据策略决定是否查 Google
+      // 这里可以静默执行，不需要 loading 遮罩
+      try {
+        final result = await PaymentApi().refreshSubscription(email: user.email);
+        if (result != null) {
+          final vipLevel = result['vip_level'] as int? ?? 0;
+          final expireAtStr = result['expire_at'] as String?;
+          final newUser = user.copyWith(
+            vipLevel: vipLevel,
+            expireAt: expireAtStr != null ? DateTime.tryParse(expireAtStr) : null,
+          );
+          await SessionManager.saveUser(newUser);
+
+          if (!mounted) return;
+          setState(() {
+            _isCurrentlyMember = vipLevel > 0;
+            _membershipExpiry = newUser.expireAt;
+          });
+          
+          LogUtils.d('MembershipPage', 'Status refreshed: vip=$vipLevel');
+        }
+      } catch (e) {
+        debugPrint('Failed to refresh status: $e');
+      }
     }
   }
 
@@ -66,6 +97,7 @@ class _MembershipPageState extends State<MembershipPage> {
         isRecommended: false,
         isCurrentPlan: false,
         productId: 'rephone_premium_monthly',
+        basePlanId: 'monthly', // New
         displayPrice: null,
       ),
       MembershipPlan(
@@ -75,6 +107,7 @@ class _MembershipPageState extends State<MembershipPage> {
         isRecommended: true,
         isCurrentPlan: false,
         productId: 'rephone_premium_yearly',
+        basePlanId: 'yearly', // New
         displayPrice: null,
       ),
     ];
@@ -88,10 +121,47 @@ class _MembershipPageState extends State<MembershipPage> {
         _loadingProducts = false;
         for (var i = 0; i < _plans.length; i++) {
           final plan = _plans[i];
+          
+          // Strategy 2: New Android (Base Plans under 'rephone_pro')
+          // Only apply on Android when basePlanId is present
+          if (Platform.isAndroid && plan.basePlanId != null) {
+            final parentProduct = _iap.getProduct('rephone_pro');
+            if (parentProduct != null && parentProduct is GooglePlayProductDetails) {
+               // Find offer with matching basePlanId
+               // Access subscriptionOfferDetails via productDetails wrapper
+               final detailsWrapper = parentProduct.productDetails;
+               final offers = detailsWrapper.subscriptionOfferDetails ?? [];
+               
+               for (final offer in offers) {
+                 if (offer.basePlanId == plan.basePlanId) {
+                   // Found it!
+                   _plans[i] = plan.copyWith(
+                     displayPrice: offer.pricingPhases.first.formattedPrice,
+                     productId: 'rephone_pro', // Switch to parent ID for purchase
+                     offerToken: offer.offerIdToken,
+                   );
+                   // Found valid Android plan, skip legacy strategy
+                   continue;
+                 }
+               }
+               
+               // If we found a match and updated the plan, we should check if we need to continue or break
+               // Since we are iterating plans, we just continue to next plan iteration? 
+               // No, we need to skip the legacy strategy below for THIS plan if we found a match.
+               // Let's check if productId changed to 'rephone_pro'
+               if (_plans[i].productId == 'rephone_pro') {
+                 continue;
+               }
+            }
+          }
+
+          // Strategy 1: Legacy/iOS (Single Product per Plan)
+          // Fallback for Android if Strategy 2 failed, or default for iOS
           if (plan.productId != null) {
             final product = _iap.getProduct(plan.productId!);
             if (product != null) {
               _plans[i] = plan.copyWith(displayPrice: product.price);
+              continue;
             }
           }
         }
@@ -585,7 +655,7 @@ class _MembershipPageState extends State<MembershipPage> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('${l.membershipDialogProcessing} ${product.title}')),
               );
-              await _iap.buy(product);
+              await _iap.buy(product, offerToken: plan.offerToken);
             },
             child: Text(l.commonConfirm),
           ),
@@ -604,6 +674,8 @@ class MembershipPlan {
   final bool isRecommended;
   final bool isCurrentPlan;
   final String? productId;
+  final String? basePlanId; // New: for Google Play Billing 5+
+  final String? offerToken; // New: for Google Play Billing 5+
   final String? displayPrice;
 
   MembershipPlan({
@@ -613,6 +685,8 @@ class MembershipPlan {
     required this.isRecommended,
     required this.isCurrentPlan,
     this.productId,
+    this.basePlanId,
+    this.offerToken,
     this.displayPrice,
   });
 
@@ -621,6 +695,8 @@ class MembershipPlan {
   MembershipPlan copyWith({
     String? displayPrice,
     bool? isCurrentPlan,
+    String? productId,
+    String? offerToken,
   }) {
     return MembershipPlan(
       id: id,
@@ -628,7 +704,9 @@ class MembershipPlan {
       price: price,
       isRecommended: isRecommended,
       isCurrentPlan: isCurrentPlan ?? this.isCurrentPlan,
-      productId: productId,
+      productId: productId ?? this.productId,
+      basePlanId: basePlanId,
+      offerToken: offerToken ?? this.offerToken,
       displayPrice: displayPrice ?? this.displayPrice,
     );
   }
