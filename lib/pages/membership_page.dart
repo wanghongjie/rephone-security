@@ -113,9 +113,9 @@ class _MembershipPageState extends State<MembershipPage> {
     ];
   }
 
-  Future<void> _initIap() async {
+  Future<void> _initIap({bool force = false}) async {
     try {
-      await _iap.init();
+      await _iap.init(forceRefresh: force);
       if (!mounted) return;
       setState(() {
         _loadingProducts = false;
@@ -380,7 +380,7 @@ class _MembershipPageState extends State<MembershipPage> {
           children: [
             const SizedBox(height: 24),
             Text(
-              l.membershipDialogSubscribeContent,
+              l.membershipLoadProductsFailed,
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey[600]),
             ),
@@ -391,7 +391,7 @@ class _MembershipPageState extends State<MembershipPage> {
                   _loadingProducts = true;
                   _error = null;
                 });
-                _initIap();
+                _initIap(force: true);
               },
               icon: const Icon(Icons.refresh),
               label: Text(l.commonRetry),

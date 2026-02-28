@@ -30,10 +30,14 @@ class IapService {
 
   bool get isAvailable => _available;
 
-  Future<void> init() async {
-    if (_initialized) {
+  Future<void> init({bool forceRefresh = false}) async {
+    if (_initialized && !forceRefresh) {
       LogUtils.d(_kIapTag, 'init: already initialized, skip');
       return;
+    }
+
+    if (forceRefresh) {
+      LogUtils.d(_kIapTag, 'init: force refreshing...');
     }
 
     LogUtils.d(_kIapTag, 'init: checking IAP availability...');

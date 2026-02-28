@@ -194,6 +194,7 @@ class AppLocalizations {
       'membershipDialogProcessing': 'Processing subscription...',
       'membershipButtonUpgrade': 'Upgrade now',
       'membershipUpgradeHint': 'Upgrade to unlock more features',
+      'membershipLoadProductsFailed': 'Failed to load membership plans, please retry',
       'cameraRoleMonitor': 'Monitor',
       'cameraRoleCamera': 'Camera',
       'cameraSettingsTitle': 'Device settings',
@@ -463,6 +464,7 @@ class AppLocalizations {
       'membershipDialogProcessing': '正在处理订阅...',
       'membershipButtonUpgrade': '立即升级',
       'membershipUpgradeHint': '升级会员解锁更多权益',
+      'membershipLoadProductsFailed': '加载会员套餐失败，请重试',
       'cameraSettingsTitle': '设备设置',
       'cameraSettingsName': '相机名称',
       'cameraSettingsLocation': '相机位置',
@@ -722,6 +724,7 @@ class AppLocalizations {
   String get membershipDialogProcessing => _t('membershipDialogProcessing');
   String get membershipButtonUpgrade => _t('membershipButtonUpgrade');
   String get membershipUpgradeHint => _t('membershipUpgradeHint');
+  String get membershipLoadProductsFailed => _t('membershipLoadProductsFailed');
 
   String get cameraSettingsTitle => _t('cameraSettingsTitle');
   String get cameraSettingsName => _t('cameraSettingsName');
