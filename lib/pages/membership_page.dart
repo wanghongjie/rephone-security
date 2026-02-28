@@ -179,6 +179,7 @@ class _MembershipPageState extends State<MembershipPage> {
   void _listenPurchases() {
     _purchaseSubscription = _iap.purchasesStream.listen((list) async {
       if (!mounted) return;
+      final l = AppLocalizations.of(context);
       for (final purchase in list) {
         switch (purchase.status) {
           case PurchaseStatus.pending:
@@ -192,7 +193,7 @@ class _MembershipPageState extends State<MembershipPage> {
           case PurchaseStatus.restored:
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Verifying purchase...')),
+                SnackBar(content: Text(l.membershipPurchaseVerifying)),
               );
             }
 
@@ -200,7 +201,7 @@ class _MembershipPageState extends State<MembershipPage> {
             if (user == null) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please login first')),
+                  SnackBar(content: Text(l.membershipPleaseLogin)),
                 );
               }
               return;
@@ -232,20 +233,20 @@ class _MembershipPageState extends State<MembershipPage> {
               });
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${AppLocalizations.of(context).membershipStatusPremium} ✓')),
+                  SnackBar(content: Text('${l.membershipStatusPremium} ✓')),
                 );
               }
             } else {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Purchase verification failed')),
+                  SnackBar(content: Text(l.membershipPurchaseVerifyFailed)),
                 );
               }
             }
             break;
           case PurchaseStatus.error:
             if (mounted) {
-              final msg = purchase.error?.message ?? 'Purchase failed';
+              final msg = purchase.error?.message ?? l.membershipPurchaseFailed;
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
             }
             break;
@@ -342,16 +343,20 @@ class _MembershipPageState extends State<MembershipPage> {
           ),
           if (!_isCurrentlyMember) ...[
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                // 滚动到套餐区域或直接展开
-                _showUpgradeDialog();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.grey[800],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(l.membershipButtonUpgrade),
+              child: Text(
+                l.membershipUpgradeHint,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ],
         ],
@@ -389,7 +394,7 @@ class _MembershipPageState extends State<MembershipPage> {
                 _initIap();
               },
               icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              label: Text(l.commonRetry),
             ),
           ],
         ),

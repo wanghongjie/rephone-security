@@ -193,6 +193,7 @@ class AppLocalizations {
       'membershipDialogSubscribeContent': 'Confirm to subscribe to this plan?',
       'membershipDialogProcessing': 'Processing subscription...',
       'membershipButtonUpgrade': 'Upgrade now',
+      'membershipUpgradeHint': 'Upgrade to unlock more features',
       'cameraRoleMonitor': 'Monitor',
       'cameraRoleCamera': 'Camera',
       'cameraSettingsTitle': 'Device settings',
@@ -281,6 +282,11 @@ class AppLocalizations {
       'commonConfirm': 'Confirm',
       'commonOk': 'OK',
       'commonNetworkError': 'Network error, please try again later',
+      'commonRetry': 'Retry',
+      'membershipPurchaseVerifying': 'Verifying purchase...',
+      'membershipPleaseLogin': 'Please login first',
+      'membershipPurchaseVerifyFailed': 'Purchase verification failed',
+      'membershipPurchaseFailed': 'Purchase failed',
     },
     'zh': {
       'appTitle': 'RePhone 安全',
@@ -456,6 +462,7 @@ class AppLocalizations {
       'membershipDialogSubscribeContent': '确定要订阅该套餐吗？',
       'membershipDialogProcessing': '正在处理订阅...',
       'membershipButtonUpgrade': '立即升级',
+      'membershipUpgradeHint': '升级会员解锁更多权益',
       'cameraSettingsTitle': '设备设置',
       'cameraSettingsName': '相机名称',
       'cameraSettingsLocation': '相机位置',
@@ -537,6 +544,11 @@ class AppLocalizations {
       'commonConfirm': '确定',
       'commonOk': '好的',
       'commonNetworkError': '网络异常，请稍后再试',
+      'commonRetry': '重试',
+      'membershipPurchaseVerifying': '正在验证购买...',
+      'membershipPleaseLogin': '请先登录',
+      'membershipPurchaseVerifyFailed': '购买验证失败',
+      'membershipPurchaseFailed': '购买失败',
     },
   };
 
@@ -709,6 +721,7 @@ class AppLocalizations {
   String get membershipDialogSubscribeContent => _t('membershipDialogSubscribeContent');
   String get membershipDialogProcessing => _t('membershipDialogProcessing');
   String get membershipButtonUpgrade => _t('membershipButtonUpgrade');
+  String get membershipUpgradeHint => _t('membershipUpgradeHint');
 
   String get cameraSettingsTitle => _t('cameraSettingsTitle');
   String get cameraSettingsName => _t('cameraSettingsName');
@@ -795,6 +808,13 @@ class AppLocalizations {
   String get commonConfirm => _t('commonConfirm');
   String get commonOk => _t('commonOk');
   String get commonNetworkError => _t('commonNetworkError');
+  String get commonRetry => _t('commonRetry');
+
+  String get membershipPurchaseVerifying => _t('membershipPurchaseVerifying');
+  String get membershipPleaseLogin => _t('membershipPleaseLogin');
+  String get membershipPurchaseVerifyFailed => _t('membershipPurchaseVerifyFailed');
+  String get membershipPurchaseFailed => _t('membershipPurchaseFailed');
+
   String get commonPassword => _t('commonPassword');
 
   String tr(String key) => _t(key);
