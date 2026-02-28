@@ -632,20 +632,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
                     ),
             ),
           ),
-          // 状态显示区域
-          if (!_inCall && _isConnected)
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Center(
-                child: Text(
-                  l.playbackConnecting,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
+
         ],
       ),
       ),
