@@ -620,8 +620,8 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
                           const SizedBox(height: 16),
                           Text(
                             _inCall
-                                ? l.playbackConnecting
-                                : l.cameraListEmptyHint,
+                                ? l.monitorViewerWaiting
+                                : l.playbackConnecting,
                             style: TextStyle(
                               color: Colors.grey[400],
                               fontSize: 16,

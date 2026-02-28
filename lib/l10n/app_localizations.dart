@@ -254,6 +254,7 @@ class AppLocalizations {
       'webviewLoadFailed': 'Page failed to load',
       'webviewRetry': 'Retry',
       'webviewRefresh': 'Refresh',
+      'monitorViewerWaiting': 'Waiting for camera...',
       'emailFlowInputEmailTitle': 'Enter email',
       'emailFlowInputEmailHint': 'Your email address',
       'emailFlowInputEmailDesc':
@@ -518,6 +519,7 @@ class AppLocalizations {
       'webviewLoadFailed': '页面加载失败',
       'webviewRetry': '重试',
       'webviewRefresh': '刷新',
+      'monitorViewerWaiting': '等待相机画面...',
       'emailFlowInputEmailTitle': '填写邮箱地址',
       'emailFlowInputEmailHint': '你的邮箱地址',
       'emailFlowInputEmailDesc': '我们将根据邮箱判断是否已注册，未注册将进入快捷注册流程。',
@@ -781,6 +783,8 @@ class AppLocalizations {
   String get cameraEndpointExitDialogContent => _t('cameraEndpointExitDialogContent');
   String get cameraEndpointConnecting => _t('cameraEndpointConnecting');
   String get cameraEndpointConnectedWithId => _t('cameraEndpointConnectedWithId');
+
+  String get monitorViewerWaiting => _t('monitorViewerWaiting');
 
   String get emailFlowInputEmailTitle => _t('emailFlowInputEmailTitle');
   String get emailFlowInputEmailHint => _t('emailFlowInputEmailHint');
