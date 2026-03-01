@@ -17,6 +17,7 @@ import '../services/session_manager.dart';
 import '../config/server_config.dart';
 import '../utils/log_utils.dart';
 import '../l10n/app_localizations.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:image/image.dart' as img;
 
 
@@ -106,11 +107,27 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   void _loadUserInfo() async {
     final user = await SessionManager.getUser();
     _currentUserEmail = user?.email;
-    await _checkAndRequestNotificationPermission();
+    await _checkAndRequestPermissions();
     _connectSignaling();
   }
   
-  Future<void> _checkAndRequestNotificationPermission() async {
+  Future<void> _checkAndRequestPermissions() async {
+    // 1. 请求相机和麦克风权限（必须在启动前台服务之前获取）
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.camera,
+      Permission.microphone,
+    ].request();
+
+    if (statuses[Permission.camera] != PermissionStatus.granted ||
+        statuses[Permission.microphone] != PermissionStatus.granted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('需要相机和麦克风权限才能运行服务')),
+        );
+      }
+      return;
+    }
+
     try {
       // 请求忽略电池优化（重要：保持网络连接）
       await _serviceChannel.invokeMethod('requestIgnoreBatteryOptimizations');
