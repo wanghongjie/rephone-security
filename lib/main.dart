@@ -205,7 +205,7 @@ class _MainPageState extends State<MainPage> {
       _cameraRole = 'monitor';
     });
     await SessionManager.setDeviceRole('monitor');
-    await PushService.reportTokenForLoggedInMonitor();
+    PushService.reportTokenForLoggedInMonitor();
   }
 
   Future<void> _switchToCamera() async {

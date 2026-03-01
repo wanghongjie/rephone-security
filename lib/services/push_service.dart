@@ -51,7 +51,7 @@ class PushService {
     });
 
     // 如果已经是登录状态，并且是 monitor 端，启动时主动刷新一次 token
-    await reportTokenForLoggedInMonitor();
+    reportTokenForLoggedInMonitor();
 
     _initialized = true;
   }
@@ -100,7 +100,7 @@ class PushService {
       }
       await _reportTokenToBackend(token, user: user, role: role);
     } catch (e, st) {
-      LogUtils.e('PushService', 'Failed to prepare FCM token report', e, st);
+      LogUtils.e('PushService', 'Failed to report FCM token', e);
     }
   }
 
@@ -131,15 +131,19 @@ class PushService {
       request.add(utf8.encode(jsonEncode(body)));
 
       final response = await request.close();
-      final responseBody = await response.transform(utf8.decoder).join();
-      LogUtils.i(
-        'PushService',
-        'Report token response [${response.statusCode}]: $responseBody',
-      );
+      if (response.statusCode >= 400) {
+        final responseBody = await response.transform(utf8.decoder).join();
+        LogUtils.w(
+          'PushService',
+          'Report token failed [${response.statusCode}]: $responseBody',
+        );
+      } else {
+        LogUtils.i('PushService', 'Report token success');
+      }
 
       client.close(force: true);
     } catch (e, st) {
-      LogUtils.e('PushService', 'Failed to report FCM token', e, st);
+      LogUtils.e('PushService', 'Failed to report FCM token to backend', e);
     }
   }
 }

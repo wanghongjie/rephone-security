@@ -185,7 +185,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
       final user =
           await widget.api.login(widget.email, _passwordController.text.trim());
       await SessionManager.saveUser(user);
-      await PushService.reportTokenForLoggedInMonitor();
+      PushService.reportTokenForLoggedInMonitor();
       if (!mounted) return;
       final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -473,7 +473,7 @@ class _PasswordRegisterPageState extends State<PasswordRegisterPage> {
         password: _passwordController.text.trim(),
       );
       await SessionManager.saveUser(user);
-      await PushService.reportTokenForLoggedInMonitor();
+      PushService.reportTokenForLoggedInMonitor();
       if (!mounted) return;
       final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
