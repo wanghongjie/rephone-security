@@ -4,6 +4,7 @@ import '../services/auth_api.dart';
 import '../services/session_manager.dart';
 import '../services/push_service.dart';
 import '../l10n/app_localizations.dart';
+import 'forgot_password_flow.dart';
 
 class EmailInputPage extends StatefulWidget {
   const EmailInputPage({super.key});
@@ -258,6 +259,20 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                     return null;
                   },
                   onFieldSubmitted: (_) => _handleLogin(),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ForgotPasswordPage(email: widget.email),
+                        ),
+                      );
+                    },
+                    child: Text(l.tr('forgotPasswordLink')),
+                  ),
                 ),
                 const Spacer(),
                 SizedBox(

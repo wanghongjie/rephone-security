@@ -162,7 +162,7 @@ class AuthApi {
     required String oldPassword,
     required String newPassword,
   }) async {
-    final res = await _post('reset-password', {
+    final res = await _post('change-password', {
       'email': email,
       'old_password': oldPassword,
       'new_password': newPassword,
@@ -172,6 +172,28 @@ class AuthApi {
     }
     // Check if success is true in response body, though status code usually handles errors
     if (res.data is Map && res.data['success'] == false) {
+      throw AuthApiException(_extractMessage(res.data, '重置密码失败'));
+    }
+  }
+
+  Future<void> sendPasswordResetCode(String email) async {
+    final res = await _post('send-reset-code', {'email': email});
+    if (res.statusCode >= 400) {
+      throw AuthApiException(_extractMessage(res.data, '发送验证码失败'));
+    }
+  }
+
+  Future<void> confirmResetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final res = await _post('reset-password', {
+      'email': email,
+      'code': code,
+      'new_password': newPassword,
+    });
+    if (res.statusCode >= 400) {
       throw AuthApiException(_extractMessage(res.data, '重置密码失败'));
     }
   }

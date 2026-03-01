@@ -292,6 +292,10 @@ class AppLocalizations {
       'membershipPleaseLogin': 'Please login first',
       'membershipPurchaseVerifyFailed': 'Purchase verification failed',
       'membershipPurchaseFailed': 'Purchase failed',
+      'forgotPasswordLink': 'Forgot password?',
+      'forgotPasswordEmailHint': 'Enter your registered email',
+      'forgotPasswordCodeHint': 'Enter verification code',
+      'forgotPasswordNewPasswordHint': 'Enter new password',
     },
     'zh': {
       'appTitle': 'RePhone 安全',
@@ -559,6 +563,10 @@ class AppLocalizations {
       'membershipPleaseLogin': '请先登录',
       'membershipPurchaseVerifyFailed': '购买验证失败',
       'membershipPurchaseFailed': '购买失败',
+      'forgotPasswordLink': '忘记密码？',
+      'forgotPasswordEmailHint': '请输入注册邮箱',
+      'forgotPasswordCodeHint': '请输入验证码',
+      'forgotPasswordNewPasswordHint': '请输入新密码',
     },
   };
 
