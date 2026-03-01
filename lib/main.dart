@@ -165,7 +165,20 @@ class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
   String _cameraRole = 'monitor'; // monitor 或 camera
   final GlobalKey _profilePageKey = GlobalKey();
+  bool _initializedIndex = false;
   late final List<Widget> _pages;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initializedIndex) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is int) {
+        _currentIndex = args;
+      }
+      _initializedIndex = true;
+    }
+  }
 
   @override
   void initState() {

@@ -251,6 +251,9 @@ class AppLocalizations {
       'playbackGetVideoFailed': 'Failed to get video',
       'playbackDeleteEventFailed': 'Delete failed',
       'playbackSmartDetectionLabel': 'Smart detection clip',
+      'playbackVipRequiredTitle': 'VIP Required',
+      'playbackVipRequiredContent': 'Cloud video playback is a VIP feature. Please upgrade to view recordings.',
+      'playbackVipRequiredButton': 'Upgrade to VIP',
       'webviewLoadFailed': 'Page failed to load',
       'webviewRetry': 'Retry',
       'webviewRefresh': 'Refresh',
@@ -516,6 +519,9 @@ class AppLocalizations {
       'playbackGetVideoFailed': '获取视频失败',
       'playbackDeleteEventFailed': '删除失败',
       'playbackSmartDetectionLabel': '智能检测录像',
+      'playbackVipRequiredTitle': '需要VIP会员',
+      'playbackVipRequiredContent': '云端录像回看是VIP功能，请升级会员后查看。',
+      'playbackVipRequiredButton': '升级VIP',
       'webviewLoadFailed': '页面加载失败',
       'webviewRetry': '重试',
       'webviewRefresh': '刷新',
@@ -761,6 +767,9 @@ class AppLocalizations {
   String get playbackGetVideoFailed => _t('playbackGetVideoFailed');
   String get playbackDeleteEventFailed => _t('playbackDeleteEventFailed');
   String get playbackSmartDetectionLabel => _t('playbackSmartDetectionLabel');
+  String get playbackVipRequiredTitle => _t('playbackVipRequiredTitle');
+  String get playbackVipRequiredContent => _t('playbackVipRequiredContent');
+  String get playbackVipRequiredButton => _t('playbackVipRequiredButton');
 
   String get cameraEndpointTitle => _t('cameraEndpointTitle');
   String get cameraEndpointGoToMonitor => _t('cameraEndpointGoToMonitor');
