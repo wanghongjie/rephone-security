@@ -4,6 +4,7 @@ import '../services/auth_api.dart';
 import '../services/session_manager.dart';
 import '../services/push_service.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/password_validator.dart';
 import 'forgot_password_flow.dart';
 
 class EmailInputPage extends StatefulWidget {
@@ -453,9 +454,23 @@ class _PasswordRegisterPageState extends State<PasswordRegisterPage> {
   final _confirmController = TextEditingController();
   bool _obscure = true;
   bool _loading = false;
+  PasswordStrength _strength = PasswordStrength.weak;
+
+  @override
+  void initState() {
+    super.initState();
+    _passwordController.addListener(_updateStrength);
+  }
+
+  void _updateStrength() {
+    setState(() {
+      _strength = PasswordValidator.checkStrength(_passwordController.text);
+    });
+  }
 
   @override
   void dispose() {
+    _passwordController.removeListener(_updateStrength);
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
@@ -543,11 +558,35 @@ class _PasswordRegisterPageState extends State<PasswordRegisterPage> {
                     ),
                   ),
                   validator: (value) {
-                    final v = value ?? '';
-                    if (v.length < 6) return l.resetPasswordTooShort;
-                    return null;
+                    return PasswordValidator.validate(value, l);
                   },
                 ),
+                if (_passwordController.text.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: _strength == PasswordStrength.weak
+                        ? 0.33
+                        : (_strength == PasswordStrength.medium ? 0.66 : 1.0),
+                    color: _strength == PasswordStrength.weak
+                        ? Colors.red
+                        : (_strength == PasswordStrength.medium
+                            ? Colors.orange
+                            : Colors.green),
+                    backgroundColor: Colors.grey[200],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    PasswordValidator.getStrengthText(_strength, l),
+                    style: TextStyle(
+                      color: _strength == PasswordStrength.weak
+                          ? Colors.red
+                          : (_strength == PasswordStrength.medium
+                              ? Colors.orange
+                              : Colors.green),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _confirmController,

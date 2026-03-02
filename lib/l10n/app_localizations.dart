@@ -300,6 +300,15 @@ class AppLocalizations {
       'switchToCameraDialogContent': 'Please scan the monitor\'s QR code to bind.',
       'switchToMonitorDialogTitle': 'Switch to monitor',
       'switchToMonitorDialogContent': 'Please sign in with email.',
+      'passwordStrengthWeak': 'Weak password',
+      'passwordStrengthMedium': 'Medium strength',
+      'passwordStrengthStrong': 'Strong password',
+      'passwordRequirementLength': 'At least 8 characters',
+      'passwordRequirementLetter': 'Contains letters',
+      'passwordRequirementNumber': 'Contains numbers',
+      'passwordRequirementSpecial': 'Contains special characters',
+      'passwordErrorTooWeak': 'Password is too weak',
+      'passwordRequired': 'Password is required',
     },
     'zh': {
       'appTitle': 'RePhone 安全',
@@ -575,6 +584,15 @@ class AppLocalizations {
       'switchToCameraDialogContent': '请扫监控端的二维码进行绑定',
       'switchToMonitorDialogTitle': '切换到监控端',
       'switchToMonitorDialogContent': '请用邮箱登录监控端',
+      'passwordStrengthWeak': '密码强度：弱',
+      'passwordStrengthMedium': '密码强度：中',
+      'passwordStrengthStrong': '密码强度：强',
+      'passwordRequirementLength': '至少8个字符',
+      'passwordRequirementLetter': '包含字母',
+      'passwordRequirementNumber': '包含数字',
+      'passwordRequirementSpecial': '包含特殊字符',
+      'passwordErrorTooWeak': '密码强度太弱',
+      'passwordRequired': '请输入密码',
     },
   };
 
@@ -853,6 +871,16 @@ class AppLocalizations {
   String get switchToCameraDialogContent => _t('switchToCameraDialogContent');
   String get switchToMonitorDialogTitle => _t('switchToMonitorDialogTitle');
   String get switchToMonitorDialogContent => _t('switchToMonitorDialogContent');
+
+  String get passwordStrengthWeak => _t('passwordStrengthWeak');
+  String get passwordStrengthMedium => _t('passwordStrengthMedium');
+  String get passwordStrengthStrong => _t('passwordStrengthStrong');
+  String get passwordRequirementLength => _t('passwordRequirementLength');
+  String get passwordRequirementLetter => _t('passwordRequirementLetter');
+  String get passwordRequirementNumber => _t('passwordRequirementNumber');
+  String get passwordRequirementSpecial => _t('passwordRequirementSpecial');
+  String get passwordErrorTooWeak => _t('passwordErrorTooWeak');
+  String get passwordRequired => _t('passwordRequired');
 
   String tr(String key) => _t(key);
 }
