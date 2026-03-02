@@ -9,11 +9,13 @@ class SessionManager {
   static const _keyDeviceRole = 'device_role';
    static const _keyVipLevel = 'vip_level';
   static const _keyExpireAt = 'expire_at';
+  static const _keyToken = 'auth_token';
   static bool _fallbackLoggedIn = false;
   static String? _fallbackEmail;
   static int? _fallbackUserId;
   static int? _fallbackVipLevel;
   static DateTime? _fallbackExpireAt;
+  static String? _fallbackToken;
 
   /// Returns true if a previous login session is stored.
   static Future<bool> isLoggedIn() async {
@@ -36,8 +38,9 @@ class SessionManager {
       final vipLevel = prefs.getInt(_keyVipLevel) ?? 0;
       final expireAtStr = prefs.getString(_keyExpireAt);
       final expireAt = expireAtStr != null ? DateTime.tryParse(expireAtStr) : null;
+      final token = prefs.getString(_keyToken);
       if (email == null || id == null) return null;
-      return AuthUser(id: id, email: email, vipLevel: vipLevel, expireAt: expireAt);
+      return AuthUser(id: id, email: email, vipLevel: vipLevel, expireAt: expireAt, token: token);
     } catch (e) {
       if (!_fallbackLoggedIn || _fallbackEmail == null || _fallbackUserId == null) {
         return null;
@@ -47,6 +50,7 @@ class SessionManager {
         email: _fallbackEmail!,
         vipLevel: _fallbackVipLevel ?? 0,
         expireAt: _fallbackExpireAt,
+        token: _fallbackToken,
       );
     }
   }
@@ -63,6 +67,11 @@ class SessionManager {
       } else {
         await prefs.remove(_keyExpireAt);
       }
+      if (user.token != null) {
+        await prefs.setString(_keyToken, user.token!);
+      } else {
+        await prefs.remove(_keyToken);
+      }
       // 登录时默认设置为监控端
       if (!prefs.containsKey(_keyDeviceRole)) {
         await prefs.setString(_keyDeviceRole, 'monitor');
@@ -73,6 +82,7 @@ class SessionManager {
       _fallbackUserId = user.id;
       _fallbackVipLevel = user.vipLevel;
       _fallbackExpireAt = user.expireAt;
+      _fallbackToken = user.token;
     }
   }
 
@@ -86,12 +96,14 @@ class SessionManager {
       await prefs.remove('camera_role');
       await prefs.remove(_keyVipLevel);
       await prefs.remove(_keyExpireAt);
+      await prefs.remove(_keyToken);
     } catch (e) {
       _fallbackLoggedIn = false;
       _fallbackEmail = null;
       _fallbackUserId = null;
       _fallbackVipLevel = null;
       _fallbackExpireAt = null;
+      _fallbackToken = null;
     }
   }
 

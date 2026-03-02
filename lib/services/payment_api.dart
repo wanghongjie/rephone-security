@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../config/server_config.dart';
 import '../utils/log_utils.dart';
+import 'session_manager.dart';
 
 class PaymentApi {
   PaymentApi({
@@ -35,6 +36,10 @@ class PaymentApi {
     try {
       final req = await client.postUrl(_buildUri('verify/google'));
       req.headers.contentType = ContentType.json;
+      final user = await SessionManager.getUser();
+      if (user?.token != null) {
+        req.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${user!.token}');
+      }
       
       final body = {
         'order_id': orderId,
@@ -78,6 +83,10 @@ class PaymentApi {
     try {
       final req = await client.postUrl(_buildUri('refresh'));
       req.headers.contentType = ContentType.json;
+      final user = await SessionManager.getUser();
+      if (user?.token != null) {
+        req.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${user!.token}');
+      }
       
       final body = {
         'email': email,

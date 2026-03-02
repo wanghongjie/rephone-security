@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../config/server_config.dart';
+import 'session_manager.dart';
 
 class FeedbackApi {
   FeedbackApi({
@@ -29,6 +30,10 @@ class FeedbackApi {
     try {
       final req = await client.postUrl(_buildUri());
       req.headers.contentType = ContentType.json;
+      final user = await SessionManager.getUser();
+      if (user?.token != null) {
+        req.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${user!.token}');
+      }
       req.write(jsonEncode(body));
       final resp = await req.close();
       final text = await utf8.decodeStream(resp);
@@ -105,4 +110,3 @@ class FeedbackApiException implements Exception {
   @override
   String toString() => message;
 }
-

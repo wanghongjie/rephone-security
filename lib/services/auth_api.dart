@@ -4,6 +4,7 @@ import 'dart:io';
 import '../config/server_config.dart';
 import '../models/auth_user.dart';
 import '../l10n/app_localizations.dart';
+import 'session_manager.dart';
 
 /// Simple API client for auth endpoints, using host/port style like turn.dart.
 /// Accepts self-signed certs for dev, matching existing TURN client behavior.
@@ -40,6 +41,10 @@ class AuthApi {
     try {
       final req = await client.postUrl(_buildUri(path));
       req.headers.contentType = ContentType.json;
+      final user = await SessionManager.getUser();
+      if (user?.token != null) {
+        req.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${user!.token}');
+      }
       req.write(jsonEncode(body));
       final resp = await req.close();
       final text = await utf8.decodeStream(resp);
@@ -61,6 +66,10 @@ class AuthApi {
     try {
       final req = await client.postUrl(_buildUserUri(path));
       req.headers.contentType = ContentType.json;
+      final user = await SessionManager.getUser();
+      if (user?.token != null) {
+        req.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${user!.token}');
+      }
       req.write(jsonEncode(body));
       final resp = await req.close();
       final text = await utf8.decodeStream(resp);

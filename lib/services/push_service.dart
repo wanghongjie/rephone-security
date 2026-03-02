@@ -128,6 +128,9 @@ class PushService {
 
       final request = await client.postUrl(uri);
       request.headers.contentType = ContentType.json;
+      if (user.token != null) {
+        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${user.token}');
+      }
       request.add(utf8.encode(jsonEncode(body)));
 
       final response = await request.close();

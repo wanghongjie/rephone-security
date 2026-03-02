@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../config/server_config.dart';
 import '../utils/log_utils.dart';
+import 'session_manager.dart';
 
 /// 设备绑定信息模型
 class DeviceBinding {
@@ -177,6 +178,10 @@ class BindApi {
     try {
       final req = await client.postUrl(_buildUri(path));
       req.headers.contentType = ContentType.json;
+      final user = await SessionManager.getUser();
+      if (user?.token != null) {
+        req.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${user!.token}');
+      }
       req.write(jsonEncode(body));
       final resp = await req.close();
       final text = await utf8.decodeStream(resp);
@@ -201,6 +206,10 @@ class BindApi {
           ? uri.replace(queryParameters: queryParameters)
           : uri;
       final req = await client.getUrl(uriWithQuery);
+      final user = await SessionManager.getUser();
+      if (user?.token != null) {
+        req.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${user!.token}');
+      }
       final resp = await req.close();
       final text = await utf8.decodeStream(resp);
       dynamic data;
@@ -381,4 +390,3 @@ class BindApiException implements Exception {
   @override
   String toString() => message;
 }
-
