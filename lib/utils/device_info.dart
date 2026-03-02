@@ -88,12 +88,8 @@ class DeviceInfo {
       final hash = _simpleHash(deviceIdentifier);
       final hashStr = hash.toString().padLeft(8, '0').substring(0, 8);
       
-      // 生成6位随机数（用于区分同一设备的多次安装）
-      final random = Random();
-      final randomSuffix = random.nextInt(1000000).toString().padLeft(6, '0');
-      
-      // 组合：{hash}_{role}_{random}
-      final deviceId = '${hashStr}_$deviceType$randomSuffix';
+      // 组合：{hash}_{role}
+      final deviceId = '${hashStr}_$deviceType';
       
       return deviceId;
     } catch (e) {
@@ -104,12 +100,10 @@ class DeviceInfo {
   
   /// 生成fallback ID（当无法获取设备信息时）
   static String _generateFallbackId(String deviceType) {
-    final random = Random();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final hash = _simpleHash(timestamp.toString());
     final hashStr = hash.toString().padLeft(8, '0').substring(0, 8);
-    final randomSuffix = random.nextInt(1000000).toString().padLeft(6, '0');
-    return '${hashStr}_$deviceType$randomSuffix';
+    return '${hashStr}_$deviceType';
   }
   
   /// 简单的hash函数
