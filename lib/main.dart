@@ -209,10 +209,30 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _switchToCamera() async {
-    setState(() {
-      _cameraRole = 'camera';
-    });
-    await SessionManager.setDeviceRole('camera');
+    final l = AppLocalizations.of(context);
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l.switchToCameraDialogTitle),
+        content: Text(l.switchToCameraDialogContent),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l.commonConfirm),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await SessionManager.clear();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
+    }
   }
 
 

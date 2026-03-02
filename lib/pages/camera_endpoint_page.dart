@@ -1012,9 +1012,30 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
               value: _role,
               onSelected: (role) async {
                 if (role == 'monitor') {
-                  await _releaseResources();
-                  if (mounted) {
-                    widget.onSwitchToMonitor();
+                  final l = AppLocalizations.of(context);
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text(l.switchToMonitorDialogTitle),
+                      content: Text(l.switchToMonitorDialogContent),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: Text(l.commonCancel),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: Text(l.commonConfirm),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirm == true) {
+                    await _releaseResources();
+                    await SessionManager.clear();
+                    if (!mounted) return;
+                    Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
                   }
                 } else {
                   setState(() {

@@ -296,6 +296,10 @@ class AppLocalizations {
       'forgotPasswordEmailHint': 'Enter your registered email',
       'forgotPasswordCodeHint': 'Enter verification code',
       'forgotPasswordNewPasswordHint': 'Enter new password',
+      'switchToCameraDialogTitle': 'Switch to camera',
+      'switchToCameraDialogContent': 'Please scan the monitor\'s QR code to bind.',
+      'switchToMonitorDialogTitle': 'Switch to monitor',
+      'switchToMonitorDialogContent': 'Please sign in with email.',
     },
     'zh': {
       'appTitle': 'RePhone 安全',
@@ -567,6 +571,10 @@ class AppLocalizations {
       'forgotPasswordEmailHint': '请输入注册邮箱',
       'forgotPasswordCodeHint': '请输入验证码',
       'forgotPasswordNewPasswordHint': '请输入新密码',
+      'switchToCameraDialogTitle': '切换到相机端',
+      'switchToCameraDialogContent': '请扫监控端的二维码进行绑定',
+      'switchToMonitorDialogTitle': '切换到监控端',
+      'switchToMonitorDialogContent': '请用邮箱登录监控端',
     },
   };
 
@@ -840,6 +848,11 @@ class AppLocalizations {
   String get membershipPurchaseFailed => _t('membershipPurchaseFailed');
 
   String get commonPassword => _t('commonPassword');
+  
+  String get switchToCameraDialogTitle => _t('switchToCameraDialogTitle');
+  String get switchToCameraDialogContent => _t('switchToCameraDialogContent');
+  String get switchToMonitorDialogTitle => _t('switchToMonitorDialogTitle');
+  String get switchToMonitorDialogContent => _t('switchToMonitorDialogContent');
 
   String tr(String key) => _t(key);
 }
