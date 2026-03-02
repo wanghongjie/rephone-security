@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../models/auth_user.dart';
 import '../utils/log_utils.dart';
+import '../utils/navigation_service.dart';
 import 'session_manager.dart';
 
 class PushService {
@@ -134,6 +135,9 @@ class PushService {
       request.add(utf8.encode(jsonEncode(body)));
 
       final response = await request.close();
+      if (response.statusCode == 401) {
+        NavigationService.handleUnauthorized();
+      }
       if (response.statusCode >= 400) {
         final responseBody = await response.transform(utf8.decoder).join();
         LogUtils.w(

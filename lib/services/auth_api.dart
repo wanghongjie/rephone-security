@@ -4,6 +4,7 @@ import 'dart:io';
 import '../config/server_config.dart';
 import '../models/auth_user.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/navigation_service.dart';
 import 'session_manager.dart';
 
 /// Simple API client for auth endpoints, using host/port style like turn.dart.
@@ -54,6 +55,9 @@ class AuthApi {
       } catch (_) {
         data = text;
       }
+      if (resp.statusCode == 401) {
+        NavigationService.handleUnauthorized();
+      }
       return _HttpResult(statusCode: resp.statusCode, data: data);
     } finally {
       client.close(force: true);
@@ -78,6 +82,9 @@ class AuthApi {
         data = jsonDecode(text);
       } catch (_) {
         data = text;
+      }
+      if (resp.statusCode == 401) {
+        NavigationService.handleUnauthorized();
       }
       return _HttpResult(statusCode: resp.statusCode, data: data);
     } finally {

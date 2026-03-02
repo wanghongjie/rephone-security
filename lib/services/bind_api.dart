@@ -4,6 +4,7 @@ import 'dart:io';
 import '../config/server_config.dart';
 import '../models/auth_user.dart';
 import '../utils/log_utils.dart';
+import '../utils/navigation_service.dart';
 import 'session_manager.dart';
 
 /// 设备绑定信息模型
@@ -191,6 +192,9 @@ class BindApi {
         data = jsonDecode(text);
       } catch (_) {
         data = text;
+      }
+      if (resp.statusCode == 401) {
+        NavigationService.handleUnauthorized();
       }
       return _HttpResult(statusCode: resp.statusCode, data: data);
     } finally {

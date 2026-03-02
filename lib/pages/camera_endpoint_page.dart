@@ -16,6 +16,7 @@ import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
 import '../utils/log_utils.dart';
+import '../utils/navigation_service.dart';
 import '../l10n/app_localizations.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image/image.dart' as img;
@@ -769,9 +770,15 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
       final request = await client.postUrl(uri);
       request.headers.contentType = ContentType.json;
+      if (user.token != null) {
+        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${user.token}');
+      }
       request.add(utf8.encode(jsonEncode(body)));
 
       final response = await request.close();
+      if (response.statusCode == 401) {
+        NavigationService.handleUnauthorized();
+      }
       final respBody = await response.transform(utf8.decoder).join();
       LogUtils.i(
         'CameraEndpoint',

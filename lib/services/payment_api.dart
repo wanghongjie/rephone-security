@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../config/server_config.dart';
 import '../utils/log_utils.dart';
+import '../utils/navigation_service.dart';
 import 'session_manager.dart';
 
 class PaymentApi {
@@ -56,6 +57,10 @@ class PaymentApi {
       final text = await utf8.decodeStream(resp);
       LogUtils.d('PaymentApi', 'Verify response: ${resp.statusCode} $text');
       
+      if (resp.statusCode == 401) {
+        NavigationService.handleUnauthorized();
+      }
+
       if (resp.statusCode == 200) {
         try {
           final data = jsonDecode(text);
@@ -99,6 +104,10 @@ class PaymentApi {
       final text = await utf8.decodeStream(resp);
       LogUtils.d('PaymentApi', 'Refresh response: ${resp.statusCode} $text');
       
+      if (resp.statusCode == 401) {
+        NavigationService.handleUnauthorized();
+      }
+
       if (resp.statusCode == 200) {
         try {
           final data = jsonDecode(text);

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../config/server_config.dart';
+import '../utils/navigation_service.dart';
 import 'session_manager.dart';
 
 class FeedbackApi {
@@ -42,6 +43,9 @@ class FeedbackApi {
         data = jsonDecode(text);
       } catch (_) {
         data = text;
+      }
+      if (resp.statusCode == 401) {
+        NavigationService.handleUnauthorized();
       }
       return _HttpResult(statusCode: resp.statusCode, data: data);
     } finally {

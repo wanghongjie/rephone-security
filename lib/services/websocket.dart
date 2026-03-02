@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:convert';
 import 'dart:async';
 import 'package:rephone_security/utils/log_utils.dart';
+import 'package:rephone_security/utils/navigation_service.dart';
 
 class SimpleWebSocket {
   String _url;
@@ -61,6 +62,10 @@ class SimpleWebSocket {
       request.headers.add('Sec-WebSocket-Key', key.toLowerCase());
 
       HttpClientResponse response = await request.close();
+      if (response.statusCode == 401) {
+        NavigationService.handleUnauthorized();
+        throw WebSocketException('Unauthorized (401)');
+      }
       // ignore: close_sinks
       Socket socket = await response.detachSocket();
       var webSocket = WebSocket.fromUpgradedSocket(

@@ -14,6 +14,7 @@ import 'pages/welcome_page.dart';
 import 'services/push_service.dart';
 import 'services/session_manager.dart';
 import 'utils/log_utils.dart';
+import 'utils/navigation_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -59,6 +60,7 @@ class RePhoneSecurityApp extends StatelessWidget {
       valueListenable: LocaleManager.localeNotifier,
       builder: (context, locale, _) {
         return MaterialApp(
+          navigatorKey: NavigationService.navigatorKey,
           title: 'RePhone Security',
           onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
           theme: ThemeData(
@@ -97,8 +99,10 @@ class RePhoneSecurityApp extends StatelessWidget {
             }
             return LocaleManager.resolveLocale(deviceLocale, supportedLocales);
           },
-          home: const StartupPage(),
+          initialRoute: '/',
           routes: {
+            '/': (_) => const StartupPage(),
+            '/welcome': (_) => const WelcomePage(),
             '/auth': (_) => const AuthPage(),
             '/home': (_) => const MainPage(),
           },
@@ -130,17 +134,11 @@ class _StartupPageState extends State<StartupPage> {
       if (loggedIn) {
         Navigator.pushReplacementNamed(context, '/home');
       } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const WelcomePage()),
-        );
+        Navigator.pushReplacementNamed(context, '/welcome');
       }
     } catch (_) {
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const WelcomePage()),
-      );
+      Navigator.pushReplacementNamed(context, '/welcome');
     }
   }
 
