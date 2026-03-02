@@ -216,9 +216,8 @@ class AppLocalizations {
       'cameraSettingsSaveButton': 'Save',
       'cameraEndpointTitle': 'Camera',
       'cameraEndpointGoToMonitor': 'Switch to monitor device',
-      'cameraEndpointRecording': 'Recording...',
-      'cameraEndpointRecord10s': 'Record 10s clip',
-      'cameraEndpointRecordSaved': 'Clip saved',
+      'cameraEndpointRecord10s': 'Start recording',
+      'cameraEndpointRecordSaved': 'Stop recording',
       'cameraEndpointNotificationPermissionRequired':
           'Notification permission is required to keep camera running in background. Please grant it in settings.',
       'cameraEndpointServiceStarted': 'Foreground service started',
@@ -227,8 +226,8 @@ class AppLocalizations {
           'Consider disabling battery optimizations to keep connection stable',
       'cameraEndpointServiceStartFailed': 'Failed to start foreground service: ',
       'cameraEndpointEmailVerifyFailed': 'Connection rejected: email verification failed',
-      'cameraEndpointLogMicOn': 'Monitor has turned on camera audio',
-      'cameraEndpointLogMicOff': 'Monitor has muted camera audio',
+      'cameraEndpointLogMicOn': 'Turn on sound',
+      'cameraEndpointLogMicOff': 'Turn off sound',
       'cameraEndpointLogMonitorMessage': 'Monitor message: ',
       'cameraEndpointExitDialogTitle': 'Exit camera',
       'cameraEndpointExitDialogContent':
@@ -504,17 +503,16 @@ class AppLocalizations {
       'cameraSettingsSaveButton': '保存',
       'cameraEndpointTitle': '相机端',
       'cameraEndpointGoToMonitor': '前往监控端',
-      'cameraEndpointRecording': '录制中...',
-      'cameraEndpointRecord10s': '录制 10 秒视频',
-      'cameraEndpointRecordSaved': '视频片段已保存',
+      'cameraEndpointRecord10s': '开始录制',
+      'cameraEndpointRecordSaved': '停止录制',
       'cameraEndpointNotificationPermissionRequired': '需要通知权限以保持相机在后台运行，请在设置中授予权限',
       'cameraEndpointServiceStarted': '前台服务已启动',
       'cameraEndpointBatteryOptimizationsOff': '电池优化已关闭，运行状态良好',
       'cameraEndpointBatteryOptimizationsOn': '建议在设置中关闭电池优化以保证连接稳定',
       'cameraEndpointServiceStartFailed': '启动前台服务失败: ',
       'cameraEndpointEmailVerifyFailed': '拒绝连接：邮箱验证失败',
-      'cameraEndpointLogMicOn': '监控端已开启相机端声音',
-      'cameraEndpointLogMicOff': '监控端已关闭相机端声音',
+      'cameraEndpointLogMicOn': '开启声音',
+      'cameraEndpointLogMicOff': '关闭声音',
       'cameraEndpointLogMonitorMessage': '监控端消息: ',
       'cameraEndpointExitDialogTitle': '退出相机',
       'cameraEndpointExitDialogContent': '确定要退出相机端吗？\n退出后将停止视频采集和前台服务。',
@@ -807,7 +805,6 @@ class AppLocalizations {
 
   String get cameraEndpointTitle => _t('cameraEndpointTitle');
   String get cameraEndpointGoToMonitor => _t('cameraEndpointGoToMonitor');
-  String get cameraEndpointRecording => _t('cameraEndpointRecording');
   String get cameraEndpointRecord10s => _t('cameraEndpointRecord10s');
   String get cameraEndpointRecordSaved => _t('cameraEndpointRecordSaved');
   String get cameraEndpointNotificationPermissionRequired =>

@@ -255,14 +255,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     setState(() {
       _cameraMicEnabled = nextEnabled;
     });
-    final l = AppLocalizations.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(nextEnabled
-            ? l.cameraEndpointLogMicOn
-            : l.cameraEndpointLogMicOff),
-      ),
-    );
   }
 
   Future<void> _startRecording() async {
@@ -293,13 +285,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
         _mediaRecorder = recorder;
         _recordingPath = path;
       });
-
-      if (mounted) {
-        final l = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.cameraEndpointRecording)),
-        );
-      }
     } catch (e) {
       try {
         await _mediaRecorder?.stop();
@@ -334,13 +319,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     });
 
     if (!mounted) return;
-
-    if (showToast) {
-      final l = AppLocalizations.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.cameraEndpointRecordSaved)),
-      );
-    }
 
     // Only show the action sheet when user explicitly stopped recording.
     if (showToast && savedPath != null) {
@@ -538,28 +516,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       appBar: AppBar(
         title: Text(widget.cameraName),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          if (_inCall)
-            IconButton(
-              tooltip: _cameraMicEnabled
-                  ? l.cameraEndpointLogMicOff
-                  : l.cameraEndpointLogMicOn,
-              onPressed: _toggleCameraMic,
-              icon: Icon(
-                _cameraMicEnabled ? Icons.volume_up : Icons.volume_off,
-              ),
-            ),
-          if (_inCall && _remoteStream != null)
-            IconButton(
-              tooltip:
-                  _isRecording ? l.cameraEndpointRecordSaved : l.cameraEndpointRecord10s,
-              onPressed: _isRecording ? _stopRecording : _startRecording,
-              icon: Icon(
-                _isRecording ? Icons.stop : Icons.fiber_manual_record,
-                color: _isRecording ? Colors.white : Colors.red,
-              ),
-            ),
-        ],
       ),
       body: Column(
         children: [
@@ -632,9 +588,78 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
                     ),
             ),
           ),
-
+          if (_inCall)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 4,
+                    offset: Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildControlBtn(
+                    context,
+                    icon: _cameraMicEnabled ? Icons.volume_up : Icons.volume_off,
+                    label: _cameraMicEnabled
+                        ? l.cameraEndpointLogMicOn
+                        : l.cameraEndpointLogMicOff,
+                    onTap: _toggleCameraMic,
+                  ),
+                  if (_remoteStream != null)
+                    _buildControlBtn(
+                      context,
+                      icon: _isRecording
+                          ? Icons.stop_circle_outlined
+                          : Icons.fiber_manual_record,
+                      label: _isRecording
+                          ? l.cameraEndpointRecordSaved
+                          : l.cameraEndpointRecord10s,
+                      onTap: _isRecording ? _stopRecording : _startRecording,
+                      iconColor: _isRecording ? Colors.red : null,
+                    ),
+                ],
+              ),
+            ),
         ],
       ),
+      ),
+    );
+  }
+
+  Widget _buildControlBtn(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color? iconColor,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 32,
+              color: iconColor ?? Theme.of(context).primaryColor,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
       ),
     );
   }
