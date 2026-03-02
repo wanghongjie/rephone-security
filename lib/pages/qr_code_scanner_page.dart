@@ -85,10 +85,9 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
         cameraLocation: l.cameraDefaultLocationLivingRoom,
       );
 
-      await bindApi.addBinding(request);
-
       // 绑定成功，保存相机端邮箱和身份
-      await SessionManager.saveCameraUser(email);
+      final user = await bindApi.addBinding(request);
+      await SessionManager.saveCameraUser(user);
       
       if (mounted) {
         final l = AppLocalizations.of(context);

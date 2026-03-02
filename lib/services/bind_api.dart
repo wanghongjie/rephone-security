@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../config/server_config.dart';
+import '../models/auth_user.dart';
 import '../utils/log_utils.dart';
 import 'session_manager.dart';
 
@@ -233,19 +234,19 @@ class BindApi {
 
   /// 添加设备绑定关系
   /// [request] 绑定请求参数
-  /// 返回绑定ID
-  Future<int> addBinding(AddBindingRequest request) async {
+  /// 返回绑定后的用户信息（包含 Token）
+  Future<AuthUser> addBinding(AddBindingRequest request) async {
     final res = await _post('add-binding', request.toJson());
     if (res.statusCode >= 400) {
       throw BindApiException(_extractMessage(res.data, '添加绑定失败'));
     }
     if (res.data is Map && res.data['data'] is Map) {
       final data = res.data['data'] as Map<String, dynamic>;
-      if (data['id'] != null) {
-        return data['id'] as int;
+      if (data['user'] != null) {
+        return AuthUser.fromJson(data['user']);
       }
     }
-    throw BindApiException('响应格式错误：缺少绑定ID');
+    throw BindApiException('响应格式错误：缺少用户信息');
   }
 
   /// 获取监控端已绑定的相机端列表

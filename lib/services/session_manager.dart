@@ -109,24 +109,35 @@ class SessionManager {
 
   /// 保存相机端用户（扫码绑定时使用）
   /// 使用同一个邮箱存储，通过 device_role 区分角色
-  static Future<void> saveCameraUser(String email) async {
+  static Future<void> saveCameraUser(AuthUser user) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      // 使用统一的邮箱存储
+      // 使用统一的存储逻辑
       await prefs.setBool(_keyLoggedIn, true);
-      await prefs.setString(_keyEmail, email);
+      await prefs.setString(_keyEmail, user.email);
+      await prefs.setInt(_keyUserId, user.id);
+      await prefs.setInt(_keyVipLevel, user.vipLevel);
+      if (user.expireAt != null) {
+        await prefs.setString(_keyExpireAt, user.expireAt!.toIso8601String());
+      } else {
+        await prefs.remove(_keyExpireAt);
+      }
+      if (user.token != null) {
+        await prefs.setString(_keyToken, user.token!);
+      } else {
+        await prefs.remove(_keyToken);
+      }
+      
+      // 强制设置为相机端
       await prefs.setString(_keyDeviceRole, 'camera');
-      // 临时用户ID，实际应该从登录接口获取
-      await prefs.setInt(_keyUserId, 0);
-      await prefs.setInt(_keyVipLevel, 0);
-      await prefs.remove(_keyExpireAt);
     } catch (e) {
       // Fallback
       _fallbackLoggedIn = true;
-      _fallbackEmail = email;
-      _fallbackUserId = 0;
-      _fallbackVipLevel = 0;
-      _fallbackExpireAt = null;
+      _fallbackEmail = user.email;
+      _fallbackUserId = user.id;
+      _fallbackVipLevel = user.vipLevel;
+      _fallbackExpireAt = user.expireAt;
+      _fallbackToken = user.token;
     }
   }
 
