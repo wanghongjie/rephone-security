@@ -320,69 +320,10 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
     if (!mounted) return;
 
-    // Only show the action sheet when user explicitly stopped recording.
+    // Auto save to gallery when user explicitly stopped recording.
     if (showToast && savedPath != null) {
-      await _showPostRecordingActionsSheet(savedPath);
+      await _saveVideoToGallery(savedPath);
     }
-  }
-
-  Future<void> _showPostRecordingActionsSheet(String path) async {
-    if (!mounted) return;
-    final l = AppLocalizations.of(context);
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  l.cameraEndpointRecordSaved,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _isSavingToGallery
-                      ? null
-                      : () async {
-                          Navigator.pop(context);
-                          await _saveVideoToGallery(path);
-                        },
-                  icon: _isSavingToGallery
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.photo_library_outlined),
-                  label: Text(
-                    _isSavingToGallery
-                        ? l.playbackDownloadingAndSaving
-                        : l.playbackSaveToGallerySuccess,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: null, // TODO: implement share
-                  icon: const Icon(Icons.share_outlined),
-                  label: Text(l.playbackGetVideoFailed),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(l.commonCancel),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 
   Future<void> _saveVideoToGallery(String path) async {
