@@ -309,8 +309,8 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
     try {
       await recorder.stop();
-    } catch (_) {
-      // ignore
+    } catch (e) {
+      LogUtils.e('MonitorViewer', 'Stop recording failed', e);
     }
 
     setState(() {
@@ -322,7 +322,21 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
     // Auto save to gallery when user explicitly stopped recording.
     if (showToast && savedPath != null) {
+      final file = File(savedPath);
+      if (!await file.exists() || await file.length() == 0) {
+        LogUtils.e('MonitorViewer', 'Recording failed: File is empty or does not exist');
+        if (mounted) {
+          final l = AppLocalizations.of(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.playbackRecordingNotSupported)),
+          );
+        }
+        return;
+      }
       await _saveVideoToGallery(savedPath);
+      // Optional: Cleanup temp file after saving? 
+      // GallerySaver usually copies the file. We can delete the original if needed.
+      // await file.delete(); 
     }
   }
 

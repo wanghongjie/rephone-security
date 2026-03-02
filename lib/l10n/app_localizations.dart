@@ -253,6 +253,7 @@ class AppLocalizations {
       'playbackVipRequiredTitle': 'VIP Required',
       'playbackVipRequiredContent': 'Cloud video playback is a VIP feature. Please upgrade to view recordings.',
       'playbackVipRequiredButton': 'Upgrade to VIP',
+      'playbackRecordingNotSupported': 'Device does not support recording yet',
       'webviewLoadFailed': 'Page failed to load',
       'webviewRetry': 'Retry',
       'webviewRefresh': 'Refresh',
@@ -537,6 +538,7 @@ class AppLocalizations {
       'playbackVipRequiredTitle': '需要VIP会员',
       'playbackVipRequiredContent': '云端录像回看是VIP功能，请升级会员后查看。',
       'playbackVipRequiredButton': '升级VIP',
+      'playbackRecordingNotSupported': '该手机不支持录制视频，待修复',
       'webviewLoadFailed': '页面加载失败',
       'webviewRetry': '重试',
       'webviewRefresh': '刷新',
@@ -647,6 +649,7 @@ class AppLocalizations {
   String get aboutTitle => _t('aboutTitle');
   String get aboutTerms => _t('aboutTerms');
   String get aboutPrivacy => _t('aboutPrivacy');
+  String get playbackRecordingNotSupported => _t('playbackRecordingNotSupported');
   String get aboutView => _t('aboutView');
 
   String get helpCenterTitle => _t('helpCenterTitle');
