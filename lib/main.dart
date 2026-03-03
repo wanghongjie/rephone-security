@@ -1,5 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -29,6 +32,15 @@ void main() async {
   await LogUtils.init();
   await LocaleManager.init();
   await Firebase.initializeApp();
+  
+  // 捕获 Flutter 框架抛出的异常
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  // 捕获异步异常
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
+
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   PushService.init();
 
