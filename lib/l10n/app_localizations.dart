@@ -253,6 +253,10 @@ class AppLocalizations {
       'playbackVipRequiredTitle': 'VIP Required',
       'playbackVipRequiredContent': 'Cloud video playback is a VIP feature. Please upgrade to view recordings.',
       'playbackVipRequiredButton': 'Upgrade to VIP',
+      'playbackPhotosPermissionAndroidHint':
+          'Unable to save recording. Please allow RePhone to access Photos/Media in system settings and try again.',
+      'playbackPhotosPermissionIosHint':
+          'Unable to save recording. Please open iOS Settings, search for “RePhone”, enable Photos access for the app, and try again.',
       'playbackRecordingNotSupported': 'Device does not support recording yet',
       'webviewLoadFailed': 'Page failed to load',
       'webviewRetry': 'Retry',
@@ -539,6 +543,10 @@ class AppLocalizations {
       'playbackVipRequiredContent': '云端录像回看是VIP功能，请升级会员后查看。',
       'playbackVipRequiredButton': '升级VIP',
       'playbackRecordingNotSupported': '该手机不支持录制视频，待修复',
+      'playbackPhotosPermissionAndroidHint':
+          '无法保存录像，请在系统“设置 > 应用权限”中为 RePhone 开启相册/存储权限后重试。',
+      'playbackPhotosPermissionIosHint':
+          '无法保存录像，请打开 iOS “设置”，找到 RePhone 并为其开启照片权限后重试。',
       'webviewLoadFailed': '页面加载失败',
       'webviewRetry': '重试',
       'webviewRefresh': '刷新',
@@ -805,6 +813,10 @@ class AppLocalizations {
   String get playbackVipRequiredTitle => _t('playbackVipRequiredTitle');
   String get playbackVipRequiredContent => _t('playbackVipRequiredContent');
   String get playbackVipRequiredButton => _t('playbackVipRequiredButton');
+  String get playbackPhotosPermissionAndroidHint =>
+      _t('playbackPhotosPermissionAndroidHint');
+  String get playbackPhotosPermissionIosHint =>
+      _t('playbackPhotosPermissionIosHint');
 
   String get cameraEndpointTitle => _t('cameraEndpointTitle');
   String get cameraEndpointGoToMonitor => _t('cameraEndpointGoToMonitor');

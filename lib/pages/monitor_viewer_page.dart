@@ -351,8 +351,11 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       if (!permissionOk) {
         if (mounted) {
           final l = AppLocalizations.of(context);
+          final message = Platform.isIOS
+              ? l.playbackPhotosPermissionIosHint
+              : l.playbackPhotosPermissionAndroidHint;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l.appPermissionsPhotosSubtitle)),
+            SnackBar(content: Text(message)),
           );
         }
         return;
