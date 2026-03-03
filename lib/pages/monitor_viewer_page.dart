@@ -347,24 +347,53 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     });
 
     try {
-      final permissionOk = await _requestGalleryPermissionIfNeeded();
-      if (!permissionOk) {
-        if (mounted) {
-          final l = AppLocalizations.of(context);
-          final message = Platform.isIOS
-              ? l.playbackPhotosPermissionIosHint
-              : l.playbackPhotosPermissionAndroidHint;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
-          );
+      bool ok = false;
+      if (Platform.isIOS) {
+        ok = await GallerySaver.saveVideo(
+              path,
+              albumName: 'RePhone Security',
+            ) ==
+            true;
+        if (!ok) {
+          final addOnly = await Permission.photosAddOnly.request();
+          if (!(addOnly.isGranted || addOnly.isLimited)) {
+            final photos = await Permission.photos.request();
+            if (!(photos.isGranted || photos.isLimited)) {
+              if (mounted) {
+                final l = AppLocalizations.of(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l.playbackPhotosPermissionIosHint)),
+                );
+              }
+              return;
+            }
+          }
+          ok = await GallerySaver.saveVideo(
+                path,
+                albumName: 'RePhone Security',
+              ) ==
+              true;
         }
-        return;
+      } else {
+        final permissionOk = await _requestGalleryPermissionIfNeeded();
+        if (!permissionOk) {
+          if (mounted) {
+            final l = AppLocalizations.of(context);
+            final message = Platform.isIOS
+                ? l.playbackPhotosPermissionIosHint
+                : l.playbackPhotosPermissionAndroidHint;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(message)),
+            );
+          }
+          return;
+        }
+        ok = await GallerySaver.saveVideo(
+              path,
+              albumName: 'RePhone Security',
+            ) ==
+            true;
       }
-
-      final ok = await GallerySaver.saveVideo(
-        path,
-        albumName: 'RePhone Security',
-      );
 
       if (mounted) {
         final l = AppLocalizations.of(context);
