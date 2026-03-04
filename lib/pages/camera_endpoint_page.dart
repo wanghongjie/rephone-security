@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'dart:io';
 import 'dart:async';
 import 'package:path_provider/path_provider.dart';
+import 'package:tflite_flutter/tflite_flutter.dart';
 import '../db/database_helper.dart';
 import '../models/detection_event.dart';
 
@@ -40,6 +41,8 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   // Detection & Recording
   final GlobalKey _videoKey = GlobalKey();
   PoseDetector? _poseDetector;
+  Interpreter? _personInterpreter;
+  bool _personModelReady = false;
   bool _isDetecting = false;
   bool _isRecording = false;
   Timer? _detectTimer;
@@ -693,8 +696,21 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       model: PoseDetectionModel.accurate,
     );
     _poseDetector = PoseDetector(options: options);
-    
+    _initPersonDetector();
     _startDetectionTimer();
+  }
+
+  Future<void> _initPersonDetector() async {
+    if (_personInterpreter != null) return;
+    try {
+      // 需要你在 assets/ml/ 下放置 person_detection.tflite 模型
+      _personInterpreter = await Interpreter.fromAsset('assets/ml/person_detection.tflite');
+      _personModelReady = true;
+      LogUtils.i('CameraEndpoint', 'TFLite person detector initialized');
+    } catch (e) {
+      LogUtils.e('CameraEndpoint', 'Failed to init TFLite person detector', e);
+      _personModelReady = false;
+    }
   }
 
   void _startDetectionTimer() {
@@ -711,13 +727,14 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   }
 
   Future<void> _performDetection() async {
-    if (_isRecording || _isDetecting || _poseDetector == null) return;
+    // 暂时仅使用策略二（TFLite）验证效果，不依赖 PoseDetector
+    if (_isRecording || _isDetecting) return;
     if (!_isVideoActive) return;
 
     _isDetecting = true;
     try {
-      // 1. 单次检测 (内部已包含严格的拓扑校验和关键点数量要求)
-      bool isDetected = await _detectPersonInCurrentFrame();
+      // 仅启用策略二：TFLite + COCO 人物检测（需要模型文件）
+      final bool isDetected = await _detectPersonWithTflite();
       
       if (isDetected) {
         LogUtils.i('CameraEndpoint', '检测到人物 (严格模式)，准备录制');
@@ -847,6 +864,104 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       }
     } catch (e) {
       LogUtils.e('CameraEndpoint', 'Single frame detection error', e);
+    }
+    return false;
+  }
+
+  Future<bool> _detectPersonWithTflite() async {
+    try {
+      if (!_personModelReady || _personInterpreter == null) {
+        await _initPersonDetector();
+        if (!_personModelReady || _personInterpreter == null) {
+          return false;
+        }
+      }
+
+      final videoTracks = _localRenderer.srcObject?.getVideoTracks();
+      if (videoTracks == null || videoTracks.isEmpty) return false;
+
+      final track = videoTracks.first;
+      await (track as dynamic).captureFrame();
+
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/captureFrame.png');
+      if (!await file.exists()) return false;
+
+      final bytes = await file.readAsBytes();
+      final image = img.decodeImage(bytes);
+      if (image == null) return false;
+
+      final inputTensor = _personInterpreter!.getInputTensors().first;
+      final shape = inputTensor.shape; // [1, height, width, 3]
+      final height = shape[1];
+      final width = shape[2];
+
+      final resized = img.copyResize(image, width: width, height: height);
+
+      // SSD MobileNet 通常使用 float32 [0,1] 归一化
+      final input = List.generate(
+        1,
+        (_) => List.generate(
+          height,
+          (y) => List.generate(
+            width,
+            (x) {
+              final pixel = resized.getPixel(x, y);
+              final r = img.getRed(pixel) / 255.0;
+              final g = img.getGreen(pixel) / 255.0;
+              final b = img.getBlue(pixel) / 255.0;
+              return [r, g, b];
+            },
+          ),
+        ),
+      );
+
+      // 这里假设输出为典型的 SSD MobileNet 结构：
+      // boxes: [1, numDetections, 4]
+      // classes: [1, numDetections]
+      // scores: [1, numDetections]
+      // numDetections: [1]
+      const int maxDetections = 10;
+      final boxes = List.generate(
+        1,
+        (_) => List.generate(maxDetections, (_) => List.filled(4, 0.0)),
+      );
+      final classes = List.generate(
+        1,
+        (_) => List.filled(maxDetections, 0.0),
+      );
+      final scores = List.generate(
+        1,
+        (_) => List.filled(maxDetections, 0.0),
+      );
+      final numDetections = List.filled(1, 0.0);
+
+      final outputs = <int, Object>{
+        0: boxes,
+        1: classes,
+        2: scores,
+        3: numDetections,
+      };
+
+      await _personInterpreter!.runForMultipleInputs([input], outputs);
+
+      final int count = numDetections[0].round().clamp(0, maxDetections);
+      const double minScore = 0.6;
+      const int personClassId = 1; // COCO: 1 通常是 person
+
+      for (int i = 0; i < count; i++) {
+        final score = scores[0][i];
+        final cls = classes[0][i].round();
+        if (score >= minScore && cls == personClassId) {
+          LogUtils.d(
+            'CameraEndpoint',
+            'TFLite detected person: idx=$i, score=$score, class=$cls',
+          );
+          return true;
+        }
+      }
+    } catch (e) {
+      LogUtils.e('CameraEndpoint', 'TFLite person detection error', e);
     }
     return false;
   }

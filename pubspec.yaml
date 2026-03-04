@@ -64,6 +64,7 @@ dependencies:
   in_app_purchase_android: ^0.4.0+8
   in_app_purchase_storekit: ^0.3.0
   firebase_crashlytics: ^5.0.8
+  tflite_flutter: ^0.12.1
 
 dependency_overrides:
   package_info_plus: ^8.0.2
@@ -101,6 +102,8 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/ml/person_detection.tflite
+    - assets/ml/coco_labels.txt
 
   # To add assets to your application, add an assets section, like this:
   # assets:
