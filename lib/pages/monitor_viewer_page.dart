@@ -66,6 +66,15 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
   void dispose() {
     _stopRecording(showToast: false);
     _hangUp();
+    // 清理 signaling 回调，避免在页面销毁后仍然触发 setState
+    if (_signaling != null) {
+      _signaling!
+        ..onSignalingStateChange = null
+        ..onPeersUpdate = null
+        ..onCallStateChange = null
+        ..onAddRemoteStream = null
+        ..onRemoveRemoteStream = null;
+    }
     _signaling?.close();
     _remoteRenderer.dispose();
     super.dispose();
@@ -84,6 +93,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     // 设置回调函数在连接之前
     _signaling!.onSignalingStateChange = (SignalingState state) {
       LogUtils.i('MonitorViewer', 'Signaling state changed: $state');
+      if (!mounted) return;
       setState(() {
         _isConnected = state == SignalingState.ConnectionOpen;
       });
@@ -91,6 +101,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
     _signaling!.onPeersUpdate = (event) {
       LogUtils.d('MonitorViewer', 'Peers updated: $event');
+      if (!mounted) return;
       setState(() {
         _selfId = event['self'];
         _peers = event['peers'];
@@ -136,11 +147,13 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       LogUtils.i('MonitorViewer', 'Call state changed: $state');
       switch (state) {
         case CallState.CallStateNew:
+          if (!mounted) return;
           setState(() {
             _session = session;
           });
           break;
         case CallState.CallStateConnected:
+          if (!mounted) return;
           setState(() {
             _inCall = true;
             // 记录连接的相机端ID
@@ -150,6 +163,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
           break;
         case CallState.CallStateBye:
           _stopRecording(showToast: false);
+          if (!mounted) return;
           setState(() {
             _inCall = false;
             _session = null;
@@ -185,6 +199,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       LogUtils.i('MonitorViewer', 'Remote stream added');
       _remoteStream = stream;
       _remoteRenderer.srcObject = stream;
+       if (!mounted) return;
       setState(() {});
     };
 
@@ -193,6 +208,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       _stopRecording(showToast: false);
       _remoteStream = null;
       _remoteRenderer.srcObject = null;
+      if (!mounted) return;
       setState(() {});
     };
 
@@ -201,6 +217,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
   }
 
   void _callCamera() {
+    if (!mounted) return;
     if (_signaling != null && _peers.isNotEmpty) {
       // 根据传入的相机设备ID查找对应的peer
       final cameraPeer = _peers.firstWhere(
@@ -252,6 +269,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       'enabled': nextEnabled,
     });
     _signaling?.sendData(sid, payload);
+    if (!mounted) return;
     setState(() {
       _cameraMicEnabled = nextEnabled;
     });
@@ -281,6 +299,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
         videoTrack: stream.getVideoTracks().first,
       );
 
+      if (!mounted) return;
       setState(() {
         _mediaRecorder = recorder;
         _recordingPath = path;
@@ -289,10 +308,15 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       try {
         await _mediaRecorder?.stop();
       } catch (_) {}
-      setState(() {
+      if (mounted) {
+        setState(() {
+          _mediaRecorder = null;
+          _recordingPath = null;
+        });
+      } else {
         _mediaRecorder = null;
         _recordingPath = null;
-      });
+      }
       if (mounted) {
         final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -311,6 +335,12 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       await recorder.stop();
     } catch (e) {
       LogUtils.e('MonitorViewer', 'Stop recording failed', e);
+    }
+
+    if (!mounted) {
+      _mediaRecorder = null;
+      _recordingPath = null;
+      return;
     }
 
     setState(() {
@@ -342,6 +372,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
   Future<void> _saveVideoToGallery(String path) async {
     if (_isSavingToGallery) return;
+    if (!mounted) return;
     setState(() {
       _isSavingToGallery = true;
     });
