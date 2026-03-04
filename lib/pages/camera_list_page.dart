@@ -101,6 +101,7 @@ class _CameraListPageState extends State<CameraListPage> {
 
   void _loadUserInfo() async {
     final user = await SessionManager.getUser();
+    if (!mounted) return;
     setState(() {
       _currentUserEmail = user?.email;
     });
@@ -108,6 +109,7 @@ class _CameraListPageState extends State<CameraListPage> {
       // 进入页面时只获取一次，不开始轮询
       await _loadBindings(showLoading: true);
     } else {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
@@ -119,12 +121,14 @@ class _CameraListPageState extends State<CameraListPage> {
 
     try {
       if (showLoading) {
+        if (!mounted) return;
         setState(() {
           _isLoading = true;
         });
       }
 
       final bindings = await _bindApi.getBindings(_currentUserEmail!);
+      if (!mounted) return;
       final l = AppLocalizations.of(context);
 
       setState(() {
@@ -144,9 +148,11 @@ class _CameraListPageState extends State<CameraListPage> {
       });
     } catch (e) {
       if (showLoading) {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
       if (mounted && showLoading) {
         final l = AppLocalizations.of(context);
