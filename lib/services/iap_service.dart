@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
+import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
+import 'dart:io';
 
 import '../utils/log_utils.dart';
 
@@ -40,6 +43,27 @@ class IapService {
       LogUtils.d(_kIapTag, 'init: force refreshing...');
     }
 
+    // 尽早注册监听器，防止漏单（特别是 iOS）
+    if (_subscription == null) {
+      _subscription = _iap.purchaseStream.listen(
+        (purchaseDetailsList) {
+          LogUtils.d(_kIapTag, 'purchaseStream: ${purchaseDetailsList.length} update(s)');
+          for (final p in purchaseDetailsList) {
+            LogUtils.d(_kIapTag, '  productId=${p.productID} status=${p.status} pendingComplete=${p.pendingCompletePurchase}');
+          }
+          _purchasesController.add(purchaseDetailsList);
+        },
+        onDone: () {
+          LogUtils.d(_kIapTag, 'purchaseStream: done');
+          _subscription?.cancel();
+          _subscription = null;
+        },
+        onError: (Object e, StackTrace? st) {
+          LogUtils.e(_kIapTag, 'purchaseStream: error', e, st);
+        },
+      );
+    }
+
     LogUtils.d(_kIapTag, 'init: checking IAP availability...');
     _available = await _iap.isAvailable();
     LogUtils.d(_kIapTag, 'init: isAvailable=$_available');
@@ -51,23 +75,6 @@ class IapService {
     }
 
     await _queryProducts();
-
-    _subscription = _iap.purchaseStream.listen(
-      (purchaseDetailsList) {
-        LogUtils.d(_kIapTag, 'purchaseStream: ${purchaseDetailsList.length} update(s)');
-        for (final p in purchaseDetailsList) {
-          LogUtils.d(_kIapTag, '  productId=${p.productID} status=${p.status} pendingComplete=${p.pendingCompletePurchase}');
-        }
-        _purchasesController.add(purchaseDetailsList);
-      },
-      onDone: () {
-        LogUtils.d(_kIapTag, 'purchaseStream: done');
-        _subscription?.cancel();
-      },
-      onError: (Object e, StackTrace? st) {
-        LogUtils.e(_kIapTag, 'purchaseStream: error', e, st);
-      },
-    );
 
     _initialized = true;
     LogUtils.d(_kIapTag, 'init: done, products count=${products.length}');
@@ -104,17 +111,36 @@ class IapService {
   Future<void> buy(ProductDetails product, {String? offerToken}) async {
     LogUtils.d(_kIapTag, 'buy: productId=${product.id} price=${product.price} offerToken=$offerToken');
     late PurchaseParam param;
-    if (offerToken != null && product is GooglePlayProductDetails) {
-      param = GooglePlayPurchaseParam(
-        productDetails: product,
-        changeSubscriptionParam: null,
-        offerToken: offerToken,
-      );
+    
+    if (Platform.isAndroid) {
+      if (offerToken != null && product is GooglePlayProductDetails) {
+        param = GooglePlayPurchaseParam(
+          productDetails: product,
+          changeSubscriptionParam: null,
+          offerToken: offerToken,
+        );
+      } else {
+        param = PurchaseParam(productDetails: product);
+      }
     } else {
-      param = PurchaseParam(productDetails: product);
+       // iOS: 默认参数即可
+       param = PurchaseParam(productDetails: product);
     }
+
     await _iap.buyNonConsumable(purchaseParam: param);
     LogUtils.d(_kIapTag, 'buy: buyNonConsumable called');
+  }
+
+  /// iOS 专用：显示兑换码输入框
+  Future<void> presentCodeRedemptionSheet() async {
+    if (Platform.isIOS) {
+      try {
+        // 新版 in_app_purchase_storekit API：直接实例化 SKPaymentQueueWrapper
+        await SKPaymentQueueWrapper().presentCodeRedemptionSheet();
+      } catch (e) {
+        LogUtils.e(_kIapTag, 'presentCodeRedemptionSheet error', e);
+      }
+    }
   }
 
   Future<void> restore() async {

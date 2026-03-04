@@ -16,6 +16,7 @@ import 'pages/profile_page.dart';
 import 'pages/welcome_page.dart';
 import 'services/push_service.dart';
 import 'services/session_manager.dart';
+import 'services/iap_service.dart';
 import 'utils/log_utils.dart';
 import 'utils/navigation_service.dart';
 
@@ -43,6 +44,8 @@ void main() async {
 
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   PushService.init();
+  // 启动 IAP 服务（尽早注册监听器）
+  IapService.instance.init();
 
   // 设置沉浸式状态栏
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
