@@ -807,10 +807,10 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       final poses = await _poseDetector!.processImage(inputImage);
 
       for (final pose in poses) {
-        // 1. 提高基础置信度阈值，以减少误报
-        const double minConfidence = 0.80;
+        // 置信度阈值：兼顾召回与误报
+        const double minConfidence = 0.72;
 
-        // 2. 核心关键点定义 (面部 + 躯干)
+        // 核心关键点 (头 + 躯干)
         final coreLandmarks = [
           pose.landmarks[PoseLandmarkType.nose],
           pose.landmarks[PoseLandmarkType.leftShoulder],
@@ -819,7 +819,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
           pose.landmarks[PoseLandmarkType.rightHip],
         ];
 
-        // 3. 统计核心部位命中数
         int validCoreCount = 0;
         for (final landmark in coreLandmarks) {
           if ((landmark?.likelihood ?? 0) > minConfidence) {
@@ -827,33 +826,23 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
           }
         }
 
-        // 4. 统计全身高置信度关键点总数
         final totalConfidentLandmarks = pose.landmarks.values
             .where((l) => l.likelihood > minConfidence)
             .length;
 
-        // 5. 综合判定策略 (更严格):
-        // 策略A: 核心部位命中数量较多，且总体关键点数量足够
-        // 策略B: 总体关键点数量非常多
+        // 判定：通过拓扑 + (核心点够 或 总点数够)
         bool topologyPass = _checkBodyTopology(pose);
+        if (!topologyPass) continue;
 
-        if (topologyPass) {
-          final bool strongCore =
-              validCoreCount >= 4 && totalConfidentLandmarks >= 6;
-          final bool manyPoints = totalConfidentLandmarks >= 8;
+        final bool coreOk = validCoreCount >= 3 && totalConfidentLandmarks >= 4;
+        final bool pointsOk = totalConfidentLandmarks >= 6;
 
-          if (strongCore || manyPoints) {
-            LogUtils.d(
-              'CameraEndpoint',
-              'Frame detected person: Core=$validCoreCount, Total=$totalConfidentLandmarks',
-            );
-            return true;
-          }
-        } else {
+        if (coreOk || pointsOk) {
           LogUtils.d(
             'CameraEndpoint',
-            'Topology rejected pose: Core=$validCoreCount, Total=$totalConfidentLandmarks',
+            'Frame detected person: Core=$validCoreCount, Total=$totalConfidentLandmarks',
           );
+          return true;
         }
       }
     } catch (e) {
@@ -870,8 +859,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     final leftHip = landmarks[PoseLandmarkType.leftHip];
     final rightHip = landmarks[PoseLandmarkType.rightHip];
 
-    // 拓扑校验阈值略低于最终判定阈值，用于大致确认结构合理
-    const double minConf = 0.70;
+    const double minConf = 0.62;
 
     // 1. 检查躯干直立性 (肩膀在臀部上方)
     // 图像坐标系Y向下增加，所以头部Y < 脚部Y
@@ -910,8 +898,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       }
     }
 
-    // 3. 尺寸与比例约束：过滤不符合正常人体比例的小结构或异常结构
-    // 仅在关键点置信度足够时启用
+    // 3. 尺寸与比例约束（仅在四点都可靠时）：过滤过小或比例异常的结构
     if (leftShoulder != null &&
         rightShoulder != null &&
         leftHip != null &&
@@ -920,59 +907,14 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         rightShoulder.likelihood > minConf &&
         leftHip.likelihood > minConf &&
         rightHip.likelihood > minConf) {
-      final double shoulderWidth =
-          (leftShoulder.x - rightShoulder.x).abs();
-      final double torsoHeight =
-          ((leftHip.y + rightHip.y) / 2.0) -
+      final double shoulderWidth = (leftShoulder.x - rightShoulder.x).abs();
+      final double torsoHeight = ((leftHip.y + rightHip.y) / 2.0) -
           ((leftShoulder.y + rightShoulder.y) / 2.0);
 
-      // 这些阈值需要根据摄像头分辨率微调
-      if (shoulderWidth < 40 || torsoHeight < 40) {
-        // 过小的人形，很可能是噪点或远处物体
-        return false;
-      }
+      if (shoulderWidth < 20 || torsoHeight < 20) return false;
 
       final double ratio = torsoHeight / (shoulderWidth + 1e-6);
-      // 躯干高度与肩宽比例异常，过滤
-      if (ratio < 0.5 || ratio > 3.0) {
-        return false;
-      }
-    }
-
-    // 4. 简单肢体完整度检查：至少一条手臂或一条腿的关键点顺序与位置合理
-    bool _checkLimb(
-      PoseLandmark? a,
-      PoseLandmark? b,
-      PoseLandmark? c,
-    ) {
-      if (a == null || b == null || c == null) return false;
-      if (a.likelihood < minConf ||
-          b.likelihood < minConf ||
-          c.likelihood < minConf) {
-        return false;
-      }
-      // 按人体常规，y 坐标应逐渐增大（从上到下）
-      return a.y < b.y && b.y < c.y;
-    }
-
-    final leftElbow = landmarks[PoseLandmarkType.leftElbow];
-    final rightElbow = landmarks[PoseLandmarkType.rightElbow];
-    final leftWrist = landmarks[PoseLandmarkType.leftWrist];
-    final rightWrist = landmarks[PoseLandmarkType.rightWrist];
-    final leftKnee = landmarks[PoseLandmarkType.leftKnee];
-    final rightKnee = landmarks[PoseLandmarkType.rightKnee];
-    final leftAnkle = landmarks[PoseLandmarkType.leftAnkle];
-    final rightAnkle = landmarks[PoseLandmarkType.rightAnkle];
-
-    final bool hasArmOrLegChain =
-        _checkLimb(leftShoulder, leftElbow, leftWrist) ||
-        _checkLimb(rightShoulder, rightElbow, rightWrist) ||
-        _checkLimb(leftHip, leftKnee, leftAnkle) ||
-        _checkLimb(rightHip, rightKnee, rightAnkle);
-
-    if (!hasArmOrLegChain) {
-      // 没有任何一条完整的肢体链路，容易是静态背景误报
-      return false;
+      if (ratio < 0.35 || ratio > 4.0) return false;
     }
 
     return true;
