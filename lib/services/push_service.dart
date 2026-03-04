@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/services.dart';
 
@@ -13,6 +14,7 @@ class PushService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   static bool _initialized = false;
   static const MethodChannel _platformChannel = MethodChannel('camera_service');
+  static Future<void>? _pendingTokenReport;
 
   static Future<void> init() async {
     if (_initialized) return;
@@ -80,6 +82,20 @@ class PushService {
   }
 
   static Future<void> reportTokenForLoggedInMonitor({String? forceToken}) async {
+    if (_pendingTokenReport != null) {
+      await _pendingTokenReport;
+      return;
+    }
+    final completer = _reportTokenForLoggedInMonitorInternal(forceToken: forceToken);
+    _pendingTokenReport = completer;
+    try {
+      await completer;
+    } finally {
+      _pendingTokenReport = null;
+    }
+  }
+
+  static Future<void> _reportTokenForLoggedInMonitorInternal({String? forceToken}) async {
     try {
       final user = await SessionManager.getUser();
       final role = await SessionManager.getDeviceRole() ?? 'monitor';
@@ -94,15 +110,57 @@ class PushService {
         );
         return;
       }
-      final token = forceToken ?? await _messaging.getToken();
+      final token = forceToken ?? await _getFcmTokenWithRetry();
       if (token == null) {
         LogUtils.w('PushService', 'FCM token is null, cannot report');
         return;
       }
       await _reportTokenToBackend(token, user: user, role: role);
     } catch (e, st) {
-      LogUtils.e('PushService', 'Failed to report FCM token', e);
+      LogUtils.e('PushService', 'Failed to report FCM token', e, st);
     }
+  }
+
+  static Future<String?> _getFcmTokenWithRetry() async {
+    const maxAttempts = 8;
+    var delayMs = 300;
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (Platform.isIOS) {
+        try {
+          final apnsToken = await _messaging.getAPNSToken();
+          if (apnsToken != null && apnsToken.isNotEmpty) {
+            LogUtils.i('PushService', 'APNs token ready');
+          }
+        } on FirebaseException catch (e) {
+          if (e.code != 'apns-token-not-set') {
+            rethrow;
+          }
+        } catch (_) {}
+      }
+
+      try {
+        final token = await _messaging.getToken();
+        if (token != null && token.isNotEmpty) {
+          return token;
+        }
+      } on FirebaseException catch (e) {
+        if (!(Platform.isIOS && e.code == 'apns-token-not-set')) {
+          LogUtils.w('PushService', 'FCM token error (attempt $attempt): ${e.message}');
+          // 不立即抛出，继续重试
+        }
+      } catch (e) {
+        LogUtils.w('PushService', 'FCM token error (attempt $attempt): $e');
+        // 捕获所有其他异常（如网络超时），继续重试
+      }
+
+      await Future.delayed(Duration(milliseconds: delayMs));
+      if (delayMs < 2000) {
+        delayMs = (delayMs * 2).clamp(300, 2000);
+      }
+    }
+
+    return null;
   }
 
   static Future<void> _reportTokenToBackend(
