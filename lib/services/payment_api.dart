@@ -80,6 +80,60 @@ class PaymentApi {
     }
   }
 
+  Future<Map<String, dynamic>?> verifyApplePurchase({
+    required String transactionId,
+    required String productId,
+    required String receiptData,
+    required String email,
+  }) async {
+    final client = HttpClient();
+    client.badCertificateCallback = (cert, h, p) => true;
+    try {
+      final req = await client.postUrl(_buildUri('verify/apple'));
+      req.headers.contentType = ContentType.json;
+      final user = await SessionManager.getUser();
+      if (user?.token != null) {
+        req.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${user!.token}');
+      }
+
+      final body = {
+        'transaction_id': transactionId,
+        'product_id': productId,
+        'receipt_data': receiptData,
+        'email': email,
+        'platform': 'ios',
+      };
+
+      LogUtils.d('PaymentApi', 'Verifying purchase: $body');
+      req.write(jsonEncode(body));
+
+      final resp = await req.close();
+      final text = await utf8.decodeStream(resp);
+      LogUtils.d('PaymentApi', 'Verify response: ${resp.statusCode} $text');
+
+      if (resp.statusCode == 401) {
+        NavigationService.handleUnauthorized();
+      }
+
+      if (resp.statusCode == 200) {
+        try {
+          final data = jsonDecode(text);
+          if (data['success'] == true || data['status'] == 'success') {
+            return data;
+          }
+        } catch (_) {
+          return null;
+        }
+      }
+      return null;
+    } catch (e, st) {
+      LogUtils.e('PaymentApi', 'Verify failed', e, st);
+      return null;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
   Future<Map<String, dynamic>?> refreshSubscription({
     required String email,
   }) async {

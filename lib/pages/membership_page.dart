@@ -207,12 +207,22 @@ class _MembershipPageState extends State<MembershipPage> {
               return;
             }
 
-            final result = await PaymentApi().verifyGooglePurchase(
-              orderId: purchase.purchaseID ?? '',
-              productId: purchase.productID,
-              purchaseToken: purchase.verificationData.serverVerificationData,
-              email: user.email,
-            );
+            Map<String, dynamic>? result;
+            if (Platform.isIOS) {
+              result = await PaymentApi().verifyApplePurchase(
+                transactionId: purchase.purchaseID ?? '',
+                productId: purchase.productID,
+                receiptData: purchase.verificationData.serverVerificationData,
+                email: user.email,
+              );
+            } else {
+              result = await PaymentApi().verifyGooglePurchase(
+                orderId: purchase.purchaseID ?? '',
+                productId: purchase.productID,
+                purchaseToken: purchase.verificationData.serverVerificationData,
+                email: user.email,
+              );
+            }
 
             if (result != null) {
               await _iap.completePurchase(purchase);
