@@ -224,6 +224,8 @@ class AppLocalizations {
           'Notification permission is required to keep camera running in background. Please grant it in settings.',
       'cameraEndpointCameraMicPermissionRequired':
           'Camera and microphone permissions are required to run the camera service. Please grant them in settings.',
+      'cameraEndpointIosLockWarning':
+          'Video capture will pause when the device is locked.',
       'cameraEndpointServiceStarted': 'Foreground service started',
       'cameraEndpointBatteryOptimizationsOff': 'Battery optimizations disabled, running well',
       'cameraEndpointBatteryOptimizationsOn':
@@ -520,6 +522,7 @@ class AppLocalizations {
       'cameraEndpointRecordSaved': '停止录制',
       'cameraEndpointNotificationPermissionRequired': '需要通知权限以保持相机在后台运行，请在设置中授予权限',
       'cameraEndpointCameraMicPermissionRequired': '需要相机和麦克风权限才能运行服务，请在设置中授予权限。',
+      'cameraEndpointIosLockWarning': '锁屏后将无法正常采集视频。',
       'cameraEndpointServiceStarted': '前台服务已启动',
       'cameraEndpointBatteryOptimizationsOff': '电池优化已关闭，运行状态良好',
       'cameraEndpointBatteryOptimizationsOn': '建议在设置中关闭电池优化以保证连接稳定',
@@ -839,6 +842,8 @@ class AppLocalizations {
       _t('cameraEndpointNotificationPermissionRequired');
   String get cameraEndpointCameraMicPermissionRequired =>
       _t('cameraEndpointCameraMicPermissionRequired');
+  String get cameraEndpointIosLockWarning =>
+      _t('cameraEndpointIosLockWarning');
   String get cameraEndpointServiceStarted => _t('cameraEndpointServiceStarted');
   String get cameraEndpointBatteryOptimizationsOff =>
       _t('cameraEndpointBatteryOptimizationsOff');

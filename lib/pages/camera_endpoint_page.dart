@@ -166,6 +166,20 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     }
   }
 
+  /// iOS：通过 CallKit 上报/结束“正在通话”，使锁屏后仍能持续采集
+  Future<void> _reportIosOngoingCall(bool start) async {
+    if (!Platform.isIOS) return;
+    try {
+      if (start) {
+        await _serviceChannel.invokeMethod('reportOngoingCall');
+      } else {
+        await _serviceChannel.invokeMethod('endOngoingCall');
+      }
+    } catch (e) {
+      LogUtils.w('CameraEndpoint', 'reportOngoingCall/endOngoingCall failed: $e');
+    }
+  }
+
   Future<void> _showAndroidServiceSnackBar() async {
     bool isIgnoring = false;
     try {
@@ -219,6 +233,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   }
 
   Future<void> _releaseResources() async {
+    if (Platform.isIOS) await _reportIosOngoingCall(false);
     WidgetsBinding.instance.removeObserver(this);
     _stopDetectionTimer();
     await _signaling?.close();
@@ -361,9 +376,11 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
           break;
         case CallState.CallStateConnected:
           LogUtils.i('CameraEndpoint', '视频通话已连接');
+          if (Platform.isIOS) _reportIosOngoingCall(true);
           break;
         case CallState.CallStateBye:
           LogUtils.i('CameraEndpoint', '监控端已断开');
+          if (Platform.isIOS) _reportIosOngoingCall(false);
           break;
         default:
           break;
@@ -1199,6 +1216,20 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
                     child: CircularProgressIndicator(),
                   ),
           ),
+          if (Platform.isIOS)
+            Container(
+              width: double.infinity,
+              color: Colors.orange.shade100,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Text(
+                AppLocalizations.of(context).cameraEndpointIosLockWarning,
+                style: TextStyle(
+                  color: Colors.orange.shade800,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
           if (_isBannerAdReady && _bannerAd != null)
             SafeArea(
               top: false,
