@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -44,6 +45,10 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   Timer? _detectTimer;
   MediaRecorder? _mediaRecorder;
   bool _isLoggingOut = false;
+
+  // Banner ad (same style as camera list page)
+  BannerAd? _bannerAd;
+  bool _isBannerAdReady = false;
   
   // WebRTC signaling
   Signaling? _signaling;
@@ -59,6 +64,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadBannerAd();
     _initRenderer();
     _initDetector();
     _loadUserInfo();
@@ -222,6 +228,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _detectTimer?.cancel();
+    _bannerAd?.dispose();
     _localRenderer.dispose();
     super.dispose();
   }
@@ -233,6 +240,45 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     _stopVideo();
     await _stopForegroundService();
     await _localRenderer.dispose();
+    _bannerAd?.dispose();
+  }
+
+  void _loadBannerAd() {
+    final adUnitId = Platform.isAndroid
+        ? 'ca-app-pub-3940256099942544/9214589741'
+        : 'ca-app-pub-3940256099942544/2435281174';
+
+    final ad = BannerAd(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      size: AdSize.banner,
+      listener: BannerAdListener(
+        onAdLoaded: (ad) {
+          if (!mounted) {
+            ad.dispose();
+            return;
+          }
+          setState(() {
+            _bannerAd = ad as BannerAd;
+            _isBannerAdReady = true;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          if (!mounted) return;
+          setState(() {
+            _bannerAd = null;
+            _isBannerAdReady = false;
+          });
+          LogUtils.w(
+            'CameraEndpoint',
+            'BannerAd failed to load: code=${error.code}, message=${error.message}, domain=${error.domain}',
+          );
+        },
+      ),
+    );
+
+    ad.load();
   }
 
   @override
@@ -1097,7 +1143,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       ),
       body: Column(
         children: [
-          // 连接状态指示器
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(8),
@@ -1116,28 +1161,31 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
               },
             ),
           ),
-          // 视频预览
           Expanded(
             child: _isVideoActive
                 ? Stack(
                     children: [
-                      Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        decoration: const BoxDecoration(color: Colors.black),
-                        child: RepaintBoundary(
-                          key: _videoKey,
-                          child: RTCVideoView(_localRenderer, mirror: true),
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black,
+                          child: RepaintBoundary(
+                            key: _videoKey,
+                            child: RTCVideoView(
+                              _localRenderer,
+                              mirror: true,
+                              objectFit:
+                                  RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+                            ),
+                          ),
                         ),
                       ),
                       Positioned(
-                        bottom: 30,
+                        bottom: 16,
                         left: 0,
                         right: 0,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-
                             FloatingActionButton(
                               heroTag: 'mic_btn',
                               onPressed: _toggleMic,
@@ -1166,6 +1214,16 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
                     child: CircularProgressIndicator(),
                   ),
           ),
+          if (_isBannerAdReady && _bannerAd != null)
+            SafeArea(
+              top: false,
+              child: Container(
+                alignment: Alignment.center,
+                width: _bannerAd!.size.width.toDouble(),
+                height: _bannerAd!.size.height.toDouble(),
+                child: AdWidget(ad: _bannerAd!),
+              ),
+            ),
         ],
       ),
     ));
