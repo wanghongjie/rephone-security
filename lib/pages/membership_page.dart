@@ -134,10 +134,11 @@ class _MembershipPageState extends State<MembershipPage> {
                
                for (final offer in offers) {
                  if (offer.basePlanId == plan.basePlanId) {
-                   // Found it!
+                   final formatted = offer.pricingPhases.first.formattedPrice;
                    _plans[i] = plan.copyWith(
-                     displayPrice: offer.pricingPhases.first.formattedPrice,
-                     productId: 'rephone_pro', // Switch to parent ID for purchase
+                     price: _parsePriceFromDisplay(formatted),
+                     displayPrice: formatted,
+                     productId: 'rephone_pro',
                      offerToken: offer.offerIdToken,
                    );
                    // Found valid Android plan, skip legacy strategy
@@ -160,7 +161,13 @@ class _MembershipPageState extends State<MembershipPage> {
           if (plan.productId != null) {
             final product = _iap.getProduct(plan.productId!);
             if (product != null) {
-              _plans[i] = plan.copyWith(displayPrice: product.price);
+              final numPrice = (product is ProductDetails)
+                  ? (product.rawPrice)
+                  : _parsePriceFromDisplay(product.price);
+              _plans[i] = plan.copyWith(
+                price: numPrice ?? _parsePriceFromDisplay(product.price),
+                displayPrice: product.price,
+              );
               continue;
             }
           }
@@ -476,9 +483,9 @@ class _MembershipPageState extends State<MembershipPage> {
               children: [
                 ..._buildFeatureWidgets(yearly, l),
                 const Divider(height: 32),
-                _buildPlanOption(monthly, l),
+                _buildPlanOption(context, monthly, l),
                 const SizedBox(height: 12),
-                _buildPlanOption(yearly, l),
+                _buildPlanOption(context, yearly, l, discountLabel: _yearlyDiscountLabel(monthly, yearly, l)),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -503,7 +510,24 @@ class _MembershipPageState extends State<MembershipPage> {
     );
   }
 
-  Widget _buildPlanOption(MembershipPlan plan, AppLocalizations l) {
+  /// 根据月付/年付价格计算年付折扣文案：折扣后单价 + 省 XX%
+  String? _yearlyDiscountLabel(MembershipPlan monthly, MembershipPlan yearly, AppLocalizations l) {
+    final monthlyPrice = monthly.price;
+    final yearlyPrice = yearly.price;
+    if (monthlyPrice == null || yearlyPrice == null || monthlyPrice <= 0) return null;
+    final equivalentPerMonth = yearlyPrice / 12;
+    final savePercent = (1 - yearlyPrice / (monthlyPrice * 12)) * 100;
+    if (savePercent <= 0) return null;
+    final percentStr = savePercent >= 1 ? savePercent.round().toString() : savePercent.toStringAsFixed(0);
+    final priceStr = equivalentPerMonth == equivalentPerMonth.roundToDouble()
+        ? equivalentPerMonth.round().toString()
+        : equivalentPerMonth.toStringAsFixed(2);
+    final pricePart = l.membershipPlanPricePerMonth.replaceAll('{price}', priceStr);
+    final savePart = l.membershipYearlySavePercent.replaceAll('{percent}', percentStr);
+    return '$pricePart · $savePart';
+  }
+
+  Widget _buildPlanOption(BuildContext context, MembershipPlan plan, AppLocalizations l, {String? discountLabel}) {
     final isSelected = _selectedPremiumPlanId == plan.id;
     final isYearly = plan.planType == MembershipPlanType.yearly;
 
@@ -543,6 +567,18 @@ class _MembershipPageState extends State<MembershipPage> {
                     isYearly ? l.membershipPlanYearly : l.membershipPlanMonthly,
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
+                  if (isYearly && discountLabel != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        discountLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
                   if (isYearly)
                     Container(
                       margin: const EdgeInsets.only(top: 4),
@@ -708,6 +744,7 @@ class MembershipPlan {
   bool get isFree => price == null || price == 0;
 
   MembershipPlan copyWith({
+    double? price,
     String? displayPrice,
     bool? isCurrentPlan,
     String? productId,
@@ -716,7 +753,7 @@ class MembershipPlan {
     return MembershipPlan(
       id: id,
       planType: planType,
-      price: price,
+      price: price ?? this.price,
       isRecommended: isRecommended,
       isCurrentPlan: isCurrentPlan ?? this.isCurrentPlan,
       productId: productId ?? this.productId,
@@ -725,6 +762,13 @@ class MembershipPlan {
       displayPrice: displayPrice ?? this.displayPrice,
     );
   }
+}
+
+/// 从 IAP 价格字符串解析数值（去掉货币符号等）
+double? _parsePriceFromDisplay(String? displayPrice) {
+  if (displayPrice == null || displayPrice.isEmpty) return null;
+  final cleaned = displayPrice.replaceAll(RegExp(r'[^\d.,]'), '').replaceAll(',', '.');
+  return double.tryParse(cleaned);
 }
 
 List<Widget> _buildFeatureWidgets(MembershipPlan plan, AppLocalizations l) {

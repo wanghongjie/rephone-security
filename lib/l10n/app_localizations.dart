@@ -178,6 +178,8 @@ class AppLocalizations {
       'membershipDurationYear': 'year',
       'membershipPlanMonthly': 'Monthly',
       'membershipPlanYearly': 'Yearly',
+      'membershipYearlyEquivalentPerMonth': 'Equivalent to {price}/month',
+      'membershipYearlySavePercent': 'Save {percent}%',
       'membershipFaqTitle': 'FAQ',
       'membershipFaqCancelTitle': 'How to cancel subscription?',
       'membershipFaqCancelContent':
@@ -476,6 +478,8 @@ class AppLocalizations {
       'membershipDurationYear': '年',
       'membershipPlanMonthly': '月付',
       'membershipPlanYearly': '年付',
+      'membershipYearlyEquivalentPerMonth': '相当于 {price}/月',
+      'membershipYearlySavePercent': '省 {percent}%',
       'membershipFaqTitle': '常见问题',
       'membershipFaqCancelTitle': '如何取消订阅？',
       'membershipFaqCancelContent':
@@ -766,6 +770,8 @@ class AppLocalizations {
   String get membershipDurationYear => _t('membershipDurationYear');
   String get membershipPlanMonthly => _t('membershipPlanMonthly');
   String get membershipPlanYearly => _t('membershipPlanYearly');
+  String get membershipYearlyEquivalentPerMonth => _t('membershipYearlyEquivalentPerMonth');
+  String get membershipYearlySavePercent => _t('membershipYearlySavePercent');
   String get membershipFaqTitle => _t('membershipFaqTitle');
   String get membershipFaqCancelTitle => _t('membershipFaqCancelTitle');
   String get membershipFaqCancelContent => _t('membershipFaqCancelContent');
