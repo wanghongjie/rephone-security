@@ -118,7 +118,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   }
   
   Future<void> _checkAndRequestPermissions() async {
-    // 1. 请求相机和麦克风权限（必须在启动前台服务之前获取）
+    // 1. 请求相机和麦克风权限（两端通用）
     Map<Permission, PermissionStatus> statuses = await [
       Permission.camera,
       Permission.microphone,
@@ -135,88 +135,72 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       return;
     }
 
-    try {
-      // 请求忽略电池优化（重要：保持网络连接）
-      await _serviceChannel.invokeMethod('requestIgnoreBatteryOptimizations');
-      
-      // 检查通知权限
-      final hasPermission = await _serviceChannel.invokeMethod<bool>('checkNotificationPermission') ?? false;
-      
-      if (!hasPermission) {
-        await _serviceChannel.invokeMethod('requestNotificationPermission');
-        await Future.delayed(const Duration(seconds: 1));
-        final granted = await _serviceChannel.invokeMethod<bool>('checkNotificationPermission') ?? false;
+    // 2. Android：忽略电池优化 + 通知权限 + 前台服务，以便切到后台仍能持续视频
+    //    iOS：无电池优化概念，无前台服务 API，不调用 MethodChannel
+    if (Platform.isAndroid) {
+      try {
+        await _serviceChannel.invokeMethod('requestIgnoreBatteryOptimizations');
+        final hasPermission = await _serviceChannel.invokeMethod<bool>('checkNotificationPermission') ?? false;
 
-        if (granted) {
-          await _startForegroundService();
-          if (mounted) {
-            final isIgnoringBatteryOptimizations =
-                await _serviceChannel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ?? false;
+        if (!hasPermission) {
+          await _serviceChannel.invokeMethod('requestNotificationPermission');
+          await Future.delayed(const Duration(seconds: 1));
+          final granted = await _serviceChannel.invokeMethod<bool>('checkNotificationPermission') ?? false;
+          if (granted) {
+            await _startForegroundService();
+            if (mounted) _showAndroidServiceSnackBar();
+          } else if (mounted) {
             final l = AppLocalizations.of(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  '${l.cameraEndpointServiceStarted}\n${isIgnoringBatteryOptimizations ? l.cameraEndpointBatteryOptimizationsOff : l.cameraEndpointBatteryOptimizationsOn}',
-                ),
-                duration: const Duration(seconds: 4),
-              ),
+              SnackBar(content: Text(l.cameraEndpointNotificationPermissionRequired), duration: const Duration(seconds: 4)),
             );
           }
         } else {
-          if (mounted) {
-            final l = AppLocalizations.of(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(l.cameraEndpointNotificationPermissionRequired),
-                duration: const Duration(seconds: 4),
-              ),
-            );
-          }
+          await _startForegroundService();
+          if (mounted) _showAndroidServiceSnackBar();
         }
-      } else {
-        // 已有权限，直接启动服务
-        await _startForegroundService();
-        if (mounted) {
-          final isIgnoringBatteryOptimizations = await _serviceChannel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ?? false;
-          final l = AppLocalizations.of(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '${l.cameraEndpointServiceStarted}\n${isIgnoringBatteryOptimizations ? l.cameraEndpointBatteryOptimizationsOff : l.cameraEndpointBatteryOptimizationsOn}',
-              ),
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      LogUtils.e('CameraEndpoint', 'Permission check error', e);
-      // Android 12以下不需要运行时权限，直接启动服务
-      if (mounted) {
-        await _startForegroundService();
+      } catch (e) {
+        LogUtils.e('CameraEndpoint', 'Android permission/service error', e);
+        if (mounted) await _startForegroundService();
       }
     }
   }
+
+  Future<void> _showAndroidServiceSnackBar() async {
+    bool isIgnoring = false;
+    try {
+      isIgnoring = await _serviceChannel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ?? false;
+    } catch (_) {}
+    if (!mounted) return;
+    final l = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${l.cameraEndpointServiceStarted}\n${isIgnoring ? l.cameraEndpointBatteryOptimizationsOff : l.cameraEndpointBatteryOptimizationsOn}',
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
   
   Future<void> _startForegroundService() async {
+    if (!Platform.isAndroid) return;
     try {
       await _serviceChannel.invokeMethod('startForegroundService');
       LogUtils.i('CameraEndpoint', 'Foreground service started');
     } catch (e) {
       LogUtils.e('CameraEndpoint', 'Failed to start foreground service', e);
       if (mounted) {
-          final l = AppLocalizations.of(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${l.cameraEndpointServiceStartFailed}$e'),
-              duration: const Duration(seconds: 3),
-            ),
-          );
+        final l = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l.cameraEndpointServiceStartFailed}$e'), duration: const Duration(seconds: 3)),
+        );
       }
     }
   }
-  
+
   Future<void> _stopForegroundService() async {
+    if (!Platform.isAndroid) return;
     try {
       await _serviceChannel.invokeMethod('stopForegroundService');
       LogUtils.i('CameraEndpoint', 'Foreground service stopped');
