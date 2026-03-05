@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../services/session_manager.dart';
-import '../pages/welcome_page.dart';
 
 class NavigationService {
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -9,38 +9,34 @@ class NavigationService {
 
   static void handleUnauthorized() {
     if (_isDialogShowing) return;
-    
+
     final context = navigatorKey.currentContext;
     if (context == null) return;
 
     _isDialogShowing = true;
-    
+    final l = AppLocalizations.of(context);
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Session Expired'),
-        content: const Text('Your session has expired. Please log in again.'),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l.sessionExpiredTitle),
+        content: Text(l.sessionExpiredContent),
         actions: [
           TextButton(
             onPressed: () async {
               _isDialogShowing = false;
-              // Close the dialog
-              Navigator.of(context).pop();
-              
-              // Clear session
+              Navigator.of(dialogContext).pop();
               await SessionManager.clear();
-              
-              // Navigate to WelcomePage
-              // Using pushAndRemoveUntil to remove all previous routes
-              Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+              if (dialogContext.mounted) {
+                Navigator.of(dialogContext).pushNamedAndRemoveUntil('/welcome', (route) => false);
+              }
             },
-            child: const Text('OK'),
+            child: Text(l.commonOk),
           ),
         ],
       ),
     ).then((_) {
-      // Ensure flag is reset if dialog is dismissed by other means (though barrierDismissible is false)
       _isDialogShowing = false;
     });
   }

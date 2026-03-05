@@ -313,6 +313,8 @@ class AppLocalizations {
       'passwordRequirementSpecial': 'Contains special characters',
       'passwordErrorTooWeak': 'Password is too weak',
       'passwordRequired': 'Password is required',
+      'sessionExpiredTitle': 'Session Expired',
+      'sessionExpiredContent': 'Your session has expired. Please log in again.',
     },
     'zh': {
       'appTitle': 'RePhone 安全',
@@ -601,6 +603,8 @@ class AppLocalizations {
       'passwordRequirementSpecial': '包含特殊字符',
       'passwordErrorTooWeak': '密码强度太弱',
       'passwordRequired': '请输入密码',
+      'sessionExpiredTitle': '登录已过期',
+      'sessionExpiredContent': '您的登录已过期，请重新登录。',
     },
   };
 
@@ -893,6 +897,8 @@ class AppLocalizations {
   String get passwordRequirementSpecial => _t('passwordRequirementSpecial');
   String get passwordErrorTooWeak => _t('passwordErrorTooWeak');
   String get passwordRequired => _t('passwordRequired');
+  String get sessionExpiredTitle => _t('sessionExpiredTitle');
+  String get sessionExpiredContent => _t('sessionExpiredContent');
 
   String tr(String key) => _t(key);
 }
