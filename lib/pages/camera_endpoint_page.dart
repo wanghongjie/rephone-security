@@ -56,6 +56,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   List<dynamic> _peers = [];
   bool _isConnected = false;
   String? _currentUserEmail;
+  bool _isFakeSleep = false;
   
   // Foreground service channel
   static const MethodChannel _serviceChannel = MethodChannel('camera_service');
@@ -1083,166 +1084,207 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
           }
         }
       },
-      child: Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: theme.colorScheme.inversePrimary,
-        centerTitle: true,
-        title: Text(AppLocalizations.of(context).cameraEndpointTitle),
-        leadingWidth: 140,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 8),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: _CameraRoleMenu(
-              value: _role,
-              onSelected: (role) async {
-                if (role == 'monitor') {
-                  final l = AppLocalizations.of(context);
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: Text(l.switchToMonitorDialogTitle),
-                      content: Text(l.switchToMonitorDialogContent),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: Text(l.commonCancel),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: Text(l.commonConfirm),
-                        ),
-                      ],
-                    ),
-                  );
-
-                  if (confirm == true) {
-                    await _releaseResources();
-                    await SessionManager.clear();
-                    if (!mounted) return;
-                    Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
-                  }
-                } else {
-                  setState(() {
-                    _role = 'camera';
-                  });
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setString('camera_role', 'camera');
-                }
-              },
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.red),
-            onPressed: _showLogoutDialog,
-            tooltip: AppLocalizations.of(context).settingsLogout,
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Column(
+      child: Stack(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(8),
-            color: _isConnected ? Colors.green : Colors.red,
-            child: Builder(
-              builder: (context) {
-                final l = AppLocalizations.of(context);
-                final text = _isConnected
-                    ? l.cameraEndpointConnectedWithId.replaceFirst('{id}', _selfId ?? '')
-                    : l.cameraEndpointConnecting;
-                return Text(
-                  text,
-                  style: const TextStyle(color: Colors.white),
-                  textAlign: TextAlign.center,
-                );
-              },
-            ),
-          ),
-          Expanded(
-            child: _isVideoActive
-                ? Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Container(
-                          color: Colors.black,
-                          child: RepaintBoundary(
-                            key: _videoKey,
-                            child: RTCVideoView(
-                              _localRenderer,
-                              mirror: true,
-                              objectFit:
-                                  RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
-                            ),
+          Scaffold(
+            appBar: AppBar(
+              automaticallyImplyLeading: false,
+              backgroundColor: theme.colorScheme.inversePrimary,
+              centerTitle: true,
+              title: Text(AppLocalizations.of(context).cameraEndpointTitle),
+              leadingWidth: 140,
+              leading: Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _CameraRoleMenu(
+                    value: _role,
+                    onSelected: (role) async {
+                      if (role == 'monitor') {
+                        final l = AppLocalizations.of(context);
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text(l.switchToMonitorDialogTitle),
+                            content: Text(l.switchToMonitorDialogContent),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: Text(l.commonCancel),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: Text(l.commonConfirm),
+                              ),
+                            ],
                           ),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 16,
-                        left: 0,
-                        right: 0,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        );
+
+                        if (confirm == true) {
+                          await _releaseResources();
+                          await SessionManager.clear();
+                          if (!mounted) return;
+                          Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/auth',
+                            (route) => false,
+                          );
+                        }
+                      } else {
+                        setState(() {
+                          _role = 'camera';
+                        });
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setString('camera_role', 'camera');
+                      }
+                    },
+                  ),
+                ),
+              ),
+              actions: [
+                if (Platform.isIOS)
+                  IconButton(
+                    icon: const Icon(Icons.bedtime),
+                    onPressed: () {
+                      setState(() {
+                        _isFakeSleep = true;
+                      });
+                    },
+                    tooltip:
+                        AppLocalizations.of(context).cameraEndpointFakeSleepButton,
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.logout, color: Colors.red),
+                  onPressed: _showLogoutDialog,
+                  tooltip: AppLocalizations.of(context).settingsLogout,
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+            body: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  color: _isConnected ? Colors.green : Colors.red,
+                  child: Builder(
+                    builder: (context) {
+                      final l = AppLocalizations.of(context);
+                      final text = _isConnected
+                          ? l.cameraEndpointConnectedWithId
+                              .replaceFirst('{id}', _selfId ?? '')
+                          : l.cameraEndpointConnecting;
+                      return Text(
+                        text,
+                        style: const TextStyle(color: Colors.white),
+                        textAlign: TextAlign.center,
+                      );
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: _isVideoActive
+                      ? Stack(
                           children: [
-                            FloatingActionButton(
-                              heroTag: 'mic_btn',
-                              onPressed: _toggleMic,
-                              backgroundColor:
-                                  _isMicMuted ? Colors.red : Colors.white,
-                              child: Icon(
-                                _isMicMuted ? Icons.mic_off : Icons.mic,
-                                color:
-                                    _isMicMuted ? Colors.white : Colors.black,
+                            Positioned.fill(
+                              child: Container(
+                                color: Colors.black,
+                                child: RepaintBoundary(
+                                  key: _videoKey,
+                                  child: RTCVideoView(
+                                    _localRenderer,
+                                    mirror: true,
+                                    objectFit:
+                                        RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+                                  ),
+                                ),
                               ),
                             ),
-                            FloatingActionButton(
-                              heroTag: 'cam_btn',
-                              onPressed: _isSwitchingCamera ? null : _switchCamera,
-                              backgroundColor: Colors.white,
-                              child: _isSwitchingCamera
-                                  ? const CircularProgressIndicator(strokeWidth: 2)
-                                  : const Icon(Icons.switch_camera, color: Colors.black),
+                            Positioned(
+                              bottom: 16,
+                              left: 0,
+                              right: 0,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  FloatingActionButton(
+                                    heroTag: 'mic_btn',
+                                    onPressed: _toggleMic,
+                                    backgroundColor:
+                                        _isMicMuted ? Colors.red : Colors.white,
+                                    child: Icon(
+                                      _isMicMuted ? Icons.mic_off : Icons.mic,
+                                      color: _isMicMuted
+                                          ? Colors.white
+                                          : Colors.black,
+                                    ),
+                                  ),
+                                  FloatingActionButton(
+                                    heroTag: 'cam_btn',
+                                    onPressed:
+                                        _isSwitchingCamera ? null : _switchCamera,
+                                    backgroundColor: Colors.white,
+                                    child: _isSwitchingCamera
+                                        ? const CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          )
+                                        : const Icon(
+                                            Icons.switch_camera,
+                                            color: Colors.black,
+                                          ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
+                        )
+                      : const Center(
+                          child: CircularProgressIndicator(),
                         ),
-                      ),
-                    ],
-                  )
-                : const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-          ),
-          if (Platform.isIOS)
-            Container(
-              width: double.infinity,
-              color: Colors.orange.shade100,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Text(
-                AppLocalizations.of(context).cameraEndpointIosLockWarning,
-                style: TextStyle(
-                  color: Colors.orange.shade800,
-                  fontSize: 12,
                 ),
-                textAlign: TextAlign.center,
-              ),
+                if (Platform.isIOS)
+                  Container(
+                    width: double.infinity,
+                    color: Colors.orange.shade100,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Text(
+                      AppLocalizations.of(context).cameraEndpointIosLockWarning,
+                      style: TextStyle(
+                        color: Colors.orange.shade800,
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                if (_isBannerAdReady && _bannerAd != null)
+                  SafeArea(
+                    top: false,
+                    child: Container(
+                      alignment: Alignment.center,
+                      width: _bannerAd!.size.width.toDouble(),
+                      height: _bannerAd!.size.height.toDouble(),
+                      child: AdWidget(ad: _bannerAd!),
+                    ),
+                  ),
+              ],
             ),
-          if (_isBannerAdReady && _bannerAd != null)
-            SafeArea(
-              top: false,
-              child: Container(
-                alignment: Alignment.center,
-                width: _bannerAd!.size.width.toDouble(),
-                height: _bannerAd!.size.height.toDouble(),
-                child: AdWidget(ad: _bannerAd!),
+          ),
+          if (Platform.isIOS && _isFakeSleep)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  setState(() {
+                    _isFakeSleep = false;
+                  });
+                },
+                child: Container(color: Colors.black),
               ),
             ),
         ],
       ),
-    ));
+    );
   }
 }
 
