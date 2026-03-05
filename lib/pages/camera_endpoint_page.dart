@@ -3,9 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
-import 'dart:ui' as ui;
-import 'package:flutter/rendering.dart';
 import 'dart:io';
 import 'dart:async';
 import 'package:path_provider/path_provider.dart';
@@ -40,7 +37,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
   // Detection & Recording
   final GlobalKey _videoKey = GlobalKey();
-  PoseDetector? _poseDetector;
   Interpreter? _personInterpreter;
   bool _personModelReady = false;
   bool _isDetecting = false;
@@ -226,15 +222,13 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _detectTimer?.cancel();
-    _poseDetector?.close();
-   _localRenderer.dispose();
+    _localRenderer.dispose();
     super.dispose();
   }
 
   Future<void> _releaseResources() async {
     WidgetsBinding.instance.removeObserver(this);
     _stopDetectionTimer();
-    _poseDetector?.close();
     await _signaling?.close();
     _stopVideo();
     await _stopForegroundService();
@@ -690,12 +684,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   }
 
   void _initDetector() {
-    // 使用单张图片模式和精确模型以提高检测准确率
-    final options = PoseDetectorOptions(
-      mode: PoseDetectionMode.single,
-      model: PoseDetectionModel.accurate,
-    );
-    _poseDetector = PoseDetector(options: options);
     _initPersonDetector();
     _startDetectionTimer();
   }
@@ -727,18 +715,15 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   }
 
   Future<void> _performDetection() async {
-    // 暂时仅使用策略二（TFLite）验证效果，不依赖 PoseDetector
     if (_isRecording || _isDetecting) return;
     if (!_isVideoActive) return;
 
     _isDetecting = true;
     try {
       LogUtils.d('CameraEndpoint', 'Detection tick: start TFLite person detection');
-      // 仅启用策略二：TFLite + COCO 人物检测（需要模型文件）
       final bool isDetected = await _detectPersonWithTflite();
-      
       if (isDetected) {
-        LogUtils.i('CameraEndpoint', '检测到人物 (严格模式)，准备录制');
+        LogUtils.i('CameraEndpoint', '检测到人物，准备录制');
         final tempDir = await getTemporaryDirectory();
         final file = File('${tempDir.path}/captureFrame.png');
         if (await file.exists()) {
@@ -807,66 +792,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     } catch (e, st) {
       LogUtils.e('CameraEndpoint', 'Failed to send alert snapshot', e, st);
     }
-  }
-
-  Future<bool> _detectPersonInCurrentFrame() async {
-    try {
-      final videoTracks = _localRenderer.srcObject?.getVideoTracks();
-      if (videoTracks == null || videoTracks.isEmpty) return false;
-
-      final track = videoTracks.first;
-      await (track as dynamic).captureFrame();
-      
-      final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/captureFrame.png');
-      if (!await file.exists()) return false;
-
-      final inputImage = InputImage.fromFilePath(file.path);
-      final poses = await _poseDetector!.processImage(inputImage);
-
-      for (final pose in poses) {
-        // 置信度阈值：兼顾召回与误报
-        const double minConfidence = 0.72;
-
-        // 核心关键点 (头 + 躯干)
-        final coreLandmarks = [
-          pose.landmarks[PoseLandmarkType.nose],
-          pose.landmarks[PoseLandmarkType.leftShoulder],
-          pose.landmarks[PoseLandmarkType.rightShoulder],
-          pose.landmarks[PoseLandmarkType.leftHip],
-          pose.landmarks[PoseLandmarkType.rightHip],
-        ];
-
-        int validCoreCount = 0;
-        for (final landmark in coreLandmarks) {
-          if ((landmark?.likelihood ?? 0) > minConfidence) {
-            validCoreCount++;
-          }
-        }
-
-        final totalConfidentLandmarks = pose.landmarks.values
-            .where((l) => l.likelihood > minConfidence)
-            .length;
-
-        // 判定：通过拓扑 + (核心点够 或 总点数够)
-        bool topologyPass = _checkBodyTopology(pose);
-        if (!topologyPass) continue;
-
-        final bool coreOk = validCoreCount >= 3 && totalConfidentLandmarks >= 4;
-        final bool pointsOk = totalConfidentLandmarks >= 6;
-
-        if (coreOk || pointsOk) {
-          LogUtils.d(
-            'CameraEndpoint',
-            'Frame detected person: Core=$validCoreCount, Total=$totalConfidentLandmarks',
-          );
-          return true;
-        }
-      }
-    } catch (e) {
-      LogUtils.e('CameraEndpoint', 'Single frame detection error', e);
-    }
-    return false;
   }
 
   Future<bool> _detectPersonWithTflite() async {
@@ -1005,75 +930,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       LogUtils.e('CameraEndpoint', 'TFLite person detection error', e);
     }
     return false;
-  }
-
-  bool _checkBodyTopology(Pose pose) {
-    final landmarks = pose.landmarks;
-    final nose = landmarks[PoseLandmarkType.nose];
-    final leftShoulder = landmarks[PoseLandmarkType.leftShoulder];
-    final rightShoulder = landmarks[PoseLandmarkType.rightShoulder];
-    final leftHip = landmarks[PoseLandmarkType.leftHip];
-    final rightHip = landmarks[PoseLandmarkType.rightHip];
-
-    const double minConf = 0.62;
-
-    // 1. 检查躯干直立性 (肩膀在臀部上方)
-    // 图像坐标系Y向下增加，所以头部Y < 脚部Y
-    if (leftShoulder != null &&
-        leftHip != null &&
-        leftShoulder.likelihood > minConf &&
-        leftHip.likelihood > minConf) {
-      if (leftShoulder.y > leftHip.y) {
-         // LogUtils.d('CameraEndpoint', 'Topology reject: L-Shoulder below L-Hip');
-         return false; 
-      }
-    }
-    if (rightShoulder != null &&
-        rightHip != null &&
-        rightShoulder.likelihood > minConf &&
-        rightHip.likelihood > minConf) {
-      if (rightShoulder.y > rightHip.y) {
-         // LogUtils.d('CameraEndpoint', 'Topology reject: R-Shoulder below R-Hip');
-         return false;
-      }
-    }
-
-    // 2. 检查头部位置 (鼻子在肩膀上方)
-    if (nose != null && nose.likelihood > minConf) {
-      if (leftShoulder != null && leftShoulder.likelihood > minConf) {
-        if (nose.y > leftShoulder.y) {
-           // LogUtils.d('CameraEndpoint', 'Topology reject: Nose below L-Shoulder');
-           return false;
-        }
-      }
-      if (rightShoulder != null && rightShoulder.likelihood > minConf) {
-        if (nose.y > rightShoulder.y) {
-           // LogUtils.d('CameraEndpoint', 'Topology reject: Nose below R-Shoulder');
-           return false;
-        }
-      }
-    }
-
-    // 3. 尺寸与比例约束（仅在四点都可靠时）：过滤过小或比例异常的结构
-    if (leftShoulder != null &&
-        rightShoulder != null &&
-        leftHip != null &&
-        rightHip != null &&
-        leftShoulder.likelihood > minConf &&
-        rightShoulder.likelihood > minConf &&
-        leftHip.likelihood > minConf &&
-        rightHip.likelihood > minConf) {
-      final double shoulderWidth = (leftShoulder.x - rightShoulder.x).abs();
-      final double torsoHeight = ((leftHip.y + rightHip.y) / 2.0) -
-          ((leftShoulder.y + rightShoulder.y) / 2.0);
-
-      if (shoulderWidth < 20 || torsoHeight < 20) return false;
-
-      final double ratio = torsoHeight / (shoulderWidth + 1e-6);
-      if (ratio < 0.35 || ratio > 4.0) return false;
-    }
-
-    return true;
   }
 
   Future<void> _startTenSecondsRecording(String imagePath) async {
