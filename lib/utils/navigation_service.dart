@@ -28,9 +28,8 @@ class NavigationService {
               _isDialogShowing = false;
               Navigator.of(dialogContext).pop();
               await SessionManager.clear();
-              if (dialogContext.mounted) {
-                Navigator.of(dialogContext).pushNamedAndRemoveUntil('/welcome', (route) => false);
-              }
+              // 使用根 Navigator，确保从任意页面（含相机端）都能回到登录
+              navigatorKey.currentState?.pushNamedAndRemoveUntil('/welcome', (route) => false);
             },
             child: Text(l.commonOk),
           ),
