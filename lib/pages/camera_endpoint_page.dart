@@ -127,8 +127,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     if (statuses[Permission.camera] != PermissionStatus.granted ||
         statuses[Permission.microphone] != PermissionStatus.granted) {
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('需要相机和麦克风权限才能运行服务')),
+          SnackBar(content: Text(l.cameraEndpointCameraMicPermissionRequired)),
         );
       }
       return;
