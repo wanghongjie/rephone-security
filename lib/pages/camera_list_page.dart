@@ -31,6 +31,7 @@ class _CameraListPageState extends State<CameraListPage> {
   // Banner ad
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
+  bool _isVip = false;
   Directory? _docsDir;
 
   // Delete in-flight
@@ -39,7 +40,6 @@ class _CameraListPageState extends State<CameraListPage> {
   @override
   void initState() {
     super.initState();
-    _loadBannerAd();
     _loadUserInfo();
     _initDocsDir();
   }
@@ -99,12 +99,27 @@ class _CameraListPageState extends State<CameraListPage> {
     ad.load();
   }
 
-  void _loadUserInfo() async {
+  Future<void> refresh() async {
+    await _loadUserInfo();
+  }
+
+  Future<void> _loadUserInfo() async {
     final user = await SessionManager.getUser();
     if (!mounted) return;
+    final isVip = (user?.vipLevel ?? 0) > 0;
+    if (isVip && _bannerAd != null) {
+      _bannerAd?.dispose();
+      _bannerAd = null;
+      _isBannerAdReady = false;
+    }
     setState(() {
       _currentUserEmail = user?.email;
+      _isVip = isVip;
     });
+    // 仅非 VIP 时加载广告，VIP 不加载
+    if (mounted && !isVip && _bannerAd == null) {
+      _loadBannerAd();
+    }
     if (_currentUserEmail != null) {
       // 进入页面时只获取一次，不开始轮询
       await _loadBindings(showLoading: true);
@@ -229,7 +244,7 @@ class _CameraListPageState extends State<CameraListPage> {
     return Scaffold(
       body: Column(
         children: [
-          if (_isBannerAdReady && _bannerAd != null)
+          if (!_isVip && _isBannerAdReady && _bannerAd != null)
             SafeArea(
               bottom: false,
               child: Container(

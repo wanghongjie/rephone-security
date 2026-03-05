@@ -178,6 +178,7 @@ class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
   String _cameraRole = 'monitor'; // monitor 或 camera
   final GlobalKey _profilePageKey = GlobalKey();
+  final GlobalKey _cameraListPageKey = GlobalKey();
   bool _initializedIndex = false;
   late final List<Widget> _pages;
 
@@ -198,7 +199,7 @@ class _MainPageState extends State<MainPage> {
     super.initState();
     _loadCameraRole();
     _pages = [
-      const CameraListPage(),
+      CameraListPage(key: _cameraListPageKey),
       const MembershipPage(),
       ProfilePage(key: _profilePageKey),
     ];
@@ -271,13 +272,15 @@ class _MainPageState extends State<MainPage> {
           setState(() {
             _currentIndex = index;
           });
-          if (index == 2) {
-            Future.microtask(() async {
+          Future.microtask(() async {
+            if (index == 0) {
+              final state = _cameraListPageKey.currentState;
+              if (state != null) await (state as dynamic).refresh();
+            } else if (index == 2) {
               final state = _profilePageKey.currentState;
-              if (state == null) return;
-              await (state as dynamic).refresh();
-            });
-          }
+              if (state != null) await (state as dynamic).refresh();
+            }
+          });
         },
         selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,

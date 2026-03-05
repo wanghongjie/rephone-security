@@ -30,7 +30,6 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _loadUserInfo();
-    _loadBannerAd();
   }
 
   Future<void> refresh() async {
@@ -85,11 +84,21 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _loadUserInfo() async {
     final user = await SessionManager.getUser();
     if (!mounted) return;
+    final isVip = (user?.vipLevel ?? 0) > 0;
+    if (isVip && _bannerAd != null) {
+      _bannerAd?.dispose();
+      _bannerAd = null;
+      _isBannerAdReady = false;
+    }
     setState(() {
       _currentUserEmail = user?.email;
-      _isVip = (user?.vipLevel ?? 0) > 0;
+      _isVip = isVip;
       _expireAt = user?.expireAt;
     });
+    // 仅非 VIP 时加载广告，VIP 不加载
+    if (mounted && !isVip && _bannerAd == null) {
+      _loadBannerAd();
+    }
   }
 
   final List<SettingItem> _settingItems = const [
@@ -124,7 +133,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           ),
-          if (_isBannerAdReady && _bannerAd != null)
+          if (!_isVip && _isBannerAdReady && _bannerAd != null)
             SafeArea(
               top: false,
               child: Container(
