@@ -1,9 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../l10n/app_localizations.dart';
 import 'webview_page.dart';
 
-class AboutPage extends StatelessWidget {
+class AboutPage extends StatefulWidget {
   const AboutPage({super.key});
+
+  @override
+  State<AboutPage> createState() => _AboutPageState();
+}
+
+class _AboutPageState extends State<AboutPage> {
+  String _versionName = '';
+  String _versionCode = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _versionName = info.version;
+        _versionCode = info.buildNumber;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +89,18 @@ class AboutPage extends StatelessWidget {
                   },
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: Text(l.aboutVersion),
+              subtitle: Text(
+                _versionName.isEmpty && _versionCode.isEmpty
+                    ? '...'
+                    : '${_versionName} (${_versionCode})',
+              ),
             ),
           ),
         ],

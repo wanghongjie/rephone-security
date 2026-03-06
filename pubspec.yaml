@@ -64,6 +64,7 @@ dependencies:
   in_app_purchase_storekit: ^0.3.0
   firebase_crashlytics: ^5.0.8
   tflite_flutter: ^0.12.1
+  package_info_plus: ^8.0.2
 
 dependency_overrides:
   package_info_plus: ^8.0.2

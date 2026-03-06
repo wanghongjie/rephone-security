@@ -64,6 +64,7 @@ class AppLocalizations {
       'aboutTerms': 'Terms of Service',
       'aboutPrivacy': 'Privacy Policy',
       'aboutView': 'Tap to view',
+      'aboutVersion': 'Version',
       'helpCenterTitle': 'Help center',
       'helpFeedback': 'Feedback',
       'helpFeedbackHint': 'Describe issues, feature requests or suggestions...',
@@ -369,6 +370,7 @@ class AppLocalizations {
       'aboutTerms': '服务条款',
       'aboutPrivacy': '隐私协议',
       'aboutView': '点击查看',
+      'aboutVersion': '版本',
       'helpCenterTitle': '帮助中心',
       'helpFeedback': '意见反馈',
       'helpFeedbackHint': '请描述你遇到的问题、期望的功能或改进建议…',
@@ -673,8 +675,9 @@ class AppLocalizations {
   String get aboutTitle => _t('aboutTitle');
   String get aboutTerms => _t('aboutTerms');
   String get aboutPrivacy => _t('aboutPrivacy');
-  String get playbackRecordingNotSupported => _t('playbackRecordingNotSupported');
   String get aboutView => _t('aboutView');
+  String get aboutVersion => _t('aboutVersion');
+  String get playbackRecordingNotSupported => _t('playbackRecordingNotSupported');
 
   String get helpCenterTitle => _t('helpCenterTitle');
   String get helpFeedback => _t('helpFeedback');
