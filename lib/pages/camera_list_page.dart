@@ -36,6 +36,8 @@ class _CameraListPageState extends State<CameraListPage> {
 
   // Delete in-flight
   final Set<String> _deletingCameraIds = <String>{};
+  /// 是否已经成功加载过列表（用于切换 tab 时不再显示全屏 loading）
+  bool _hasLoadedOnce = false;
 
   @override
   void initState() {
@@ -121,8 +123,8 @@ class _CameraListPageState extends State<CameraListPage> {
       _loadBannerAd();
     }
     if (_currentUserEmail != null) {
-      // 进入页面时只获取一次，不开始轮询
-      await _loadBindings(showLoading: true);
+      // 首次进入显示 loading，之后切换 tab 回来只后台刷新
+      await _loadBindings(showLoading: !_hasLoadedOnce);
     } else {
       if (!mounted) return;
       setState(() {
@@ -157,6 +159,7 @@ class _CameraListPageState extends State<CameraListPage> {
             bindingId: binding.id,
           );
         }).toList();
+        _hasLoadedOnce = true;
         if (showLoading) {
           _isLoading = false;
         }
