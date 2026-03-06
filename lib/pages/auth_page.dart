@@ -53,6 +53,22 @@ class AuthPage extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 12),
+              _AuthButton(
+                label: l.authScanToBind,
+                icon: Icons.qr_code_scanner,
+                background: Colors.white,
+                foreground: theme.colorScheme.primary,
+                borderColor: theme.colorScheme.primary.withOpacity(0.4),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const QRCodeScannerPage(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
               Center(
                 child: Wrap(
                   alignment: WrapAlignment.center,
@@ -125,33 +141,6 @@ class AuthPage extends StatelessWidget {
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.grey[600],
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      l.tr('authScanToBind'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const QRCodeScannerPage(),
-                          ),
-                        );
-                      },
-                      child: Text(l.authScanToBind),
                     ),
                   ],
                 ),
