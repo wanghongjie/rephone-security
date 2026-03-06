@@ -58,7 +58,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   bool _isConnected = false;
   String? _currentUserEmail;
   bool _isFakeSleep = false;
-  
+  /// iOS 熄屏时定期重新 enable wakelock，避免系统释放后自动锁屏
+  Timer? _iosFakeSleepWakelockTimer;
+
   // Foreground service channel
   static const MethodChannel _serviceChannel = MethodChannel('camera_service');
 
@@ -225,8 +227,14 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     }
   }
 
+  void _stopIosFakeSleepWakelockTimer() {
+    _iosFakeSleepWakelockTimer?.cancel();
+    _iosFakeSleepWakelockTimer = null;
+  }
+
   @override
   void dispose() {
+    _stopIosFakeSleepWakelockTimer();
     if (Platform.isIOS) WakelockPlus.disable();
     WidgetsBinding.instance.removeObserver(this);
     _detectTimer?.cancel();
@@ -237,6 +245,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
   Future<void> _releaseResources() async {
     if (Platform.isIOS) {
+      _stopIosFakeSleepWakelockTimer();
       WakelockPlus.disable();
       await _reportIosOngoingCall(false);
     }
@@ -1151,7 +1160,17 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
                   IconButton(
                     icon: const Icon(Icons.bedtime),
                     onPressed: () {
-                      if (Platform.isIOS) WakelockPlus.enable();
+                      if (Platform.isIOS) {
+                        WakelockPlus.enable();
+                        _stopIosFakeSleepWakelockTimer();
+                        _iosFakeSleepWakelockTimer = Timer.periodic(
+                          const Duration(seconds: 25),
+                          (_) {
+                            if (!mounted || !_isFakeSleep) return;
+                            WakelockPlus.enable();
+                          },
+                        );
+                      }
                       setState(() {
                         _isFakeSleep = true;
                       });
@@ -1281,7 +1300,10 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
-                  if (Platform.isIOS) WakelockPlus.disable();
+                  if (Platform.isIOS) {
+                    _stopIosFakeSleepWakelockTimer();
+                    WakelockPlus.disable();
+                  }
                   setState(() {
                     _isFakeSleep = false;
                   });
