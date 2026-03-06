@@ -19,6 +19,7 @@ import '../utils/navigation_service.dart';
 import '../l10n/app_localizations.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image/image.dart' as img;
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 
 class CameraEndpointPage extends StatefulWidget {
@@ -226,6 +227,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
   @override
   void dispose() {
+    if (Platform.isIOS) WakelockPlus.disable();
     WidgetsBinding.instance.removeObserver(this);
     _detectTimer?.cancel();
     _bannerAd?.dispose();
@@ -234,7 +236,10 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   }
 
   Future<void> _releaseResources() async {
-    if (Platform.isIOS) await _reportIosOngoingCall(false);
+    if (Platform.isIOS) {
+      WakelockPlus.disable();
+      await _reportIosOngoingCall(false);
+    }
     WidgetsBinding.instance.removeObserver(this);
     _stopDetectionTimer();
     await _signaling?.close();
@@ -1146,6 +1151,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
                   IconButton(
                     icon: const Icon(Icons.bedtime),
                     onPressed: () {
+                      if (Platform.isIOS) WakelockPlus.enable();
                       setState(() {
                         _isFakeSleep = true;
                       });
@@ -1275,6 +1281,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
+                  if (Platform.isIOS) WakelockPlus.disable();
                   setState(() {
                     _isFakeSleep = false;
                   });
