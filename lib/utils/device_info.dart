@@ -1,12 +1,15 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:math';
 import '../services/session_manager.dart';
 import 'log_utils.dart';
 
 class DeviceInfo {
   static const String _deviceIdKeyPrefix = 'device_id_';
+  /// Android 专用：同型号部分机型 ANDROID_ID 会重复，用此 key 存一份“设备唯一种子”参与生成 ID
+  static const String _androidDeviceSeedKey = 'device_unique_seed_android';
   
   static String get label {
     return 'Flutter ' +
@@ -45,8 +48,18 @@ class DeviceInfo {
         return cachedId;
       }
       
+      // Android：同型号部分机型 ANDROID_ID 相同，用“设备唯一种子”参与生成，保证每台设备不同
+      String? androidSeed;
+      if (Platform.isAndroid) {
+        androidSeed = prefs.getString(_androidDeviceSeedKey);
+        if (androidSeed == null || androidSeed.isEmpty) {
+          androidSeed = _generateSecureRandomSeed();
+          await prefs.setString(_androidDeviceSeedKey, androidSeed);
+        }
+      }
+      
       // 生成新的设备ID
-      final deviceId = await _generateDeviceId(deviceType);
+      final deviceId = await _generateDeviceId(deviceType, androidSeed);
       
       // 保存到本地
       await prefs.setString(key, deviceId);
@@ -61,15 +74,19 @@ class DeviceInfo {
   }
   
   /// 生成设备ID
-  static Future<String> _generateDeviceId(String deviceType) async {
+  /// [androidSeed] 仅 Android 使用：与 ANDROID_ID 组合，避免同型号机型 ANDROID_ID 重复导致 ID 相同
+  static Future<String> _generateDeviceId(String deviceType, [String? androidSeed]) async {
     try {
       final deviceInfo = DeviceInfoPlugin();
       String deviceIdentifier = '';
       
       if (Platform.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
-        // 使用 Android ID 作为设备唯一标识
-        deviceIdentifier = androidInfo.id; // Android ID
+        // Android ID 在部分机型（如部分华为同型号）会重复，叠加设备唯一种子保证唯一
+        deviceIdentifier = androidInfo.id;
+        if (androidSeed != null && androidSeed.isNotEmpty) {
+          deviceIdentifier = '${deviceIdentifier}_$androidSeed';
+        }
       } else if (Platform.isIOS) {
         final iosInfo = await deviceInfo.iosInfo;
         // 使用 identifierForVendor 作为设备唯一标识
@@ -106,6 +123,13 @@ class DeviceInfo {
     return '${hashStr}_$deviceType';
   }
   
+  /// 生成一次性的随机种子（用于 Android 设备唯一 ID 的补充）
+  static String _generateSecureRandomSeed() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    return base64UrlEncode(bytes).replaceAll('=', '');
+  }
+
   /// 简单的hash函数
   static int _simpleHash(String input) {
     int hash = 0;
