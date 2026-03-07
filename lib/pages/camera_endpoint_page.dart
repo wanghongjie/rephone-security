@@ -19,8 +19,6 @@ import '../utils/navigation_service.dart';
 import '../l10n/app_localizations.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image/image.dart' as img;
-import 'package:wakelock_plus/wakelock_plus.dart';
-
 
 class CameraEndpointPage extends StatefulWidget {
   const CameraEndpointPage({super.key, required this.onSwitchToMonitor});
@@ -63,6 +61,8 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
   // Foreground service channel
   static const MethodChannel _serviceChannel = MethodChannel('camera_service');
+  /// iOS 防熄屏兜底：wakelock_plus 的 channel 不可用时用系统 isIdleTimerDisabled
+  static const MethodChannel _screenWakeChannel = MethodChannel('rephone_screen_wake');
 
   @override
   void initState() {
@@ -232,10 +232,27 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     _iosFakeSleepWakelockTimer = null;
   }
 
+  /// 仅 iOS 使用；直接走原生 isIdleTimerDisabled，不再用 wakelock_plus（其 Pigeon channel 在 iOS 上常无法建立连接，见 fluttercommunity/wakelock_plus#37）
+  Future<void> _iosScreenWakeEnable() async {
+    try {
+      await _screenWakeChannel.invokeMethod<void>('setIdleTimerDisabled', true);
+    } catch (e, st) {
+      LogUtils.w('CameraEndpoint', 'setIdleTimerDisabled(true) failed: $e');
+    }
+  }
+
+  Future<void> _iosScreenWakeDisable() async {
+    try {
+      await _screenWakeChannel.invokeMethod<void>('setIdleTimerDisabled', false);
+    } catch (e, st) {
+      LogUtils.w('CameraEndpoint', 'setIdleTimerDisabled(false) failed: $e');
+    }
+  }
+
   @override
   void dispose() {
     _stopIosFakeSleepWakelockTimer();
-    if (Platform.isIOS) WakelockPlus.disable();
+    if (Platform.isIOS) _iosScreenWakeDisable();
     WidgetsBinding.instance.removeObserver(this);
     _detectTimer?.cancel();
     _bannerAd?.dispose();
@@ -246,7 +263,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   Future<void> _releaseResources() async {
     if (Platform.isIOS) {
       _stopIosFakeSleepWakelockTimer();
-      WakelockPlus.disable();
+      await _iosScreenWakeDisable();
       await _reportIosOngoingCall(false);
     }
     WidgetsBinding.instance.removeObserver(this);
@@ -1159,18 +1176,19 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
                 if (Platform.isIOS)
                   IconButton(
                     icon: const Icon(Icons.bedtime),
-                    onPressed: () {
+                    onPressed: () async {
                       if (Platform.isIOS) {
-                        WakelockPlus.enable();
+                        await _iosScreenWakeEnable();
                         _stopIosFakeSleepWakelockTimer();
                         _iosFakeSleepWakelockTimer = Timer.periodic(
                           const Duration(seconds: 25),
                           (_) {
                             if (!mounted || !_isFakeSleep) return;
-                            WakelockPlus.enable();
+                            _iosScreenWakeEnable();
                           },
                         );
                       }
+                      if (!mounted) return;
                       setState(() {
                         _isFakeSleep = true;
                       });
@@ -1299,11 +1317,12 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () {
+                onTap: () async {
                   if (Platform.isIOS) {
                     _stopIosFakeSleepWakelockTimer();
-                    WakelockPlus.disable();
+                    await _iosScreenWakeDisable();
                   }
+                  if (!mounted) return;
                   setState(() {
                     _isFakeSleep = false;
                   });

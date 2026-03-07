@@ -110,10 +110,32 @@ extension CallKitHelper: CXProviderDelegate {
       }
     }
     registerCameraServiceChannel()
+    registerScreenWakeChannel()
     if window?.rootViewController == nil {
-      DispatchQueue.main.async { registerCameraServiceChannel() }
+      DispatchQueue.main.async { [weak self] in
+        guard let self = self else { return }
+        registerCameraServiceChannel()
+        self.registerScreenWakeChannel()
+      }
     }
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  /// 当 wakelock_plus 的 channel 不可用时，用系统 API 防止熄屏（仅用于熄屏模式）
+  private func registerScreenWakeChannel() {
+    guard let controller = window?.rootViewController as? FlutterViewController else { return }
+    let channel = FlutterMethodChannel(name: "rephone_screen_wake", binaryMessenger: controller.binaryMessenger)
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "setIdleTimerDisabled",
+            let enabled = call.arguments as? Bool else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      DispatchQueue.main.async {
+        UIApplication.shared.isIdleTimerDisabled = enabled
+        result(true)
+      }
+    }
   }
 }
