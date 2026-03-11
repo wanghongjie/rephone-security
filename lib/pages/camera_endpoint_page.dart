@@ -257,6 +257,19 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     _detectTimer?.cancel();
     _bannerAd?.dispose();
     _localRenderer.dispose();
+    // 断开 signaling 并清理回调，避免在页面销毁后仍然触发 setState
+    if (_signaling != null) {
+      _signaling!
+        ..onSignalingStateChange = null
+        ..onPeersUpdate = null
+        ..onCallStateChange = null
+        ..onLocalStream = null
+        ..onAddRemoteStream = null
+        ..onRemoveRemoteStream = null
+        ..onDataChannel = null
+        ..onDataChannelMessage = null;
+      _signaling!.close();
+    }
     super.dispose();
   }
 
@@ -340,6 +353,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     // 设置回调函数在连接之前
     _signaling!.onSignalingStateChange = (SignalingState state) {
       LogUtils.i('CameraEndpoint', 'Signaling state changed: $state');
+      if (!mounted) return;
       setState(() {
         _isConnected = state == SignalingState.ConnectionOpen;
       });
@@ -361,6 +375,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
     _signaling!.onPeersUpdate = (event) {
       LogUtils.d('CameraEndpoint', 'Peers updated: $event');
+      if (!mounted) return;
       setState(() {
         _selfId = event['self'];
         _peers = event['peers'];
@@ -374,6 +389,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     _signaling!.onLocalStream = (stream) {
       LogUtils.i('CameraEndpoint', 'Local stream received');
       _localRenderer.srcObject = stream;
+      if (!mounted) return;
       setState(() {
         _isVideoActive = true;
       });
@@ -671,6 +687,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   void _stopVideo() async {
     try {
       _localRenderer.srcObject = null;
+      if (!mounted) return;
       setState(() {
         _isVideoActive = false;
       });

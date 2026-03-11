@@ -52,6 +52,7 @@ class Signaling {
   JsonDecoder _decoder = JsonDecoder();
   String _selfId = ''; // 将在connect()时初始化
   SimpleWebSocket? _socket;
+  bool _isSocketOpen = false;
   BuildContext? _context;
   var _host;
   final _port = defaultAuthPort;
@@ -142,6 +143,7 @@ class Signaling {
     _stopKeepalive();
     _stopReconnect();
     await _cleanSessions();
+    _isSocketOpen = false;
     _socket?.close();
   }
   
@@ -400,6 +402,7 @@ class Signaling {
     
     var url = 'https://$_host:$_port/ws';
     _socket = SimpleWebSocket(url);
+    _isSocketOpen = false;
 
     LogUtils.i('Signaling', 'connect to $url with device ID: $_selfId');
 
@@ -429,6 +432,7 @@ class Signaling {
       LogUtils.i('Signaling', 'onOpen');
       _reconnectAttempts = 0;
       _isReconnecting = false;
+      _isSocketOpen = true;
       onSignalingStateChange?.call(SignalingState.ConnectionOpen);
       final userAgent = userEmail != null 
           ? DeviceInfo.getUserAgentWithEmail(userEmail!)
@@ -450,6 +454,7 @@ class Signaling {
     _socket?.onClose = (int? code, String? reason) {
       LogUtils.w('Signaling', 'Closed by server [$code => $reason]!');
       _stopKeepalive();
+      _isSocketOpen = false;
       onSignalingStateChange?.call(SignalingState.ConnectionClosed);
       // 自动重连
       _scheduleReconnect();
@@ -747,10 +752,19 @@ class Signaling {
   }
 
   _send(event, data) {
-    var request = Map();
-    request["type"] = event;
-    request["data"] = data;
-    _socket?.send(_encoder.convert(request));
+    if (!_isSocketOpen || _socket == null) {
+      LogUtils.w('Signaling', 'Skip send "$event": socket not open');
+      return;
+    }
+    final request = {
+      'type': event,
+      'data': data,
+    };
+    try {
+      _socket!.send(_encoder.convert(request));
+    } catch (e) {
+      LogUtils.e('Signaling', 'Send failed for $event', e);
+    }
   }
 
   Future<void> _cleanSessions() async {
