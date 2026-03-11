@@ -28,6 +28,7 @@ class IapService {
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   bool _available = false;
   bool _initialized = false;
+  bool _isQueryingProducts = false;
 
   List<ProductDetails> products = [];
 
@@ -84,19 +85,30 @@ class IapService {
       _purchasesController.stream;
 
   Future<void> _queryProducts() async {
-    LogUtils.d(_kIapTag, 'queryProducts: requesting $_productIds');
-    final response = await _iap.queryProductDetails(_productIds);
-    products = response.productDetails.toList();
-
-    if (response.notFoundIDs.isNotEmpty) {
-      LogUtils.d(_kIapTag, 'queryProducts: notFoundIDs=${response.notFoundIDs}');
+    if (_isQueryingProducts) {
+      LogUtils.d(_kIapTag, 'queryProducts: already in progress, skip');
+      return;
     }
-    if (products.isEmpty) {
-      LogUtils.d(_kIapTag, 'queryProducts: no products (check Play Console / product IDs)');
-    } else {
-      for (final p in products) {
-        LogUtils.d(_kIapTag, 'queryProducts: id=${p.id} price=${p.price} title=${p.title}');
+    _isQueryingProducts = true;
+    try {
+      LogUtils.d(_kIapTag, 'queryProducts: requesting $_productIds');
+      final response = await _iap.queryProductDetails(_productIds);
+      products = response.productDetails.toList();
+
+      if (response.notFoundIDs.isNotEmpty) {
+        LogUtils.d(_kIapTag, 'queryProducts: notFoundIDs=${response.notFoundIDs}');
       }
+      if (products.isEmpty) {
+        LogUtils.d(_kIapTag, 'queryProducts: no products (check Play Console / product IDs)');
+      } else {
+        for (final p in products) {
+          LogUtils.d(_kIapTag, 'queryProducts: id=${p.id} price=${p.price} title=${p.title}');
+        }
+      }
+    } catch (e, st) {
+      LogUtils.e(_kIapTag, 'queryProducts: error', e, st);
+    } finally {
+      _isQueryingProducts = false;
     }
   }
 

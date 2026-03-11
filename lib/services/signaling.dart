@@ -341,9 +341,13 @@ class Signaling {
           var description = data['description'];
           var sessionId = data['session_id'];
           var session = _sessions[sessionId];
-          session?.pc?.setRemoteDescription(
+          if (session == null) {
+            LogUtils.w('Signaling', 'answer: session not found for id=$sessionId');
+            return;
+          }
+          session.pc?.setRemoteDescription(
               RTCSessionDescription(description['sdp'], description['type']));
-          onCallStateChange?.call(session!, CallState.CallStateConnected);
+          onCallStateChange?.call(session, CallState.CallStateConnected);
         }
         break;
       case 'candidate':
