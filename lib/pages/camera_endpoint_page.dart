@@ -59,7 +59,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   /// iOS 熄屏时定期重新 enable wakelock，避免系统释放后自动锁屏
   Timer? _iosFakeSleepWakelockTimer;
 
-  // Foreground service channel
+  // Foreground service channel（仅用于 Android 前台服务）
   static const MethodChannel _serviceChannel = MethodChannel('camera_service');
   /// iOS 防熄屏兜底：wakelock_plus 的 channel 不可用时用系统 isIdleTimerDisabled
   static const MethodChannel _screenWakeChannel = MethodChannel('rephone_screen_wake');
@@ -170,20 +170,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     }
   }
 
-  /// iOS：通过 CallKit 上报/结束“正在通话”，使锁屏后仍能持续采集
-  Future<void> _reportIosOngoingCall(bool start) async {
-    if (!Platform.isIOS) return;
-    try {
-      if (start) {
-        await _serviceChannel.invokeMethod('reportOngoingCall');
-      } else {
-        await _serviceChannel.invokeMethod('endOngoingCall');
-      }
-    } catch (e) {
-      LogUtils.w('CameraEndpoint', 'reportOngoingCall/endOngoingCall failed: $e');
-    }
-  }
-
   Future<void> _showAndroidServiceSnackBar() async {
     bool isIgnoring = false;
     try {
@@ -277,7 +263,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     if (Platform.isIOS) {
       _stopIosFakeSleepWakelockTimer();
       await _iosScreenWakeDisable();
-      await _reportIosOngoingCall(false);
     }
     WidgetsBinding.instance.removeObserver(this);
     _stopDetectionTimer();
@@ -424,11 +409,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
           break;
         case CallState.CallStateConnected:
           LogUtils.i('CameraEndpoint', '视频通话已连接');
-          if (Platform.isIOS) _reportIosOngoingCall(true);
           break;
         case CallState.CallStateBye:
           LogUtils.i('CameraEndpoint', '监控端已断开');
-          if (Platform.isIOS) _reportIosOngoingCall(false);
           break;
         default:
           break;
