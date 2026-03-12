@@ -525,7 +525,12 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        await _captureSnapshot();
+        // 截图失败或解码异常不影响返回，最多等 1 秒
+        try {
+          await _captureSnapshot().timeout(const Duration(seconds: 1));
+        } catch (_) {
+          // ignore errors / timeout
+        }
         if (context.mounted) {
           Navigator.pop(context);
         }
