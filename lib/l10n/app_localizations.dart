@@ -118,6 +118,8 @@ class AppLocalizations {
       'appPermissionsPhotos': 'Photos',
       'appPermissionsPhotosSubtitle': 'Used to save screenshots and recordings',
       'appPermissionsNote': 'Note: permission switches must be managed in system settings.',
+      'appPermissionsOpenSettings': 'Open Settings',
+      'appPermissionsDeniedHint': 'Permission was denied. You can enable it in Settings.',
       'resetPasswordTitle': 'Reset password',
       'resetPasswordOld': 'Current password',
       'resetPasswordNew': 'New password',
@@ -181,6 +183,9 @@ class AppLocalizations {
       'membershipPlanYearly': 'Yearly',
       'membershipYearlyEquivalentPerMonth': 'Equivalent to {price}/month',
       'membershipYearlySavePercent': 'Save {percent}%',
+      'membershipRestore': 'Restore Purchases',
+      'membershipRestoreSuccess': 'Purchases restored',
+      'membershipRestoreNoPurchases': 'No previous purchases to restore',
       'membershipFaqTitle': 'FAQ',
       'membershipFaqCancelTitle': 'How to cancel subscription?',
       'membershipFaqCancelContent':
@@ -303,6 +308,7 @@ class AppLocalizations {
       'membershipPurchaseVerifying': 'Verifying purchase...',
       'membershipPleaseLogin': 'Please login first',
       'membershipPurchaseVerifyFailed': 'Purchase verification failed',
+      'membershipSubscriptionExpired': 'Your previous subscription has expired.',
       'membershipPurchaseFailed': 'Purchase failed',
       'forgotPasswordLink': 'Forgot password?',
       'forgotPasswordEmailHint': 'Enter your registered email',
@@ -424,6 +430,8 @@ class AppLocalizations {
       'appPermissionsPhotos': '相册权限',
       'appPermissionsPhotosSubtitle': '用于保存截图和录像',
       'appPermissionsNote': '注意：权限开关需要跳转至系统设置中进行管理。',
+      'appPermissionsOpenSettings': '打开设置',
+      'appPermissionsDeniedHint': '权限已被拒绝，您可以在系统设置中重新开启。',
       'resetPasswordTitle': '重置密码',
       'resetPasswordOld': '当前密码',
       'resetPasswordNew': '新密码',
@@ -487,6 +495,9 @@ class AppLocalizations {
       'membershipPlanYearly': '年付',
       'membershipYearlyEquivalentPerMonth': '相当于 {price}/月',
       'membershipYearlySavePercent': '省 {percent}%',
+      'membershipRestore': '恢复购买',
+      'membershipRestoreSuccess': '已恢复购买',
+      'membershipRestoreNoPurchases': '没有可恢复的购买记录',
       'membershipFaqTitle': '常见问题',
       'membershipFaqCancelTitle': '如何取消订阅？',
       'membershipFaqCancelContent':
@@ -599,6 +610,7 @@ class AppLocalizations {
       'membershipPurchaseVerifying': '正在验证购买...',
       'membershipPleaseLogin': '请先登录',
       'membershipPurchaseVerifyFailed': '购买验证失败',
+      'membershipSubscriptionExpired': '您之前的订阅已过期。',
       'membershipPurchaseFailed': '购买失败',
       'forgotPasswordLink': '忘记密码？',
       'forgotPasswordEmailHint': '请输入注册邮箱',
@@ -723,6 +735,8 @@ class AppLocalizations {
   String get appPermissionsPhotos => _t('appPermissionsPhotos');
   String get appPermissionsPhotosSubtitle => _t('appPermissionsPhotosSubtitle');
   String get appPermissionsNote => _t('appPermissionsNote');
+  String get appPermissionsOpenSettings => _t('appPermissionsOpenSettings');
+  String get appPermissionsDeniedHint => _t('appPermissionsDeniedHint');
 
   String get resetPasswordTitle => _t('resetPasswordTitle');
   String get resetPasswordOld => _t('resetPasswordOld');
@@ -783,6 +797,9 @@ class AppLocalizations {
   String get membershipPlanYearly => _t('membershipPlanYearly');
   String get membershipYearlyEquivalentPerMonth => _t('membershipYearlyEquivalentPerMonth');
   String get membershipYearlySavePercent => _t('membershipYearlySavePercent');
+  String get membershipRestore => _t('membershipRestore');
+  String get membershipRestoreSuccess => _t('membershipRestoreSuccess');
+  String get membershipRestoreNoPurchases => _t('membershipRestoreNoPurchases');
   String get membershipFaqTitle => _t('membershipFaqTitle');
   String get membershipFaqCancelTitle => _t('membershipFaqCancelTitle');
   String get membershipFaqCancelContent => _t('membershipFaqCancelContent');
@@ -902,6 +919,7 @@ class AppLocalizations {
   String get membershipPurchaseVerifying => _t('membershipPurchaseVerifying');
   String get membershipPleaseLogin => _t('membershipPleaseLogin');
   String get membershipPurchaseVerifyFailed => _t('membershipPurchaseVerifyFailed');
+  String get membershipSubscriptionExpired => _t('membershipSubscriptionExpired');
   String get membershipPurchaseFailed => _t('membershipPurchaseFailed');
 
   String get commonPassword => _t('commonPassword');

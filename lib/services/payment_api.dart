@@ -71,6 +71,9 @@ class PaymentApi {
           return null;
         }
       }
+      if (resp.statusCode == 402) {
+        return {'subscription_expired': true};
+      }
       return null;
     } catch (e, st) {
       LogUtils.e('PaymentApi', 'Verify failed', e, st);
@@ -124,6 +127,10 @@ class PaymentApi {
         } catch (_) {
           return null;
         }
+      }
+      // 402 = subscription expired (e.g. restore of past subscription)
+      if (resp.statusCode == 402) {
+        return {'subscription_expired': true};
       }
       return null;
     } catch (e, st) {

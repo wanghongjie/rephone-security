@@ -1,0 +1,5 @@
+/* Permission usage descriptions - English */
+"NSCameraUsageDescription" = "RePhone needs camera access to scan QR codes and for video streaming.";
+"NSMicrophoneUsageDescription" = "RePhone needs microphone access for voice and audio capture.";
+"NSPhotoLibraryUsageDescription" = "RePhone needs photo library access to save recorded videos.";
+"NSPhotoLibraryAddUsageDescription" = "RePhone needs permission to save recorded videos to your Photos.";

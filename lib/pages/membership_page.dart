@@ -23,6 +23,7 @@ class _MembershipPageState extends State<MembershipPage> {
   bool _isCurrentlyMember = false;
   DateTime? _membershipExpiry;
   bool _loadingProducts = true;
+  bool _isRestoring = false;
   String? _error;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
 
@@ -127,32 +128,37 @@ class _MembershipPageState extends State<MembershipPage> {
           if (Platform.isAndroid && plan.basePlanId != null) {
             final parentProduct = _iap.getProduct('rephone_pro');
             if (parentProduct != null && parentProduct is GooglePlayProductDetails) {
-               // Find offer with matching basePlanId
-               // Access subscriptionOfferDetails via productDetails wrapper
-               final detailsWrapper = parentProduct.productDetails;
-               final offers = detailsWrapper.subscriptionOfferDetails ?? [];
-               
-               for (final offer in offers) {
-                 if (offer.basePlanId == plan.basePlanId) {
-                   final formatted = offer.pricingPhases.first.formattedPrice;
-                   _plans[i] = plan.copyWith(
-                     price: _parsePriceFromDisplay(formatted),
-                     displayPrice: formatted,
-                     productId: 'rephone_pro',
-                     offerToken: offer.offerIdToken,
-                   );
-                   // Found valid Android plan, skip legacy strategy
-                   continue;
-                 }
-               }
-               
-               // If we found a match and updated the plan, we should check if we need to continue or break
-               // Since we are iterating plans, we just continue to next plan iteration? 
-               // No, we need to skip the legacy strategy below for THIS plan if we found a match.
-               // Let's check if productId changed to 'rephone_pro'
-               if (_plans[i].productId == 'rephone_pro') {
-                 continue;
-               }
+              // New Google Play Billing (base plans). Use priceAmountMicros to avoid
+              // localization / thousands-separator issues in formattedPrice.
+              final detailsWrapper = parentProduct.productDetails;
+              final offers = detailsWrapper.subscriptionOfferDetails ?? [];
+
+              for (final offer in offers) {
+                if (offer.basePlanId == plan.basePlanId &&
+                    offer.pricingPhases.isNotEmpty) {
+                  final phase = offer.pricingPhases.first;
+                  final micros = phase.priceAmountMicros;
+                  final raw = micros != null ? micros / 1000000.0 : null;
+                  final formatted = phase.formattedPrice;
+
+                  _plans[i] = plan.copyWith(
+                    price: raw ?? _parsePriceFromDisplay(formatted),
+                    displayPrice: formatted,
+                    productId: 'rephone_pro',
+                    offerToken: offer.offerIdToken,
+                  );
+                  // Found valid Android plan, skip legacy strategy
+                  continue;
+                }
+              }
+
+              // If we found a match and updated the plan, we should check if we need to continue or break
+              // Since we are iterating plans, we just continue to next plan iteration?
+              // No, we need to skip the legacy strategy below for THIS plan if we found a match.
+              // Let's check if productId changed to 'rephone_pro'
+              if (_plans[i].productId == 'rephone_pro') {
+                continue;
+              }
             }
           }
 
@@ -232,9 +238,17 @@ class _MembershipPageState extends State<MembershipPage> {
             }
 
             if (result != null) {
+              if (result['subscription_expired'] == true) {
+                await _iap.completePurchase(purchase);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l.membershipSubscriptionExpired)),
+                  );
+                }
+                if (mounted) _checkStatus();
+                break;
+              }
               await _iap.completePurchase(purchase);
-              
-              // 更新本地用户信息
               final vipLevel = result['vip_level'] as int? ?? 0;
               final expireAtStr = result['expire_at'] as String?;
               final newUser = user.copyWith(
@@ -502,6 +516,20 @@ class _MembershipPageState extends State<MembershipPage> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: _isRestoring ? null : _restorePurchases,
+                    icon: _isRestoring
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.restore, size: 20),
+                    label: Text(l.membershipRestore),
+                  ),
+                ),
               ],
             ),
           ),
@@ -522,7 +550,21 @@ class _MembershipPageState extends State<MembershipPage> {
     final priceStr = equivalentPerMonth == equivalentPerMonth.roundToDouble()
         ? equivalentPerMonth.round().toString()
         : equivalentPerMonth.toStringAsFixed(2);
-    final pricePart = l.membershipPlanPricePerMonth.replaceAll('{price}', priceStr);
+
+    // 尝试从月付/年付的 displayPrice 中提取货币前缀（如 "JP¥"、"$"）。
+    String currencyPrefix = '';
+    final displayForCurrency = monthly.displayPrice ?? yearly.displayPrice;
+    if (displayForCurrency != null && displayForCurrency.isNotEmpty) {
+      final firstDigitIndex = displayForCurrency.indexOf(RegExp(r'\d'));
+      if (firstDigitIndex > 0) {
+        currencyPrefix = displayForCurrency.substring(0, firstDigitIndex).trim();
+      }
+    }
+    final priceWithCurrency =
+        currencyPrefix.isNotEmpty ? '$currencyPrefix$priceStr' : priceStr;
+
+    final pricePart =
+        l.membershipPlanPricePerMonth.replaceAll('{price}', priceWithCurrency);
     final savePart = l.membershipYearlySavePercent.replaceAll('{percent}', percentStr);
     return '$pricePart · $savePart';
   }
@@ -676,6 +718,27 @@ class _MembershipPageState extends State<MembershipPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _restorePurchases() async {
+    if (_isRestoring) return;
+    setState(() => _isRestoring = true);
+    final l = AppLocalizations.of(context);
+    try {
+      await _iap.restore();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.membershipRestoreSuccess)),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.membershipRestoreNoPurchases)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRestoring = false);
+    }
   }
 
   void _subscribeToPlan(MembershipPlan plan) {

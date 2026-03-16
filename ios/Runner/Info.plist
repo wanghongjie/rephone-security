@@ -29,13 +29,13 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>需要访问相机以扫描二维码和进行视频通话</string>
+	<string>RePhone needs camera access to scan QR codes and for video streaming.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>需要访问麦克风以进行语音通话</string>
+	<string>RePhone needs microphone access for voice and audio capture.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>需要将录制的视频保存到相册</string>
+	<string>RePhone needs permission to save recorded videos to your Photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>需要访问相册以保存录制的视频</string>
+	<string>RePhone needs photo library access to save recorded videos.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
