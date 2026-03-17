@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import '../l10n/app_localizations.dart';
@@ -138,11 +137,11 @@ class _MembershipPageState extends State<MembershipPage> {
                     offer.pricingPhases.isNotEmpty) {
                   final phase = offer.pricingPhases.first;
                   final micros = phase.priceAmountMicros;
-                  final raw = micros != null ? micros / 1000000.0 : null;
+                  final raw = micros / 1000000.0;
                   final formatted = phase.formattedPrice;
 
                   _plans[i] = plan.copyWith(
-                    price: raw ?? _parsePriceFromDisplay(formatted),
+                    price: raw,
                     displayPrice: formatted,
                     productId: 'rephone_pro',
                     offerToken: offer.offerIdToken,
@@ -167,11 +166,8 @@ class _MembershipPageState extends State<MembershipPage> {
           if (plan.productId != null) {
             final product = _iap.getProduct(plan.productId!);
             if (product != null) {
-              final numPrice = (product is ProductDetails)
-                  ? (product.rawPrice)
-                  : _parsePriceFromDisplay(product.price);
               _plans[i] = plan.copyWith(
-                price: numPrice ?? _parsePriceFromDisplay(product.price),
+                price: product.rawPrice,
                 displayPrice: product.price,
               );
               continue;
@@ -303,6 +299,8 @@ class _MembershipPageState extends State<MembershipPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildMembershipStatus(),
+            const SizedBox(height: 12),
+            _buildRestoreSection(),
             const SizedBox(height: 28),
             if (_loadingProducts)
               const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
@@ -319,6 +317,52 @@ class _MembershipPageState extends State<MembershipPage> {
             _buildFAQSection(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRestoreSection() {
+    final l = AppLocalizations.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+        color: Theme.of(context).colorScheme.surface,
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.restore),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.membershipRestore,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l.membershipRestoreHint,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          ElevatedButton(
+            onPressed: _isRestoring ? null : _restorePurchases,
+            child: _isRestoring
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(l.membershipRestoreAction),
+          ),
+        ],
       ),
     );
   }
@@ -516,20 +560,6 @@ class _MembershipPageState extends State<MembershipPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Center(
-                  child: TextButton.icon(
-                    onPressed: _isRestoring ? null : _restorePurchases,
-                    icon: _isRestoring
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.restore, size: 20),
-                    label: Text(l.membershipRestore),
-                  ),
-                ),
               ],
             ),
           ),
@@ -725,15 +755,38 @@ class _MembershipPageState extends State<MembershipPage> {
     setState(() => _isRestoring = true);
     final l = AppLocalizations.of(context);
     try {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.membershipRestoreStarting)),
+        );
+      }
+
+      // 先订阅回调，再发起恢复，避免漏掉事件。
+      final restoredFuture = _iap.purchasesStream
+          .where((list) => list.any((p) => p.status == PurchaseStatus.restored))
+          .timeout(const Duration(seconds: 5))
+          .first;
+
       await _iap.restore();
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.membershipRestoreSuccess)),
-      );
+
+      try {
+        // 如果有可恢复购买，purchaseStream 会回调 restored。
+        await restoredFuture;
+        if (!mounted) return;
+        // 最终状态更新由 _listenPurchases 的校验逻辑驱动；这里补一次兜底刷新。
+        await _checkStatus();
+      } on TimeoutException {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.membershipRestoreNoPurchases)),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.membershipRestoreNoPurchases)),
+          SnackBar(content: Text(l.membershipRestoreFailed)),
         );
       }
     } finally {

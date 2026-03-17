@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
-import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
 import 'dart:io';
 
@@ -29,6 +28,7 @@ class IapService {
   bool _available = false;
   bool _initialized = false;
   bool _isQueryingProducts = false;
+  Future<void>? _queryProductsFuture;
 
   List<ProductDetails> products = [];
 
@@ -75,7 +75,7 @@ class IapService {
       return;
     }
 
-    await _queryProducts();
+    await _queryProducts(force: forceRefresh);
 
     _initialized = true;
     LogUtils.d(_kIapTag, 'init: done, products count=${products.length}');
@@ -84,15 +84,32 @@ class IapService {
   Stream<List<PurchaseDetails>> get purchasesStream =>
       _purchasesController.stream;
 
-  Future<void> _queryProducts() async {
+  Future<void> _queryProducts({bool force = false}) async {
+    // If a query is already running, await it so callers don't observe products=[].
     if (_isQueryingProducts) {
-      LogUtils.d(_kIapTag, 'queryProducts: already in progress, skip');
+      LogUtils.d(_kIapTag, 'queryProducts: already in progress, await');
+      await _queryProductsFuture;
       return;
     }
+
+    // If we already have products and not forcing refresh, keep them.
+    if (!force && products.isNotEmpty) {
+      LogUtils.d(_kIapTag, 'queryProducts: cached products=${products.length}, skip');
+      return;
+    }
+
     _isQueryingProducts = true;
+    final completer = Completer<void>();
+    _queryProductsFuture = completer.future;
     try {
       LogUtils.d(_kIapTag, 'queryProducts: requesting $_productIds');
       final response = await _iap.queryProductDetails(_productIds);
+      if (response.error != null) {
+        LogUtils.e(
+          _kIapTag,
+          'queryProducts: store error code=${response.error!.code} message=${response.error!.message}',
+        );
+      }
       products = response.productDetails.toList();
 
       if (response.notFoundIDs.isNotEmpty) {
@@ -109,6 +126,7 @@ class IapService {
       LogUtils.e(_kIapTag, 'queryProducts: error', e, st);
     } finally {
       _isQueryingProducts = false;
+      completer.complete();
     }
   }
 

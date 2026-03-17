@@ -184,6 +184,10 @@ class AppLocalizations {
       'membershipYearlyEquivalentPerMonth': 'Equivalent to {price}/month',
       'membershipYearlySavePercent': 'Save {percent}%',
       'membershipRestore': 'Restore Purchases',
+      'membershipRestoreHint': 'If you have purchased before, you can restore it here.',
+      'membershipRestoreAction': 'Restore',
+      'membershipRestoreStarting': 'Restoring purchases…',
+      'membershipRestoreFailed': 'Failed to restore purchases',
       'membershipRestoreSuccess': 'Purchases restored',
       'membershipRestoreNoPurchases': 'No previous purchases to restore',
       'membershipFaqTitle': 'FAQ',
@@ -496,6 +500,10 @@ class AppLocalizations {
       'membershipYearlyEquivalentPerMonth': '相当于 {price}/月',
       'membershipYearlySavePercent': '省 {percent}%',
       'membershipRestore': '恢复购买',
+      'membershipRestoreHint': '如果你之前购买过，可在这里恢复。',
+      'membershipRestoreAction': '恢复',
+      'membershipRestoreStarting': '正在恢复购买…',
+      'membershipRestoreFailed': '恢复购买失败',
       'membershipRestoreSuccess': '已恢复购买',
       'membershipRestoreNoPurchases': '没有可恢复的购买记录',
       'membershipFaqTitle': '常见问题',
@@ -798,6 +806,10 @@ class AppLocalizations {
   String get membershipYearlyEquivalentPerMonth => _t('membershipYearlyEquivalentPerMonth');
   String get membershipYearlySavePercent => _t('membershipYearlySavePercent');
   String get membershipRestore => _t('membershipRestore');
+  String get membershipRestoreHint => _t('membershipRestoreHint');
+  String get membershipRestoreAction => _t('membershipRestoreAction');
+  String get membershipRestoreStarting => _t('membershipRestoreStarting');
+  String get membershipRestoreFailed => _t('membershipRestoreFailed');
   String get membershipRestoreSuccess => _t('membershipRestoreSuccess');
   String get membershipRestoreNoPurchases => _t('membershipRestoreNoPurchases');
   String get membershipFaqTitle => _t('membershipFaqTitle');
