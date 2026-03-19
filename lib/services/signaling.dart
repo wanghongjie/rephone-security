@@ -93,6 +93,7 @@ class Signaling {
   Timer? _reconnectTimer;
   bool _isReconnecting = false;
   int _reconnectAttempts = 0;
+  bool _isClosing = false; // page is disposing / signaling is shutting down
   // 设置为无限重连 (对于监控/相机应用，应该一直尝试重连)
   static const int _maxReconnectAttempts = 999999; 
   static const Duration _keepaliveInterval = Duration(seconds: 15);
@@ -140,6 +141,7 @@ class Signaling {
   };
 
   close() async {
+    _isClosing = true;
     _stopKeepalive();
     _stopReconnect();
     await _cleanSessions();
@@ -169,6 +171,7 @@ class Signaling {
   }
   
   void _scheduleReconnect() {
+    if (_isClosing) return;
     if (_isReconnecting || _reconnectAttempts >= _maxReconnectAttempts) {
       LogUtils.w('Signaling', 'Max reconnect attempts reached or already reconnecting');
       return;
@@ -191,6 +194,7 @@ class Signaling {
   }
   
   Future<void> _reconnect() async {
+    if (_isClosing) return;
     if (_reconnectAttempts > _maxReconnectAttempts) {
       LogUtils.w('Signaling', 'Max reconnect attempts reached');
       _isReconnecting = false;
@@ -399,6 +403,7 @@ class Signaling {
   }
 
   Future<void> connect() async {
+    _isClosing = false;
     // 确保设备ID已初始化
     if (!_deviceIdInitialized || _selfId.isEmpty) {
       await _initializeDeviceId(_deviceType ?? (useLocalMedia ? 'camera' : 'monitor'));
@@ -460,8 +465,10 @@ class Signaling {
       _stopKeepalive();
       _isSocketOpen = false;
       onSignalingStateChange?.call(SignalingState.ConnectionClosed);
-      // 自动重连
-      _scheduleReconnect();
+      // 自动重连（关闭中时不重连）
+      if (!_isClosing) {
+        _scheduleReconnect();
+      }
     };
 
     await _socket?.connect();
