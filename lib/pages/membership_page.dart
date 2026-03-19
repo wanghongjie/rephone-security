@@ -91,7 +91,7 @@ class _MembershipPageState extends State<MembershipPage> {
     });
   }
 
-  Future<void> _checkStatus() async {
+  Future<void> _checkStatus({bool showExpiredHint = false}) async {
     // Prevent duplicate concurrent refreshes (e.g. initState + restore completion).
     if (_isCheckingStatus) return;
     final now = DateTime.now();
@@ -106,6 +106,7 @@ class _MembershipPageState extends State<MembershipPage> {
     try {
       if (user != null) {
         if (!mounted) return;
+        final l = AppLocalizations.of(context);
         setState(() {
           _isCurrentlyMember = user.vipLevel > 0;
           _membershipExpiry = user.expireAt;
@@ -121,6 +122,15 @@ class _MembershipPageState extends State<MembershipPage> {
             final expireAtStr = result['expire_at'] as String?;
             final activePlan = result['active_plan'] as String?;
             final activePlatform = result['platform'] as String?;
+            final serverStatus = result['status'] as String?;
+            final shouldShowExpired =
+                showExpiredHint &&
+                vipLevel == 0 &&
+                (serverStatus == 'expired' ||
+                    (result['message'] is String &&
+                        (result['message'] as String)
+                            .toLowerCase()
+                            .contains('expired')));
             final newUser = user.copyWith(
               vipLevel: vipLevel,
               expireAt: expireAtStr != null ? DateTime.tryParse(expireAtStr) : null,
@@ -137,6 +147,11 @@ class _MembershipPageState extends State<MembershipPage> {
             });
 
             LogUtils.d('MembershipPage', 'Status refreshed: vip=$vipLevel');
+            if (shouldShowExpired) {
+              _showSnackBarSafe(
+                SnackBar(content: Text(l.membershipSubscriptionExpired)),
+              );
+            }
           }
         } catch (e) {
           debugPrint('Failed to refresh status: $e');
@@ -1126,7 +1141,7 @@ class _MembershipPageState extends State<MembershipPage> {
         // restored 有很多，但没有找到“有效订阅”；这里不报 “no purchases”，让 _checkStatus 用服务器兜底。
       }
 
-      if (mounted) await _checkStatus(); // 用服务器兜底展示最终权益
+      if (mounted) await _checkStatus(showExpiredHint: showSnackbars); // 用服务器兜底展示最终权益，并在手动 restore 时提示过期
     } catch (e) {
       if (mounted) {
         if (showSnackbars) {
