@@ -319,6 +319,8 @@ class AppLocalizations {
       'membershipPurchaseVerifyFailed': 'Purchase verification failed',
       'membershipSubscriptionExpired': 'Your previous subscription has expired.',
       'membershipPurchaseFailed': 'Purchase failed',
+      'membershipAndroidPlayBillingDeveloperError':
+          'Google Play could not complete the plan change. If this keeps happening, check subscription upgrade/downgrade paths in Play Console, or try again later.',
       'forgotPasswordLink': 'Forgot password?',
       'forgotPasswordEmailHint': 'Enter your registered email',
       'forgotPasswordCodeHint': 'Enter verification code',
@@ -629,6 +631,8 @@ class AppLocalizations {
       'membershipPurchaseVerifyFailed': '购买验证失败',
       'membershipSubscriptionExpired': '您之前的订阅已过期。',
       'membershipPurchaseFailed': '购买失败',
+      'membershipAndroidPlayBillingDeveloperError':
+          'Google Play 无法完成套餐切换。若反复出现，请在 Play 控制台检查订阅升降级路径配置，或稍后再试。',
       'forgotPasswordLink': '忘记密码？',
       'forgotPasswordEmailHint': '请输入注册邮箱',
       'forgotPasswordCodeHint': '请输入验证码',
@@ -946,6 +950,8 @@ class AppLocalizations {
   String get membershipPurchaseVerifyFailed => _t('membershipPurchaseVerifyFailed');
   String get membershipSubscriptionExpired => _t('membershipSubscriptionExpired');
   String get membershipPurchaseFailed => _t('membershipPurchaseFailed');
+  String get membershipAndroidPlayBillingDeveloperError =>
+      _t('membershipAndroidPlayBillingDeveloperError');
 
   String get commonPassword => _t('commonPassword');
   

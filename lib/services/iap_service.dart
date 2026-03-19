@@ -140,7 +140,16 @@ class IapService {
     }
   }
 
-  Future<void> buy(ProductDetails product, {String? offerToken}) async {
+  Future<void> buy(
+    ProductDetails product, {
+    String? offerToken,
+    /// 为 true 时：不把本次购买当作「替换已有订阅」。
+    ///
+    /// 典型场景：服务端/本地已判定会员已过期，但 Google Play 的 [queryPastPurchases]
+    /// 仍可能返回旧订单（甚至 autoRenew=true 的缓存态）。若仍传 [ChangeSubscriptionParam]，
+    /// 用户重购**同一 base plan** 时 Play 常返回 responseCode=6 (ERROR)。
+    bool skipAndroidSubscriptionReplacement = false,
+  }) async {
     LogUtils.d(_kIapTag, 'buy: productId=${product.id} price=${product.price} offerToken=$offerToken');
     late PurchaseParam param;
     
@@ -151,41 +160,59 @@ class IapService {
       // responseCode=5 (DEVELOPER_ERROR).
       if (product is GooglePlayProductDetails && product.id == 'rephone_pro') {
         GooglePlayPurchaseDetails? oldSub;
-        var bestPurchaseTime = -1;
-        try {
-          final addition =
-              _iap.getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
-          final past = await addition.queryPastPurchases();
-          for (final p in past.pastPurchases) {
-            if (p.productID != 'rephone_pro') continue;
-            if (p is! GooglePlayPurchaseDetails) continue;
-
-            // Prefer auto-renewing + newest purchaseTime.
-            final purchaseTime = p.billingClientPurchase.purchaseTime;
-            final isAuto = p.billingClientPurchase.isAutoRenewing;
-            final isBetter =
-                (isAuto && oldSub == null) ||
-                (isAuto && oldSub != null && !oldSub.billingClientPurchase.isAutoRenewing) ||
-                (purchaseTime > bestPurchaseTime);
-
-            if (isBetter) {
-              oldSub = p;
-              bestPurchaseTime = purchaseTime;
-            }
-          }
-        } catch (e, st) {
-          LogUtils.e(_kIapTag, 'buy: queryPastPurchases failed', e, st);
-        }
-
-        if (oldSub != null) {
+        if (skipAndroidSubscriptionReplacement) {
           LogUtils.d(
             _kIapTag,
-            'buy: oldSub selected purchaseTime=${oldSub.billingClientPurchase.purchaseTime} '
-            'autoRenew=${oldSub.billingClientPurchase.isAutoRenewing} '
-            'purchaseID=${oldSub.purchaseID}',
+            'buy: skipAndroidSubscriptionReplacement=true, no ChangeSubscriptionParam',
           );
         } else {
-          LogUtils.d(_kIapTag, 'buy: oldSub not found, will buy without changeSubscriptionParam');
+          var bestScore = -1000000000;
+          try {
+            final addition =
+                _iap.getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+            final past = await addition.queryPastPurchases();
+            for (final p in past.pastPurchases) {
+              if (p.productID != 'rephone_pro') continue;
+              if (p is! GooglePlayPurchaseDetails) continue;
+
+              // Prefer the current active subscription to feed into ChangeSubscriptionParam.
+              // If there's a pending purchase update, Play may reject the replacement.
+              final purchaseTime = p.billingClientPurchase.purchaseTime;
+              final isAuto = p.billingClientPurchase.isAutoRenewing;
+              final isAcknowledged = p.billingClientPurchase.isAcknowledged;
+              final hasPendingUpdate = p.billingClientPurchase.pendingPurchaseUpdate != null;
+
+              var score = 0;
+              score += isAuto ? 100000 : 0;
+              score += isAcknowledged ? 5000 : 0;
+              score += !hasPendingUpdate ? 1000 : -100000;
+              score += purchaseTime; // newer wins inside the same buckets
+
+              if (oldSub == null || score > bestScore) {
+                oldSub = p;
+                bestScore = score;
+              }
+            }
+          } catch (e, st) {
+            LogUtils.e(_kIapTag, 'buy: queryPastPurchases failed', e, st);
+          }
+
+          if (oldSub != null) {
+            LogUtils.d(
+              _kIapTag,
+              'buy: oldSub selected purchaseTime=${oldSub.billingClientPurchase.purchaseTime} '
+              'autoRenew=${oldSub.billingClientPurchase.isAutoRenewing} '
+              'ack=${oldSub.billingClientPurchase.isAcknowledged} '
+              'pendingUpdate=${oldSub.billingClientPurchase.pendingPurchaseUpdate != null} '
+              'purchaseID=${oldSub.purchaseID}',
+            );
+          } else {
+            LogUtils.d(_kIapTag, 'buy: oldSub not found, will buy without changeSubscriptionParam');
+          }
+        }
+
+        if (!skipAndroidSubscriptionReplacement && oldSub != null) {
+          LogUtils.d(_kIapTag, 'buy: replacementMode=playDefault(null)');
         }
 
         param = GooglePlayPurchaseParam(
@@ -194,7 +221,6 @@ class IapService {
               ? null
               : ChangeSubscriptionParam(
                   oldPurchaseDetails: oldSub,
-                  replacementMode: ReplacementMode.withTimeProration,
                 ),
           offerToken: offerToken,
         );

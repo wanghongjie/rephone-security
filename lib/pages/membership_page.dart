@@ -206,6 +206,16 @@ class _MembershipPageState extends State<MembershipPage> {
       return l.membershipStatusPremium;
     }
 
+    // Google Play BillingResponse.developerError (5)，常见于订阅替换参数与 Console 升降级路径不匹配
+    if (Platform.isAndroid) {
+      final combined = '$code $msg $detailsStr'.toLowerCase();
+      if (combined.contains('developererror') ||
+          combined.contains('responsecode: 5') ||
+          combined.contains('billingresponse.developererror')) {
+        return l.membershipAndroidPlayBillingDeveloperError;
+      }
+    }
+
     return raw?.message ?? l.membershipPurchaseFailed;
   }
 
@@ -536,6 +546,12 @@ class _MembershipPageState extends State<MembershipPage> {
             }
             break;
           case PurchaseStatus.error:
+            LogUtils.d(
+              'IAP',
+              'purchaseStream error productId=${purchase.productID} '
+              'code=${purchase.error?.code} msg=${purchase.error?.message} '
+              'details=${purchase.error?.details}',
+            );
             // 出错时完成交易，避免保留 pending 订单
             await _iap.completePurchase(purchase);
             // Errors should still be shown when user initiated the flow.
@@ -1243,7 +1259,12 @@ class _MembershipPageState extends State<MembershipPage> {
                   } else {
                     _pendingAndroidBasePlanId = null;
                   }
-                  await _iap.buy(product, offerToken: plan.offerToken);
+                await _iap.buy(
+                  product,
+                  offerToken: plan.offerToken,
+                  // 已过期/无权益：勿传订阅替换，否则 Play 可能对「重购同档」返回 ERROR(6)
+                  skipAndroidSubscriptionReplacement: !_hasActiveSubscription,
+                );
                 } catch (_) {
                   if (!mounted) return;
                   setState(() => _isPurchasing = false);
@@ -1297,7 +1318,11 @@ class _MembershipPageState extends State<MembershipPage> {
                 } else {
                   _pendingAndroidBasePlanId = null;
                 }
-                await _iap.buy(product, offerToken: plan.offerToken);
+                await _iap.buy(
+                  product,
+                  offerToken: plan.offerToken,
+                  skipAndroidSubscriptionReplacement: !_hasActiveSubscription,
+                );
               } catch (e) {
                 if (mounted) {
                   setState(() => _isPurchasing = false);
