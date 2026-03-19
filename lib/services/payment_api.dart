@@ -30,6 +30,7 @@ class PaymentApi {
     required String orderId,
     required String productId,
     required String purchaseToken,
+    String? basePlanId,
     required String email,
   }) async {
     final client = HttpClient();
@@ -45,6 +46,7 @@ class PaymentApi {
       final body = {
         'order_id': orderId,
         'product_id': productId,
+        'base_plan_id': basePlanId,
         'purchase_token': purchaseToken,
         'email': email,
         'platform': 'android',

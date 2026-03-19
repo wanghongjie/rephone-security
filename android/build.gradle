@@ -1,9 +1,11 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 allprojects {
     repositories {
         maven { url 'https://maven.aliyun.com/repository/google' }
         maven { url 'https://maven.aliyun.com/repository/public' }
-        maven { url 'https://storage.flutter-io.cn/download.flutter.io' }
+        // Flutter artifacts (io.flutter:*). Official repository.
+        maven { url 'https://storage.googleapis.com/download.flutter.io' }
         maven { url 'https://jitpack.io' }
         google()
         mavenCentral()

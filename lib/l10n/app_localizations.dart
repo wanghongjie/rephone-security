@@ -197,6 +197,11 @@ class AppLocalizations {
       'membershipFaqEffectTitle': 'When does membership take effect?',
       'membershipFaqEffectContent':
           'After successful subscription, your membership takes effect immediately and you can use all premium features.',
+      'membershipSwitchAppliedNow': 'Your subscription has been switched to {plan}.',
+      'membershipSwitchQueued':
+          'Your subscription change has been submitted and may take effect at the end of the current billing period. Please check your system subscription settings for the actual status.',
+      'membershipPlanMonthlyShort': 'monthly',
+      'membershipPlanYearlyShort': 'yearly',
       'membershipDialogUpgradeTitle': 'Upgrade membership',
       'membershipDialogUpgradeContent':
           'Upgrade to premium membership to unlock more powerful features.',
@@ -513,6 +518,10 @@ class AppLocalizations {
       'membershipFaqEffectTitle': '会员权益何时生效？',
       'membershipFaqEffectContent':
           '订阅成功后，会员权益将立即生效，您可以马上享受所有高级功能。',
+      'membershipSwitchAppliedNow': '已切换为{plan}订阅。',
+      'membershipSwitchQueued': '订阅变更已提交，可能会在当前计费周期结束后生效，请在系统订阅管理中查看实际状态。',
+      'membershipPlanMonthlyShort': '月付',
+      'membershipPlanYearlyShort': '年付',
       'membershipDialogUpgradeTitle': '升级会员',
       'membershipDialogUpgradeContent': '升级到高级会员，享受更多特权功能！',
       'membershipDialogLater': '稍后再说',
@@ -817,6 +826,10 @@ class AppLocalizations {
   String get membershipFaqCancelContent => _t('membershipFaqCancelContent');
   String get membershipFaqEffectTitle => _t('membershipFaqEffectTitle');
   String get membershipFaqEffectContent => _t('membershipFaqEffectContent');
+  String get membershipSwitchAppliedNow => _t('membershipSwitchAppliedNow');
+  String get membershipSwitchQueued => _t('membershipSwitchQueued');
+  String get membershipPlanMonthlyShort => _t('membershipPlanMonthlyShort');
+  String get membershipPlanYearlyShort => _t('membershipPlanYearlyShort');
   String get membershipDialogUpgradeTitle => _t('membershipDialogUpgradeTitle');
   String get membershipDialogUpgradeContent => _t('membershipDialogUpgradeContent');
   String get membershipDialogLater => _t('membershipDialogLater');

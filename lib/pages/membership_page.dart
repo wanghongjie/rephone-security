@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/iap_service.dart';
@@ -23,14 +24,53 @@ class _MembershipPageState extends State<MembershipPage> {
   DateTime? _membershipExpiry;
   bool _loadingProducts = true;
   bool _isRestoring = false;
+  bool _isRestoreButtonLoading = false;
+  bool _isPurchasing = false;
+  String? _activePlan; // monthly|yearly|unknown (from server)
+  String? _activePlatform; // ios|android (from server)
+  String? _pendingAndroidBasePlanId; // for verify after purchase (rephone_pro base plan)
   String? _error;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
+  bool _userInitiatedPurchaseFlow = false;
+  DateTime? _lastSnackAt;
+  bool _restoreVerifiedEntitlement = false;
+  Completer<void>? _restoreVerificationCompleter;
+  Completer<void>? _restoreGotRestoredEventCompleter;
+  Timer? _restoreSettleTimer;
+  PurchaseDetails? _restoreLatestRestoredPurchase;
+  int _restoreLatestRestoredTxMs = -1;
+  bool _isCheckingStatus = false;
+  DateTime? _lastCheckStatusAt;
+  DateTime? _lastAutoRestoreOnErrorAt;
+  final Map<String, DateTime> _pendingProductUntil = <String, DateTime>{};
+  DateTime? _lastBuyTapAt;
 
   final IapService _iap = IapService.instance;
+
+  void _showSnackBarSafe(SnackBar snackBar) {
+    if (!mounted) return;
+    // Throttle repeated snackbars (e.g. sandbox auto-renew / restore floods)
+    final now = DateTime.now();
+    if (_lastSnackAt != null && now.difference(_lastSnackAt!) < const Duration(seconds: 3)) {
+      return;
+    }
+    _lastSnackAt = now;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.showSnackBar(snackBar);
+  }
 
   /// 基础版(免费) + 月付 + 年付；年付推荐
   late List<MembershipPlan> _plans;
   String _selectedPremiumPlanId = 'yearly';
+
+  void _syncSelectedPlanWithActivePlan() {
+    if (_activePlan == 'monthly') {
+      _selectedPremiumPlanId = 'monthly';
+    } else if (_activePlan == 'yearly') {
+      _selectedPremiumPlanId = 'yearly';
+    }
+  }
 
   @override
   void initState() {
@@ -38,45 +78,132 @@ class _MembershipPageState extends State<MembershipPage> {
     _plans = _defaultPlans();
     _initIap();
     _listenPurchases();
-    // 启动时检查一次
-    _checkStatus();
+    // 启动后先刷新一次服务端权益；
+    // 只有在 iOS 且当前判断为非会员时，才执行一次 restore 以补齐历史凭证。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      () async {
+        await _checkStatus();
+        if (!mounted) return;
+        if (Platform.isIOS && !_isCurrentlyMember) {
+          await _restorePurchases(showSnackbars: false, showButtonLoading: false);
+        }
+      }();
+    });
   }
 
   Future<void> _checkStatus() async {
+    // Prevent duplicate concurrent refreshes (e.g. initState + restore completion).
+    if (_isCheckingStatus) return;
+    final now = DateTime.now();
+    if (_lastCheckStatusAt != null &&
+        now.difference(_lastCheckStatusAt!) <
+            const Duration(seconds: 2)) {
+      return;
+    }
+    _isCheckingStatus = true;
+    _lastCheckStatusAt = now;
     final user = await SessionManager.getUser();
-    if (user != null) {
-      if (!mounted) return;
-      setState(() {
-        _isCurrentlyMember = user.vipLevel > 0;
-        _membershipExpiry = user.expireAt;
-      });
+    try {
+      if (user != null) {
+        if (!mounted) return;
+        setState(() {
+          _isCurrentlyMember = user.vipLevel > 0;
+          _membershipExpiry = user.expireAt;
+        });
 
-      // 触发服务端“按需校验”
-      // 只需要发起一次请求，服务端会根据策略决定是否查 Google
-      // 这里可以静默执行，不需要 loading 遮罩
-      try {
-        final result = await PaymentApi().refreshSubscription(email: user.email);
-        if (result != null) {
-          final vipLevel = result['vip_level'] as int? ?? 0;
-          final expireAtStr = result['expire_at'] as String?;
-          final newUser = user.copyWith(
-            vipLevel: vipLevel,
-            expireAt: expireAtStr != null ? DateTime.tryParse(expireAtStr) : null,
-          );
-          await SessionManager.saveUser(newUser);
+        // 触发服务端“按需校验”
+        // 这里可以静默执行，不需要 loading 遮罩
+        try {
+          final result = await PaymentApi()
+              .refreshSubscription(email: user.email);
+          if (result != null) {
+            final vipLevel = result['vip_level'] as int? ?? 0;
+            final expireAtStr = result['expire_at'] as String?;
+            final activePlan = result['active_plan'] as String?;
+            final activePlatform = result['platform'] as String?;
+            final newUser = user.copyWith(
+              vipLevel: vipLevel,
+              expireAt: expireAtStr != null ? DateTime.tryParse(expireAtStr) : null,
+            );
+            await SessionManager.saveUser(newUser);
 
-          if (!mounted) return;
-          setState(() {
-            _isCurrentlyMember = vipLevel > 0;
-            _membershipExpiry = newUser.expireAt;
-          });
-          
-          LogUtils.d('MembershipPage', 'Status refreshed: vip=$vipLevel');
+            if (!mounted) return;
+            setState(() {
+              _isCurrentlyMember = vipLevel > 0;
+              _membershipExpiry = newUser.expireAt;
+              _activePlan = activePlan;
+              _activePlatform = activePlatform;
+              _syncSelectedPlanWithActivePlan();
+            });
+
+            LogUtils.d('MembershipPage', 'Status refreshed: vip=$vipLevel');
+          }
+        } catch (e) {
+          debugPrint('Failed to refresh status: $e');
         }
-      } catch (e) {
-        debugPrint('Failed to refresh status: $e');
+      }
+    } finally {
+      _isCheckingStatus = false;
+    }
+  }
+
+  bool get _hasActiveSubscription {
+    final expiry = _membershipExpiry;
+    if (!_isCurrentlyMember) return false;
+    if (expiry == null) return true; // 兜底：有会员但无到期时间，按有效处理
+    return expiry.isAfter(DateTime.now());
+  }
+
+  String _friendlyPurchaseError(PurchaseDetails purchase, AppLocalizations l) {
+    final raw = purchase.error;
+    final code = raw?.code ?? '';
+    final msg = raw?.message ?? '';
+    final detailsStr = raw?.details?.toString() ?? '';
+
+    if (Platform.isIOS) {
+      if (code == 'storekit_duplicate_product_object') {
+        return l.membershipDialogProcessing;
+      }
+
+      // Already subscribed to this product (StoreKit server error 3532).
+      // Example log:
+      // ASDServerErrorDomain Code=3532 "You are currently subscribed to this"
+      final combined = '$code $msg $detailsStr';
+      if (combined.contains('3532') ||
+          combined.toLowerCase().contains('currently subscribed')) {
+        return l.membershipSwitchQueued;
+      }
+
+      // 常见的网络/会话问题：给更通用的提示
+      if (msg.contains('ASDErrorDomain') ||
+          msg.contains('AMSErrorDomain') ||
+          msg.contains('speedybuy') ||
+          msg.contains('timed out')) {
+        return l.membershipPurchaseFailed;
       }
     }
+
+    // Android 订阅重复、已拥有等错误通常在 message/code 中体现，做一个兜底友好提示
+    if (msg.toLowerCase().contains('already') ||
+        msg.toLowerCase().contains('owned') ||
+        code.toLowerCase().contains('already') ||
+        code.toLowerCase().contains('owned')) {
+      return l.membershipStatusPremium;
+    }
+
+    return raw?.message ?? l.membershipPurchaseFailed;
+  }
+
+  bool _shouldAutoRestoreOnIOSPurchaseError(PurchaseDetails purchase) {
+    if (!Platform.isIOS) return false;
+    final msg = (purchase.error?.message ?? '').toLowerCase();
+    final code = (purchase.error?.code ?? '').toLowerCase();
+
+    // iOS sandbox upgrades/downgrades sometimes return:
+    // ASDErrorDomain Code=500 -> "Invalid Status Code" (AMSStatusCode=500)
+    return msg.contains('invalid status code') ||
+        msg.contains('amsstatuscode=500') ||
+        (code.contains('500') && (msg.contains('asd') || msg.contains('ams')));
   }
 
   List<MembershipPlan> _defaultPlans() {
@@ -190,29 +317,127 @@ class _MembershipPageState extends State<MembershipPage> {
       if (!mounted) return;
       final l = AppLocalizations.of(context);
       for (final purchase in list) {
+        // Track pending store transactions to debounce repeated purchase attempts.
+        // Pending transactions can persist across app sessions and will cause
+        // StoreKit duplicate/pending errors if we try to buy again immediately.
+        if (purchase.status == PurchaseStatus.pending) {
+          _pendingProductUntil[purchase.productID] =
+              DateTime.now().add(const Duration(minutes: 5));
+        } else {
+          _pendingProductUntil.remove(purchase.productID);
+        }
+
+        // Restore 阶段：只要收到 restored 事件就标记一下，避免 pendingCompletePurchase=false
+        // 导致外层误判“没有可恢复购买”。
+        if (_isRestoring &&
+            purchase.status == PurchaseStatus.restored &&
+            _restoreGotRestoredEventCompleter != null &&
+            !_restoreGotRestoredEventCompleter!.isCompleted) {
+          _restoreGotRestoredEventCompleter!.complete();
+        }
+
+        // 避免重复处理同一笔交易
+        if (!purchase.pendingCompletePurchase &&
+            (purchase.status == PurchaseStatus.purchased ||
+                purchase.status == PurchaseStatus.restored ||
+                purchase.status == PurchaseStatus.error ||
+                purchase.status == PurchaseStatus.canceled)) {
+          continue;
+        }
         switch (purchase.status) {
           case PurchaseStatus.pending:
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
+            // Only show UI hints when user just initiated a purchase.
+            if (_userInitiatedPurchaseFlow) {
+              _showSnackBarSafe(
                 SnackBar(content: Text(AppLocalizations.of(context).membershipDialogProcessing)),
               );
             }
             break;
           case PurchaseStatus.purchased:
           case PurchaseStatus.restored:
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(l.membershipPurchaseVerifying)),
-              );
+            // iOS: storekit_duplicate_product_object 会让插件内部自动触发 restorePurchases()
+            // 并吐出大量 restored，但此时 `_isRestoring` 可能是 false（因为不是你手动/页面进入的 restore）。
+            // 为避免 restored 风暴逐条后端校验，这里把“自动 restore（由用户点击订阅触发）”也纳入 restore 抑制范围。
+            final bool isRestoreStatus = purchase.status == PurchaseStatus.restored &&
+                (_isRestoring || (_userInitiatedPurchaseFlow && _isPurchasing));
+
+            if (isRestoreStatus) {
+              // Restore 阶段：只“收集最新候选”，不逐条调用后端验证。
+              // 目的：iOS/沙盒 restore 会吐出大量历史 restored，逐条 verify 会导致重复刷新/重复校验。
+              final txMsFromTransactionDate = purchase.transactionDate == null
+                  ? -1
+                  : int.tryParse(purchase.transactionDate!) ?? -1;
+              final txMsFromPurchaseID =
+                  int.tryParse(purchase.purchaseID ?? '') ?? -1;
+              final candidateScore =
+                  txMsFromTransactionDate >= 0 ? txMsFromTransactionDate : txMsFromPurchaseID;
+              if (candidateScore > _restoreLatestRestoredTxMs) {
+                _restoreLatestRestoredTxMs = candidateScore;
+                _restoreLatestRestoredPurchase = purchase;
+              }
+
+              // 立即完成 restored，清掉 pending 队列，避免后续 subscribe 再次触发 duplicate transaction。
+              await _iap.completePurchase(purchase);
+
+              if (!_restoreVerifiedEntitlement) {
+                _restoreSettleTimer?.cancel();
+                _restoreSettleTimer = Timer(const Duration(seconds: 2), () async {
+                  if (_restoreVerifiedEntitlement) return;
+                  final candidate = _restoreLatestRestoredPurchase;
+                  _restoreVerifiedEntitlement = true;
+                  try {
+                    // 无论 expired 还是成功，后续都用 `_checkStatus()` 做服务器兜底展示最终状态。
+                    if (candidate != null) {
+                      final user = await SessionManager.getUser();
+                      if (user != null) {
+                        if (Platform.isIOS) {
+                          await PaymentApi().verifyApplePurchase(
+                            transactionId: candidate.purchaseID ?? '',
+                            productId: candidate.productID,
+                            receiptData: candidate.verificationData.serverVerificationData,
+                            email: user.email,
+                          );
+                        } else {
+                          await PaymentApi().verifyGooglePurchase(
+                            orderId: candidate.purchaseID ?? '',
+                            productId: candidate.productID,
+                            purchaseToken: candidate.verificationData.serverVerificationData,
+                            basePlanId: candidate.productID == 'rephone_pro' ? _pendingAndroidBasePlanId : null,
+                            email: user.email,
+                          );
+                        }
+                      }
+                    }
+                  } catch (_) {
+                    // ignore: we still complete the restore flow and rely on _checkStatus
+                  } finally {
+                    // 如果当前不是走 `_restorePurchases()`（例如 duplicate 错误触发的自动 restore），
+                    // 需要手动刷新一次服务端权益，否则 UI 可能不会立刻更新。
+                    if (mounted && !_isRestoring) {
+                      await _checkStatus();
+                    }
+                    if (_restoreVerificationCompleter != null &&
+                        !_restoreVerificationCompleter!.isCompleted) {
+                      _restoreVerificationCompleter!.complete();
+                    }
+                  }
+                });
+              }
+
+              break;
+            }
+
+            if (_userInitiatedPurchaseFlow) {
+              _showSnackBarSafe(SnackBar(content: Text(l.membershipPurchaseVerifying)));
             }
 
             final user = await SessionManager.getUser();
             if (user == null) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l.membershipPleaseLogin)),
-                );
+              if (_userInitiatedPurchaseFlow) {
+                _showSnackBarSafe(SnackBar(content: Text(l.membershipPleaseLogin)));
               }
+              // 未登录也要完成交易，否则会留下 pending 订单，导致下次购买报错
+              await _iap.completePurchase(purchase);
               return;
             }
 
@@ -229,6 +454,7 @@ class _MembershipPageState extends State<MembershipPage> {
                 orderId: purchase.purchaseID ?? '',
                 productId: purchase.productID,
                 purchaseToken: purchase.verificationData.serverVerificationData,
+                basePlanId: purchase.productID == 'rephone_pro' ? _pendingAndroidBasePlanId : null,
                 email: user.email,
               );
             }
@@ -236,17 +462,22 @@ class _MembershipPageState extends State<MembershipPage> {
             if (result != null) {
               if (result['subscription_expired'] == true) {
                 await _iap.completePurchase(purchase);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l.membershipSubscriptionExpired)),
-                  );
+                if (_userInitiatedPurchaseFlow) {
+                  _showSnackBarSafe(SnackBar(content: Text(l.membershipSubscriptionExpired)));
                 }
-                if (mounted) _checkStatus();
+                // Restore flows can emit multiple historical/expired receipts.
+                // Avoid spamming refresh/verification by deferring UI refresh until restore completes.
+                if (mounted && !_isRestoring) {
+                  _checkStatus();
+                }
                 break;
               }
               await _iap.completePurchase(purchase);
               final vipLevel = result['vip_level'] as int? ?? 0;
               final expireAtStr = result['expire_at'] as String?;
+              final activePlan = result['active_plan'] as String?;
+              final activePlatform = result['platform'] as String?;
+              final oldActivePlan = _activePlan;
               final newUser = user.copyWith(
                 vipLevel: vipLevel,
                 expireAt: expireAtStr != null ? DateTime.tryParse(expireAtStr) : null,
@@ -257,28 +488,82 @@ class _MembershipPageState extends State<MembershipPage> {
               setState(() {
                 _isCurrentlyMember = vipLevel > 0;
                 _membershipExpiry = newUser.expireAt;
+                _activePlan = activePlan;
+                _activePlatform = activePlatform;
+                _syncSelectedPlanWithActivePlan();
               });
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${l.membershipStatusPremium} ✓')),
-                );
+
+              if (_userInitiatedPurchaseFlow) {
+                // 构造当前 plan 显示名
+                String planLabel;
+                if (activePlan == 'monthly') {
+                  planLabel = l.membershipPlanMonthlyShort;
+                } else if (activePlan == 'yearly') {
+                  planLabel = l.membershipPlanYearlyShort;
+                } else {
+                  planLabel = '';
+                }
+                // 如果 plan 真的变了，提示“已切换为 X”
+                if (activePlan != null && activePlan.isNotEmpty && activePlan != oldActivePlan) {
+                  final msg = l.membershipSwitchAppliedNow.replaceAll('{plan}', planLabel);
+                  _showSnackBarSafe(SnackBar(content: Text(msg)));
+                } else {
+                  // plan 没变，多数是“下周期生效”或商店内部处理，不误导用户
+                  _showSnackBarSafe(SnackBar(content: Text(l.membershipSwitchQueued)));
+                }
               }
             } else {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l.membershipPurchaseVerifyFailed)),
-                );
+              // 验证失败也要 complete，否则交易会一直挂起
+              await _iap.completePurchase(purchase);
+              if (_userInitiatedPurchaseFlow) {
+                _showSnackBarSafe(SnackBar(content: Text(l.membershipPurchaseVerifyFailed)));
               }
             }
             break;
           case PurchaseStatus.error:
-            if (mounted) {
-              final msg = purchase.error?.message ?? l.membershipPurchaseFailed;
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+            // 出错时完成交易，避免保留 pending 订单
+            await _iap.completePurchase(purchase);
+            // Errors should still be shown when user initiated the flow.
+            if (_userInitiatedPurchaseFlow) {
+              final msg = _friendlyPurchaseError(purchase, l);
+              _showSnackBarSafe(SnackBar(content: Text(msg)));
+
+              // iOS sandbox can temporarily fail upgrade/downgrade with
+              // ASDErrorDomain Code=500 (Invalid Status Code).
+              // Try a restore to pull the resulting transaction/receipt
+              // so that server-side verification can reconcile the state.
+              if (_shouldAutoRestoreOnIOSPurchaseError(purchase)) {
+                final now = DateTime.now();
+                final canRestore = _lastAutoRestoreOnErrorAt == null ||
+                    now.difference(_lastAutoRestoreOnErrorAt!) >
+                        const Duration(seconds: 10);
+                if (canRestore && mounted) {
+                  _lastAutoRestoreOnErrorAt = now;
+                  try {
+                    await _iap.restore();
+                  } catch (_) {
+                    // ignore: best-effort
+                  }
+                }
+              }
             }
             break;
           case PurchaseStatus.canceled:
+            // 用户取消也 complete 一下，清理队列
+            await _iap.completePurchase(purchase);
             break;
+        }
+
+        // 任意终态都解除 UI 的“购买中”状态
+        if (mounted &&
+            purchase.status != PurchaseStatus.pending &&
+            _isPurchasing) {
+          setState(() => _isPurchasing = false);
+        }
+
+        // Any terminal state ends user-initiated UX flow.
+        if (purchase.status != PurchaseStatus.pending) {
+          _userInitiatedPurchaseFlow = false;
         }
       }
     });
@@ -353,8 +638,11 @@ class _MembershipPageState extends State<MembershipPage> {
           ),
           const SizedBox(width: 10),
           ElevatedButton(
-            onPressed: _isRestoring ? null : _restorePurchases,
-            child: _isRestoring
+            // 手动 restore：触发 StoreKit 恢复历史交易并补齐服务端 token。
+            onPressed: _isRestoring ? null : () {
+              _restorePurchases(showSnackbars: true, showButtonLoading: true);
+            },
+            child: _isRestoreButtonLoading
                 ? const SizedBox(
                     width: 16,
                     height: 16,
@@ -408,7 +696,13 @@ class _MembershipPageState extends State<MembershipPage> {
                     ),
                     if (_isCurrentlyMember && _membershipExpiry != null)
                       Text(
-                        '${l.membershipExpiryPrefix}${_formatDate(_membershipExpiry!)}',
+                        [
+                          if (_activePlan == 'monthly') l.membershipPlanMonthly,
+                          if (_activePlan == 'yearly') l.membershipPlanYearly,
+                          if (_activePlatform == 'ios') 'iOS',
+                          if (_activePlatform == 'android') 'Android',
+                        ].where((s) => s.isNotEmpty).join(' · ') +
+                            '\n${l.membershipExpiryPrefix}${_formatDate(_membershipExpiry!)}',
                         style: const TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                   ],
@@ -502,6 +796,12 @@ class _MembershipPageState extends State<MembershipPage> {
     final l = AppLocalizations.of(context);
     final isYearlySelected = _selectedPremiumPlanId == yearly.id;
     final selectedPlan = isYearlySelected ? yearly : monthly;
+    final currentPlatform = Platform.isIOS ? 'ios' : 'android';
+    final isCrossPlatformActive =
+        _hasActiveSubscription && _activePlatform != null && _activePlatform != currentPlatform;
+    final isSelectedCurrentPlan = _hasActiveSubscription &&
+        ((_activePlan == 'monthly' && selectedPlan.planType == MembershipPlanType.monthly) ||
+            (_activePlan == 'yearly' && selectedPlan.planType == MembershipPlanType.yearly));
 
     return Container(
       decoration: BoxDecoration(
@@ -548,14 +848,20 @@ class _MembershipPageState extends State<MembershipPage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () => _subscribeToPlan(selectedPlan),
+                    onPressed: (isSelectedCurrentPlan || isCrossPlatformActive)
+                        ? null
+                        : () => _subscribeToPlan(selectedPlan),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                     child: Text(
-                      '${l.membershipActionSubscribe} ${selectedPlan.displayPrice ?? ""}',
+                      isCrossPlatformActive
+                          ? (currentPlatform == 'android' ? '当前订阅来自 iOS' : '当前订阅来自 Android')
+                          : isSelectedCurrentPlan
+                              ? l.membershipPlanCurrent
+                              : '${l.membershipActionSubscribe} ${selectedPlan.displayPrice ?? ""}',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -602,6 +908,9 @@ class _MembershipPageState extends State<MembershipPage> {
   Widget _buildPlanOption(BuildContext context, MembershipPlan plan, AppLocalizations l, {String? discountLabel}) {
     final isSelected = _selectedPremiumPlanId == plan.id;
     final isYearly = plan.planType == MembershipPlanType.yearly;
+    final isCurrentFromServer = _hasActiveSubscription &&
+        ((_activePlan == 'monthly' && plan.planType == MembershipPlanType.monthly) ||
+            (_activePlan == 'yearly' && plan.planType == MembershipPlanType.yearly));
 
     return InkWell(
       onTap: () {
@@ -639,6 +948,18 @@ class _MembershipPageState extends State<MembershipPage> {
                     isYearly ? l.membershipPlanYearly : l.membershipPlanMonthly,
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
+                  if (isCurrentFromServer)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        l.membershipPlanCurrent,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   if (isYearly && discountLabel != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
@@ -750,47 +1071,78 @@ class _MembershipPageState extends State<MembershipPage> {
     );
   }
 
-  Future<void> _restorePurchases() async {
+  Future<void> _restorePurchases({
+    bool showSnackbars = true,
+    bool showButtonLoading = true,
+  }) async {
     if (_isRestoring) return;
     setState(() => _isRestoring = true);
+    setState(() => _isRestoreButtonLoading = showButtonLoading);
     final l = AppLocalizations.of(context);
+    _restoreVerifiedEntitlement = false;
+    _restoreSettleTimer?.cancel();
+    _restoreLatestRestoredPurchase = null;
+    _restoreLatestRestoredTxMs = -1;
+    _restoreVerificationCompleter = Completer<void>();
+    _restoreGotRestoredEventCompleter = Completer<void>();
     try {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.membershipRestoreStarting)),
-        );
+        if (showSnackbars) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.membershipRestoreStarting)),
+          );
+        }
       }
-
-      // 先订阅回调，再发起恢复，避免漏掉事件。
-      final restoredFuture = _iap.purchasesStream
-          .where((list) => list.any((p) => p.status == PurchaseStatus.restored))
-          .timeout(const Duration(seconds: 5))
-          .first;
 
       await _iap.restore();
 
       if (!mounted) return;
 
+      // iOS Restore 可能会吐出大量 restored 历史交易。
+      // 先判断是否“确实有 restored 事件”，再等待“首次找到有效订阅”并完成验证（或超时）。
+      var hasRestoredEvent = false;
       try {
-        // 如果有可恢复购买，purchaseStream 会回调 restored。
-        await restoredFuture;
-        if (!mounted) return;
-        // 最终状态更新由 _listenPurchases 的校验逻辑驱动；这里补一次兜底刷新。
-        await _checkStatus();
+        await _restoreGotRestoredEventCompleter!.future
+            .timeout(const Duration(seconds: 5));
+        hasRestoredEvent = true;
       } on TimeoutException {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.membershipRestoreNoPurchases)),
-        );
+        hasRestoredEvent = false;
       }
+
+      if (!hasRestoredEvent) {
+        if (!mounted) return;
+        if (showSnackbars) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.membershipRestoreNoPurchases)),
+          );
+        }
+        return;
+      }
+
+      try {
+        await _restoreVerificationCompleter!.future
+            .timeout(const Duration(seconds: 5));
+      } on TimeoutException {
+        // restored 有很多，但没有找到“有效订阅”；这里不报 “no purchases”，让 _checkStatus 用服务器兜底。
+      }
+
+      if (mounted) await _checkStatus(); // 用服务器兜底展示最终权益
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.membershipRestoreFailed)),
-        );
+        if (showSnackbars) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.membershipRestoreFailed)),
+          );
+        }
       }
     } finally {
-      if (mounted) setState(() => _isRestoring = false);
+      _restoreSettleTimer?.cancel();
+      if (mounted) {
+        setState(() {
+          _isRestoring = false;
+          _isRestoreButtonLoading = false;
+        });
+      }
     }
   }
 
@@ -799,9 +1151,94 @@ class _MembershipPageState extends State<MembershipPage> {
     final productId = plan.productId;
     final product = productId == null ? null : _iap.getProduct(productId);
 
+    // Debounce rapid repeat taps.
+    final now = DateTime.now();
+    if (_lastBuyTapAt != null &&
+        now.difference(_lastBuyTapAt!) < const Duration(seconds: 2)) {
+      return;
+    }
+    _lastBuyTapAt = now;
+
+    // Debounce if StoreKit/Play reports a pending transaction for this product.
+    if (productId != null) {
+      final until = _pendingProductUntil[productId];
+      if (until != null && until.isAfter(DateTime.now())) {
+        _showSnackBarSafe(SnackBar(content: Text(l.membershipDialogProcessing)));
+        return;
+      }
+    }
+
     if (product == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l.membershipDialogSubscribeContent)),
+      );
+      return;
+    }
+
+    // Cross-platform active subscription: do not allow purchasing on the other platform.
+    final currentPlatform = Platform.isIOS ? 'ios' : 'android';
+    final isCrossPlatformActive =
+        _hasActiveSubscription && _activePlatform != null && _activePlatform != currentPlatform;
+    if (isCrossPlatformActive) {
+      final crossMsg = currentPlatform == 'android'
+          ? '当前订阅来自 iOS，请在 iOS 设备上管理订阅'
+          : '当前订阅来自 Android，请在 Android 设备上管理订阅';
+      _showSnackBarSafe(SnackBar(content: Text(crossMsg)));
+      return;
+    }
+
+    final isCurrentPlanFromServer = _hasActiveSubscription &&
+        ((_activePlan == 'monthly' && plan.planType == MembershipPlanType.monthly) ||
+            (_activePlan == 'yearly' && plan.planType == MembershipPlanType.yearly));
+
+    // 已订阅：
+    // - 点当前套餐：不再重复购买（避免 StoreKit/Play 报错）
+    // - 点另一个套餐：在 App 内发起切换（iOS 同组订阅可直接切换；Android 用订阅替换参数）
+    if (_hasActiveSubscription) {
+      if (isCurrentPlanFromServer) {
+        _showSnackBarSafe(SnackBar(content: Text(l.membershipPlanCurrent)));
+        return;
+      }
+
+      // 切换套餐确认
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(l.membershipDialogSubscribeTitle),
+          content: Text(l.membershipDialogSubscribeContent),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l.commonCancel),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                if (!mounted) return;
+                setState(() => _isPurchasing = true);
+                _userInitiatedPurchaseFlow = true;
+
+                _showSnackBarSafe(
+                  SnackBar(content: Text('${l.membershipDialogProcessing} ${product.title}')),
+                );
+
+                try {
+                  if (Platform.isAndroid && product.id == 'rephone_pro') {
+                    _pendingAndroidBasePlanId = plan.basePlanId;
+                  } else {
+                    _pendingAndroidBasePlanId = null;
+                  }
+                  await _iap.buy(product, offerToken: plan.offerToken);
+                } catch (_) {
+                  if (!mounted) return;
+                  setState(() => _isPurchasing = false);
+                  _showSnackBarSafe(SnackBar(content: Text(l.membershipPurchaseFailed)));
+                }
+              },
+              child: Text(l.commonConfirm),
+            ),
+          ],
+        ),
       );
       return;
     }
@@ -817,12 +1254,41 @@ class _MembershipPageState extends State<MembershipPage> {
             child: Text(l.commonCancel),
           ),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: _isPurchasing
+                ? null
+                : () async {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
+              if (!mounted) return;
+              setState(() => _isPurchasing = true);
+              _userInitiatedPurchaseFlow = true;
+
+              // 购买前不再额外调用 restore()：
+              // restored 在 iOS 沙盒/历史较多时会产生大量回调，容易触发重复后端校验。
+              // 本页 initState 已做一次 restore，最终权益以服务端 refresh 结果为准。
+
+              if (!mounted) return;
+              if (_hasActiveSubscription) {
+                setState(() => _isPurchasing = false);
+                _showSnackBarSafe(SnackBar(content: Text(l.membershipStatusPremium)));
+                return;
+              }
+
+              _showSnackBarSafe(
                 SnackBar(content: Text('${l.membershipDialogProcessing} ${product.title}')),
               );
-              await _iap.buy(product, offerToken: plan.offerToken);
+              try {
+                if (Platform.isAndroid && product.id == 'rephone_pro') {
+                  _pendingAndroidBasePlanId = plan.basePlanId;
+                } else {
+                  _pendingAndroidBasePlanId = null;
+                }
+                await _iap.buy(product, offerToken: plan.offerToken);
+              } catch (e) {
+                if (mounted) {
+                  setState(() => _isPurchasing = false);
+                  _showSnackBarSafe(SnackBar(content: Text(l.membershipPurchaseFailed)));
+                }
+              }
             },
             child: Text(l.commonConfirm),
           ),

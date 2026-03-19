@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 
 import '../utils/log_utils.dart';
@@ -143,10 +145,57 @@ class IapService {
     late PurchaseParam param;
     
     if (Platform.isAndroid) {
-      if (offerToken != null && product is GooglePlayProductDetails) {
+      // Android new model: base plans live under `rephone_pro`.
+      // For plan switching we must pass the correct `oldPurchaseDetails` to
+      // `ChangeSubscriptionParam`, otherwise Google Play may return
+      // responseCode=5 (DEVELOPER_ERROR).
+      if (product is GooglePlayProductDetails && product.id == 'rephone_pro') {
+        GooglePlayPurchaseDetails? oldSub;
+        var bestPurchaseTime = -1;
+        try {
+          final addition =
+              _iap.getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+          final past = await addition.queryPastPurchases();
+          for (final p in past.pastPurchases) {
+            if (p.productID != 'rephone_pro') continue;
+            if (p is! GooglePlayPurchaseDetails) continue;
+
+            // Prefer auto-renewing + newest purchaseTime.
+            final purchaseTime = p.billingClientPurchase.purchaseTime;
+            final isAuto = p.billingClientPurchase.isAutoRenewing;
+            final isBetter =
+                (isAuto && oldSub == null) ||
+                (isAuto && oldSub != null && !oldSub.billingClientPurchase.isAutoRenewing) ||
+                (purchaseTime > bestPurchaseTime);
+
+            if (isBetter) {
+              oldSub = p;
+              bestPurchaseTime = purchaseTime;
+            }
+          }
+        } catch (e, st) {
+          LogUtils.e(_kIapTag, 'buy: queryPastPurchases failed', e, st);
+        }
+
+        if (oldSub != null) {
+          LogUtils.d(
+            _kIapTag,
+            'buy: oldSub selected purchaseTime=${oldSub.billingClientPurchase.purchaseTime} '
+            'autoRenew=${oldSub.billingClientPurchase.isAutoRenewing} '
+            'purchaseID=${oldSub.purchaseID}',
+          );
+        } else {
+          LogUtils.d(_kIapTag, 'buy: oldSub not found, will buy without changeSubscriptionParam');
+        }
+
         param = GooglePlayPurchaseParam(
           productDetails: product,
-          changeSubscriptionParam: null,
+          changeSubscriptionParam: oldSub == null
+              ? null
+              : ChangeSubscriptionParam(
+                  oldPurchaseDetails: oldSub,
+                  replacementMode: ReplacementMode.withTimeProration,
+                ),
           offerToken: offerToken,
         );
       } else {
@@ -157,8 +206,28 @@ class IapService {
        param = PurchaseParam(productDetails: product);
     }
 
-    await _iap.buyNonConsumable(purchaseParam: param);
-    LogUtils.d(_kIapTag, 'buy: buyNonConsumable called');
+    try {
+      await _iap.buyNonConsumable(purchaseParam: param);
+      LogUtils.d(_kIapTag, 'buy: buyNonConsumable called');
+    } on PlatformException catch (e, st) {
+      // 处理 iOS 上的重复下单错误，触发一次恢复来让 pending 订单回调并被 complete
+      if (Platform.isIOS && e.code == 'storekit_duplicate_product_object') {
+        LogUtils.w(_kIapTag, 'buy: duplicate product, trying restorePurchases()');
+        LogUtils.e(_kIapTag, 'buy: duplicate product details', e, st);
+        try {
+          await _iap.restorePurchases();
+        } catch (inner, innerSt) {
+          LogUtils.e(_kIapTag, 'buy: restorePurchases failed after duplicate', inner, innerSt);
+        }
+        // 吞掉该异常，交由上层 UI 通过 purchaseStream 提示用户
+        return;
+      }
+      LogUtils.e(_kIapTag, 'buy: PlatformException', e, st);
+      rethrow;
+    } catch (e, st) {
+      LogUtils.e(_kIapTag, 'buy: unexpected error', e, st);
+      rethrow;
+    }
   }
 
   /// iOS 专用：显示兑换码输入框

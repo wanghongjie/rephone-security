@@ -733,9 +733,9 @@ class Signaling {
   }
 
   RTCSessionDescription _fixSdp(RTCSessionDescription s) {
-    var sdp = s.sdp;
-    s.sdp =
-        sdp!.replaceAll('profile-level-id=640c1f', 'profile-level-id=42e032');
+    // var sdp = s.sdp;
+    // s.sdp =
+    //     sdp!.replaceAll('profile-level-id=640c1f', 'profile-level-id=42e032');
     return s;
   }
 
