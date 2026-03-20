@@ -60,6 +60,15 @@ class _MembershipPageState extends State<MembershipPage> {
     messenger.showSnackBar(snackBar);
   }
 
+  /// 购买流程**最终结果**（校验成功/失败、过期等）：不走 [_showSnackBarSafe] 的 3 秒节流。
+  /// 否则「正在验证购买…」刚弹出后，成功提示会在 3 秒内被静默丢弃。
+  void _showPurchaseOutcomeSnackBar(SnackBar snackBar) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.showSnackBar(snackBar);
+  }
+
   /// 基础版(免费) + 月付 + 年付；年付推荐
   late List<MembershipPlan> _plans;
   String _selectedPremiumPlanId = 'yearly';
@@ -171,6 +180,18 @@ class _MembershipPageState extends State<MembershipPage> {
     if (!_isCurrentlyMember) return false;
     if (expiry == null) return true; // 兜底：有会员但无到期时间，按有效处理
     return expiry.isAfter(DateTime.now());
+  }
+
+  /// 与后端 [active_plan] 对齐：monthly | yearly（用于购买成功后的提示文案）。
+  String? _intendedPlanKeyForPurchase(PurchaseDetails purchase) {
+    final id = purchase.productID;
+    if (id == 'rephone_premium_monthly') return 'monthly';
+    if (id == 'rephone_premium_yearly') return 'yearly';
+    if (id == 'rephone_pro') {
+      final bp = _pendingAndroidBasePlanId;
+      if (bp == 'monthly' || bp == 'yearly') return bp;
+    }
+    return null;
   }
 
   String _friendlyPurchaseError(PurchaseDetails purchase, AppLocalizations l) {
@@ -463,7 +484,9 @@ class _MembershipPageState extends State<MembershipPage> {
             final user = await SessionManager.getUser();
             if (user == null) {
               if (_userInitiatedPurchaseFlow) {
-                _showSnackBarSafe(SnackBar(content: Text(l.membershipPleaseLogin)));
+                _showPurchaseOutcomeSnackBar(
+                  SnackBar(content: Text(l.membershipPleaseLogin)),
+                );
               }
               // 未登录也要完成交易，否则会留下 pending 订单，导致下次购买报错
               await _iap.completePurchase(purchase);
@@ -491,8 +514,11 @@ class _MembershipPageState extends State<MembershipPage> {
             if (result != null) {
               if (result['subscription_expired'] == true) {
                 await _iap.completePurchase(purchase);
+                _pendingAndroidBasePlanId = null;
                 if (_userInitiatedPurchaseFlow) {
-                  _showSnackBarSafe(SnackBar(content: Text(l.membershipSubscriptionExpired)));
+                  _showPurchaseOutcomeSnackBar(
+                    SnackBar(content: Text(l.membershipSubscriptionExpired)),
+                  );
                 }
                 // Restore flows can emit multiple historical/expired receipts.
                 // Avoid spamming refresh/verification by deferring UI refresh until restore completes.
@@ -523,29 +549,54 @@ class _MembershipPageState extends State<MembershipPage> {
               });
 
               if (_userInitiatedPurchaseFlow) {
-                // 构造当前 plan 显示名
-                String planLabel;
-                if (activePlan == 'monthly') {
-                  planLabel = l.membershipPlanMonthlyShort;
-                } else if (activePlan == 'yearly') {
-                  planLabel = l.membershipPlanYearlyShort;
-                } else {
-                  planLabel = '';
-                }
-                // 如果 plan 真的变了，提示“已切换为 X”
-                if (activePlan != null && activePlan.isNotEmpty && activePlan != oldActivePlan) {
+                final intended = _intendedPlanKeyForPurchase(purchase);
+                final serverPlan = activePlan;
+                final hadPriorPlan =
+                    oldActivePlan != null && oldActivePlan!.isNotEmpty;
+                final serverUpdatedPlan = serverPlan != null &&
+                    serverPlan.isNotEmpty &&
+                    hadPriorPlan &&
+                    serverPlan != oldActivePlan;
+
+                if (serverUpdatedPlan) {
+                  final planLabel = serverPlan == 'monthly'
+                      ? l.membershipPlanMonthlyShort
+                      : serverPlan == 'yearly'
+                          ? l.membershipPlanYearlyShort
+                          : '';
                   final msg = l.membershipSwitchAppliedNow.replaceAll('{plan}', planLabel);
-                  _showSnackBarSafe(SnackBar(content: Text(msg)));
+                  _showPurchaseOutcomeSnackBar(SnackBar(content: Text(msg)));
+                } else if (vipLevel > 0 &&
+                    intended != null &&
+                    serverPlan != null &&
+                    serverPlan.isNotEmpty &&
+                    intended != serverPlan) {
+                  // 典型：iOS 同组降级/切换后收据已变，但服务端仍返回上一档至周期结束
+                  _showPurchaseOutcomeSnackBar(
+                    SnackBar(
+                      content: Text(l.membershipPurchaseSuccessSwitchPending),
+                      duration: const Duration(seconds: 6),
+                    ),
+                  );
+                } else if (vipLevel > 0) {
+                  _showPurchaseOutcomeSnackBar(
+                    SnackBar(content: Text(l.membershipPurchaseSuccess)),
+                  );
                 } else {
-                  // plan 没变，多数是“下周期生效”或商店内部处理，不误导用户
-                  _showSnackBarSafe(SnackBar(content: Text(l.membershipSwitchQueued)));
+                  _showPurchaseOutcomeSnackBar(
+                    SnackBar(content: Text(l.membershipSwitchQueued)),
+                  );
                 }
               }
+              _pendingAndroidBasePlanId = null;
             } else {
               // 验证失败也要 complete，否则交易会一直挂起
               await _iap.completePurchase(purchase);
+              _pendingAndroidBasePlanId = null;
               if (_userInitiatedPurchaseFlow) {
-                _showSnackBarSafe(SnackBar(content: Text(l.membershipPurchaseVerifyFailed)));
+                _showPurchaseOutcomeSnackBar(
+                  SnackBar(content: Text(l.membershipPurchaseVerifyFailed)),
+                );
               }
             }
             break;
@@ -561,7 +612,7 @@ class _MembershipPageState extends State<MembershipPage> {
             // Errors should still be shown when user initiated the flow.
             if (_userInitiatedPurchaseFlow) {
               final msg = _friendlyPurchaseError(purchase, l);
-              _showSnackBarSafe(SnackBar(content: Text(msg)));
+              _showPurchaseOutcomeSnackBar(SnackBar(content: Text(msg)));
 
               // iOS sandbox can temporarily fail upgrade/downgrade with
               // ASDErrorDomain Code=500 (Invalid Status Code).

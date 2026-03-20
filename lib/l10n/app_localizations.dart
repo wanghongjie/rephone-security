@@ -202,6 +202,9 @@ class AppLocalizations {
       'membershipSwitchAppliedNow': 'Your subscription has been switched to {plan}.',
       'membershipSwitchQueued':
           'Your subscription change has been submitted and may take effect at the end of the current billing period. Please check your system subscription settings for the actual status.',
+      'membershipPurchaseSuccess': 'Purchase successful. Your membership is active.',
+      'membershipPurchaseSuccessSwitchPending':
+          'Purchase successful. If you changed your plan, the App Store may keep your previous plan until the current period ends. Check Settings › Apple ID › Subscriptions; the app will update after the server syncs.',
       'membershipPlanMonthlyShort': 'monthly',
       'membershipPlanYearlyShort': 'yearly',
       'membershipDialogUpgradeTitle': 'Upgrade membership',
@@ -525,6 +528,9 @@ class AppLocalizations {
           '订阅成功后，会员权益将立即生效，您可以马上享受所有高级功能。',
       'membershipSwitchAppliedNow': '已切换为{plan}订阅。',
       'membershipSwitchQueued': '订阅变更已提交，可能会在当前计费周期结束后生效，请在系统订阅管理中查看实际状态。',
+      'membershipPurchaseSuccess': '购买成功，会员权益已生效。',
+      'membershipPurchaseSuccessSwitchPending':
+          '购买成功。若您刚切换了套餐，系统可能仍显示上一档至本周期结束；请在「设置 › Apple ID › 订阅」查看，云端状态稍后会与商店同步。',
       'membershipPlanMonthlyShort': '月付',
       'membershipPlanYearlyShort': '年付',
       'membershipDialogUpgradeTitle': '升级会员',
@@ -837,6 +843,9 @@ class AppLocalizations {
   String get membershipFaqEffectContent => _t('membershipFaqEffectContent');
   String get membershipSwitchAppliedNow => _t('membershipSwitchAppliedNow');
   String get membershipSwitchQueued => _t('membershipSwitchQueued');
+  String get membershipPurchaseSuccess => _t('membershipPurchaseSuccess');
+  String get membershipPurchaseSuccessSwitchPending =>
+      _t('membershipPurchaseSuccessSwitchPending');
   String get membershipPlanMonthlyShort => _t('membershipPlanMonthlyShort');
   String get membershipPlanYearlyShort => _t('membershipPlanYearlyShort');
   String get membershipDialogUpgradeTitle => _t('membershipDialogUpgradeTitle');
