@@ -188,8 +188,10 @@ class AppLocalizations {
       'membershipRestoreAction': 'Restore',
       'membershipRestoreStarting': 'Restoring purchases…',
       'membershipRestoreFailed': 'Failed to restore purchases',
-      'membershipRestoreSuccess': 'Purchases restored',
+      'membershipRestoreSuccess': 'Purchases restored. Your membership is now active.',
       'membershipRestoreNoPurchases': 'No previous purchases to restore',
+      'membershipRestoreSyncedNoMembership':
+          'Store purchases synced. No active membership found for this account.',
       'membershipFaqTitle': 'FAQ',
       'membershipFaqCancelTitle': 'How to cancel subscription?',
       'membershipFaqCancelContent':
@@ -511,8 +513,9 @@ class AppLocalizations {
       'membershipRestoreAction': '恢复',
       'membershipRestoreStarting': '正在恢复购买…',
       'membershipRestoreFailed': '恢复购买失败',
-      'membershipRestoreSuccess': '已恢复购买',
+      'membershipRestoreSuccess': '已恢复购买，会员权益已同步生效。',
       'membershipRestoreNoPurchases': '没有可恢复的购买记录',
+      'membershipRestoreSyncedNoMembership': '已同步商店记录，当前账号暂无有效会员。',
       'membershipFaqTitle': '常见问题',
       'membershipFaqCancelTitle': '如何取消订阅？',
       'membershipFaqCancelContent':
@@ -825,6 +828,8 @@ class AppLocalizations {
   String get membershipRestoreFailed => _t('membershipRestoreFailed');
   String get membershipRestoreSuccess => _t('membershipRestoreSuccess');
   String get membershipRestoreNoPurchases => _t('membershipRestoreNoPurchases');
+  String get membershipRestoreSyncedNoMembership =>
+      _t('membershipRestoreSyncedNoMembership');
   String get membershipFaqTitle => _t('membershipFaqTitle');
   String get membershipFaqCancelTitle => _t('membershipFaqCancelTitle');
   String get membershipFaqCancelContent => _t('membershipFaqCancelContent');

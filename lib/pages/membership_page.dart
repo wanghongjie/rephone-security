@@ -91,21 +91,23 @@ class _MembershipPageState extends State<MembershipPage> {
     });
   }
 
-  Future<void> _checkStatus({bool showExpiredHint = false}) async {
+  /// 返回是否已展示「订阅已过期」提示（用于恢复流程避免重复 SnackBar）。
+  Future<bool> _checkStatus({bool showExpiredHint = false}) async {
     // Prevent duplicate concurrent refreshes (e.g. initState + restore completion).
-    if (_isCheckingStatus) return;
+    if (_isCheckingStatus) return false;
     final now = DateTime.now();
     if (_lastCheckStatusAt != null &&
         now.difference(_lastCheckStatusAt!) <
             const Duration(seconds: 2)) {
-      return;
+      return false;
     }
     _isCheckingStatus = true;
     _lastCheckStatusAt = now;
-    final user = await SessionManager.getUser();
+    var showedExpiredSnack = false;
     try {
+      final user = await SessionManager.getUser();
       if (user != null) {
-        if (!mounted) return;
+        if (!mounted) return showedExpiredSnack;
         final l = AppLocalizations.of(context);
         setState(() {
           _isCurrentlyMember = user.vipLevel > 0;
@@ -137,7 +139,7 @@ class _MembershipPageState extends State<MembershipPage> {
             );
             await SessionManager.saveUser(newUser);
 
-            if (!mounted) return;
+            if (!mounted) return showedExpiredSnack;
             setState(() {
               _isCurrentlyMember = vipLevel > 0;
               _membershipExpiry = newUser.expireAt;
@@ -148,6 +150,7 @@ class _MembershipPageState extends State<MembershipPage> {
 
             LogUtils.d('MembershipPage', 'Status refreshed: vip=$vipLevel');
             if (shouldShowExpired) {
+              showedExpiredSnack = true;
               _showSnackBarSafe(
                 SnackBar(content: Text(l.membershipSubscriptionExpired)),
               );
@@ -157,6 +160,7 @@ class _MembershipPageState extends State<MembershipPage> {
           debugPrint('Failed to refresh status: $e');
         }
       }
+      return showedExpiredSnack;
     } finally {
       _isCheckingStatus = false;
     }
@@ -1157,7 +1161,21 @@ class _MembershipPageState extends State<MembershipPage> {
         // restored 有很多，但没有找到“有效订阅”；这里不报 “no purchases”，让 _checkStatus 用服务器兜底。
       }
 
-      if (mounted) await _checkStatus(showExpiredHint: showSnackbars); // 用服务器兜底展示最终权益，并在手动 restore 时提示过期
+      final showedExpiredSnack =
+          await _checkStatus(showExpiredHint: showSnackbars);
+
+      // 手动恢复：给用户明确结果（成功 / 无有效会员 / 已过期由 _checkStatus 提示）
+      if (mounted && showSnackbars) {
+        if (_isCurrentlyMember) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.membershipRestoreSuccess)),
+          );
+        } else if (hasRestoredEvent && !showedExpiredSnack) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.membershipRestoreSyncedNoMembership)),
+          );
+        }
+      }
     } catch (e) {
       if (mounted) {
         if (showSnackbars) {
