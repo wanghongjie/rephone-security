@@ -92,10 +92,6 @@ class _MembershipPageState extends State<MembershipPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       () async {
         await _checkStatus();
-        if (!mounted) return;
-        if (Platform.isIOS && !_isCurrentlyMember) {
-          await _restorePurchases(showSnackbars: false, showButtonLoading: false);
-        }
       }();
     });
   }
