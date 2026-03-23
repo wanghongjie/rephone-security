@@ -12,6 +12,7 @@ import '../db/database_helper.dart';
 import '../models/detection_event.dart';
 
 import '../services/signaling.dart';
+import '../services/ptz_service.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
 import '../utils/log_utils.dart';
@@ -58,6 +59,10 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   bool _isFakeSleep = false;
   /// iOS 熄屏时定期重新 enable wakelock，避免系统释放后自动锁屏
   Timer? _iosFakeSleepWakelockTimer;
+
+  // 云台控制 (BLE)
+  final PtzService _ptzService = PtzService();
+  bool _ptzConnecting = false;
 
   // Foreground service channel（仅用于 Android 前台服务）
   static const MethodChannel _serviceChannel = MethodChannel('camera_service');
@@ -256,6 +261,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         ..onDataChannelMessage = null;
       _signaling!.close();
     }
+    _ptzService.disconnect();
     super.dispose();
   }
 
@@ -264,6 +270,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       _stopIosFakeSleepWakelockTimer();
       await _iosScreenWakeDisable();
     }
+    await _ptzService.disconnect();
     WidgetsBinding.instance.removeObserver(this);
     _stopDetectionTimer();
     await _signaling?.close();
@@ -543,6 +550,14 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
             return;
           }
 
+          if (decoded is Map && decoded['type'] == 'ptz') {
+            final cmd = decoded['cmd'] as String?;
+            final dir = decoded['direction'] as String?;
+            final speed = (decoded['speed'] ?? 1) as int;
+            await _ptzService.handleCommand(cmd, direction: dir, speed: speed);
+            return;
+          }
+
           if (decoded is Map && decoded['type'] == 'get_video') {
             final int eventId = decoded['id'];
             LogUtils.i('CameraEndpoint', 'Received get_video request for event $eventId');
@@ -703,6 +718,27 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
           _isSwitchingCamera = false;
         });
       }
+    }
+  }
+
+  Future<void> _connectPtz() async {
+    if (_ptzService.isConnected) return;
+    if (_ptzConnecting) return;
+    setState(() => _ptzConnecting = true);
+    try {
+      final ok = await _ptzService.connect();
+      if (!mounted) return;
+      final l = AppLocalizations.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok ? l.ptzConnected : l.ptzConnectFailed,
+          ),
+        ),
+      );
+      setState(() {});
+    } finally {
+      if (mounted) setState(() => _ptzConnecting = false);
     }
   }
 
@@ -1196,6 +1232,20 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
                     tooltip:
                         AppLocalizations.of(context).cameraEndpointFakeSleepButton,
                   ),
+                IconButton(
+                  icon: _ptzConnecting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          Icons.pan_tool,
+                          color: _ptzService.isConnected ? Colors.green : null,
+                        ),
+                  onPressed: _ptzConnecting ? null : _connectPtz,
+                  tooltip: AppLocalizations.of(context).ptzConnectGimbal,
+                ),
                 IconButton(
                   icon: const Icon(Icons.logout, color: Colors.red),
                   onPressed: _showLogoutDialog,

@@ -261,6 +261,14 @@ class AppLocalizations {
           'Are you sure you want to exit the camera? This will stop video capture and foreground service.',
       'cameraEndpointConnecting': 'Connecting to server...',
       'cameraEndpointConnectedWithId': 'Connected to server (ID: {id})',
+      'ptzConnectGimbal': 'Connect PTZ gimbal',
+      'ptzConnected': 'PTZ gimbal connected',
+      'ptzConnectFailed': 'Failed to connect PTZ gimbal',
+      'ptzUp': 'Up',
+      'ptzDown': 'Down',
+      'ptzLeft': 'Left',
+      'ptzRight': 'Right',
+      'ptzStop': 'Stop',
       'playbackTitleSuffix': 'Playback',
       'playbackConnecting': 'Connecting to camera...',
       'playbackLoadList': 'Loading recordings...',
@@ -578,6 +586,14 @@ class AppLocalizations {
       'cameraEndpointExitDialogContent': '确定要退出相机端吗？\n退出后将停止视频采集和前台服务。',
       'cameraEndpointConnecting': '连接服务器中...',
       'cameraEndpointConnectedWithId': '已连接服务器 (ID: {id})',
+      'ptzConnectGimbal': '连接云台',
+      'ptzConnected': '云台已连接',
+      'ptzConnectFailed': '云台连接失败',
+      'ptzUp': '上',
+      'ptzDown': '下',
+      'ptzLeft': '左',
+      'ptzRight': '右',
+      'ptzStop': '停',
       'playbackTitleSuffix': '回看',
       'playbackConnecting': '正在连接相机...',
       'playbackLoadList': '正在加载录像列表...',
@@ -925,6 +941,15 @@ class AppLocalizations {
   String get cameraEndpointExitDialogContent => _t('cameraEndpointExitDialogContent');
   String get cameraEndpointConnecting => _t('cameraEndpointConnecting');
   String get cameraEndpointConnectedWithId => _t('cameraEndpointConnectedWithId');
+
+  String get ptzConnectGimbal => _t('ptzConnectGimbal');
+  String get ptzConnected => _t('ptzConnected');
+  String get ptzConnectFailed => _t('ptzConnectFailed');
+  String get ptzUp => _t('ptzUp');
+  String get ptzDown => _t('ptzDown');
+  String get ptzLeft => _t('ptzLeft');
+  String get ptzRight => _t('ptzRight');
+  String get ptzStop => _t('ptzStop');
 
   String get monitorViewerWaiting => _t('monitorViewerWaiting');
 

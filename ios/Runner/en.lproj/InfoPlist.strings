@@ -1,5 +1,6 @@
 /* Permission usage descriptions - English */
 "NSCameraUsageDescription" = "RePhone needs camera access to scan QR codes and for video streaming.";
+"NSBluetoothAlwaysUsageDescription" = "RePhone uses Bluetooth to connect to the PTZ gimbal for remote camera control.";
 "NSMicrophoneUsageDescription" = "RePhone needs microphone access for voice and audio capture.";
 "NSPhotoLibraryUsageDescription" = "RePhone needs photo library access to save recorded videos.";
 "NSPhotoLibraryAddUsageDescription" = "RePhone needs permission to save recorded videos to your Photos.";

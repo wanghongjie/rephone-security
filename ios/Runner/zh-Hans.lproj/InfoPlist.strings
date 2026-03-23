@@ -1,5 +1,6 @@
 /* Permission usage descriptions - 简体中文 */
 "NSCameraUsageDescription" = "需要访问相机以扫描二维码和进行视频通话";
+"NSBluetoothAlwaysUsageDescription" = "需要使用蓝牙连接云台以进行远程摄像头控制";
 "NSMicrophoneUsageDescription" = "需要访问麦克风以进行语音通话";
 "NSPhotoLibraryUsageDescription" = "需要访问相册以保存录制的视频";
 "NSPhotoLibraryAddUsageDescription" = "需要将录制的视频保存到相册";

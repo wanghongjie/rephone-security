@@ -30,6 +30,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>RePhone needs camera access to scan QR codes and for video streaming.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>RePhone uses Bluetooth to connect to the PTZ gimbal for remote camera control.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>RePhone needs microphone access for voice and audio capture.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -49,6 +50,9 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
   bool _isSavingToGallery = false;
   int? _androidSdkInt;
 
+  Timer? _ptzMoveTimer;
+  String? _ptzLastDirection;
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +68,8 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
   @override
   void dispose() {
+    _ptzMoveTimer?.cancel();
+    _ptzMoveTimer = null;
     _stopRecording(showToast: false);
     _hangUp();
     // 清理 signaling 回调，避免在页面销毁后仍然触发 setState
@@ -252,6 +258,34 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     if (_session != null) {
       _signaling?.bye(_session!.sid);
     }
+  }
+
+  void _sendPtz(String cmd, {String? direction, int speed = 1}) {
+    final sid = _session?.sid;
+    if (sid == null) return;
+    final payload = jsonEncode({
+      'type': 'ptz',
+      'cmd': cmd,
+      if (direction != null) 'direction': direction,
+      'speed': speed,
+    });
+    _signaling?.sendData(sid, payload);
+  }
+
+  void _ptzPointerDown(String direction) {
+    _ptzMoveTimer?.cancel();
+    _sendPtz('move', direction: direction);
+    _ptzLastDirection = direction;
+    _ptzMoveTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
+      _sendPtz('move', direction: _ptzLastDirection);
+    });
+  }
+
+  void _ptzPointerUp() {
+    _ptzMoveTimer?.cancel();
+    _ptzMoveTimer = null;
+    _ptzLastDirection = null;
+    _sendPtz('stop');
   }
 
   void _toggleCameraMic() {
@@ -624,34 +658,92 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
                   ),
                 ],
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildControlBtn(
-                    context,
-                    icon: _cameraMicEnabled ? Icons.volume_up : Icons.volume_off,
-                    label: _cameraMicEnabled
-                        ? l.cameraEndpointLogMicOn
-                        : l.cameraEndpointLogMicOff,
-                    onTap: _toggleCameraMic,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildControlBtn(
+                        context,
+                        icon: _cameraMicEnabled ? Icons.volume_up : Icons.volume_off,
+                        label: _cameraMicEnabled
+                            ? l.cameraEndpointLogMicOn
+                            : l.cameraEndpointLogMicOff,
+                        onTap: _toggleCameraMic,
+                      ),
+                      if (_remoteStream != null)
+                        _buildControlBtn(
+                          context,
+                          icon: _isRecording
+                              ? Icons.stop_circle_outlined
+                              : Icons.fiber_manual_record,
+                          label: _isRecording
+                              ? l.cameraEndpointRecordSaved
+                              : l.cameraEndpointRecord10s,
+                          onTap: _isRecording ? _stopRecording : _startRecording,
+                          iconColor: _isRecording ? Colors.red : null,
+                        ),
+                    ],
                   ),
-                  if (_remoteStream != null)
-                    _buildControlBtn(
-                      context,
-                      icon: _isRecording
-                          ? Icons.stop_circle_outlined
-                          : Icons.fiber_manual_record,
-                      label: _isRecording
-                          ? l.cameraEndpointRecordSaved
-                          : l.cameraEndpointRecord10s,
-                      onTap: _isRecording ? _stopRecording : _startRecording,
-                      iconColor: _isRecording ? Colors.red : null,
-                    ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildPtzPad(context, l),
+                    ],
+                  ),
                 ],
               ),
             ),
         ],
       ),
+      ),
+    );
+  }
+
+  Widget _buildPtzPad(BuildContext context, AppLocalizations l10n) {
+    const btnSize = 44.0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildPtzBtn(context, btnSize, Icons.keyboard_arrow_up, l10n.ptzUp, 'up'),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildPtzBtn(context, btnSize, Icons.keyboard_arrow_left, l10n.ptzLeft, 'left'),
+            _buildPtzBtn(context, btnSize, Icons.stop, l10n.ptzStop, null),
+            _buildPtzBtn(context, btnSize, Icons.keyboard_arrow_right, l10n.ptzRight, 'right'),
+          ],
+        ),
+        _buildPtzBtn(context, btnSize, Icons.keyboard_arrow_down, l10n.ptzDown, 'down'),
+      ],
+    );
+  }
+
+  Widget _buildPtzBtn(BuildContext context, double size, IconData icon, String tooltip, String? direction) {
+    return Tooltip(
+      message: tooltip,
+      child: Listener(
+        onPointerDown: (_) {
+          if (direction != null) {
+            _ptzPointerDown(direction);
+          } else {
+            _ptzPointerUp();
+          }
+        },
+        onPointerUp: (_) => _ptzPointerUp(),
+        onPointerCancel: (_) => _ptzPointerUp(),
+        child: Container(
+          width: size,
+          height: size,
+          margin: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 28),
+        ),
       ),
     );
   }
