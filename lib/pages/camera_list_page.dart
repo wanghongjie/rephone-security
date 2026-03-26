@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'dart:async';
 import 'dart:io' show Platform, File, Directory;
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -63,11 +64,10 @@ class _CameraListPageState extends State<CameraListPage> {
   }
 
   void _loadBannerAd() {
-    // NOTE:
-    // - These are Google's official Banner TEST ad unit IDs.
-    // - Replace with your own Banner ad unit IDs when ready.
     final adUnitId = Platform.isAndroid
-        ? 'ca-app-pub-3940256099942544/9214589741'
+        ? (kReleaseMode
+            ? 'ca-app-pub-6709616886871539/3198659691'
+            : 'ca-app-pub-3940256099942544/9214589741')
         : 'ca-app-pub-3940256099942544/2435281174';
 
     final ad = BannerAd(

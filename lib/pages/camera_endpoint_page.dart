@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -275,7 +276,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
   void _loadBannerAd() {
     final adUnitId = Platform.isAndroid
-        ? 'ca-app-pub-3940256099942544/9214589741'
+        ? (kReleaseMode
+            ? 'ca-app-pub-6709616886871539/4916851224'
+            : 'ca-app-pub-3940256099942544/9214589741')
         : 'ca-app-pub-3940256099942544/2435281174';
 
     final ad = BannerAd(

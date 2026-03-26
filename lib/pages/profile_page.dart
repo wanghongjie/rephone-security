@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../l10n/app_localizations.dart';
@@ -43,11 +44,10 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _loadBannerAd() {
-    // NOTE:
-    // - These are Google's official Banner TEST ad unit IDs.
-    // - Replace with your own Banner ad unit IDs when ready.
     final adUnitId = Platform.isAndroid
-        ? 'ca-app-pub-3940256099942544/6300978111'
+        ? (kReleaseMode
+            ? 'ca-app-pub-6709616886871539/6420803882'
+            : 'ca-app-pub-3940256099942544/6300978111')
         : 'ca-app-pub-3940256099942544/2934735716';
 
     final ad = BannerAd(
