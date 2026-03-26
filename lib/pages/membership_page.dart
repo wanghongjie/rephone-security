@@ -252,6 +252,22 @@ class _MembershipPageState extends State<MembershipPage> {
         (code.contains('500') && (msg.contains('asd') || msg.contains('ams')));
   }
 
+  bool _shouldSuppressPurchaseErrorSnackBar(PurchaseDetails purchase) {
+    if (!Platform.isIOS) return false;
+
+    // 系统已弹出「不允许 App 内购买」时，应用层不再重复弹同类错误提示。
+    if (_iap.iosCanMakePayments == false) {
+      return true;
+    }
+
+    final combined = '${purchase.error?.code} '
+            '${purchase.error?.message} '
+            '${purchase.error?.details}'
+        .toLowerCase();
+    return combined.contains('payment not allowed') ||
+        (combined.contains('asderrordomain') && combined.contains('1050'));
+  }
+
   List<MembershipPlan> _defaultPlans() {
     return [
       MembershipPlan(
@@ -607,8 +623,15 @@ class _MembershipPageState extends State<MembershipPage> {
             await _iap.completePurchase(purchase);
             // Errors should still be shown when user initiated the flow.
             if (_userInitiatedPurchaseFlow) {
-              final msg = _friendlyPurchaseError(purchase, l);
-              _showPurchaseOutcomeSnackBar(SnackBar(content: Text(msg)));
+              if (_shouldSuppressPurchaseErrorSnackBar(purchase)) {
+                LogUtils.d(
+                  'IAP',
+                  'purchase error snackbar suppressed (system purchase-not-allowed prompt already shown)',
+                );
+              } else {
+                final msg = _friendlyPurchaseError(purchase, l);
+                _showPurchaseOutcomeSnackBar(SnackBar(content: Text(msg)));
+              }
 
               // iOS sandbox can temporarily fail upgrade/downgrade with
               // ASDErrorDomain Code=500 (Invalid Status Code).
@@ -940,7 +963,9 @@ class _MembershipPageState extends State<MembershipPage> {
                     ),
                     child: Text(
                       isCrossPlatformActive
-                          ? (currentPlatform == 'android' ? '当前订阅来自 iOS' : '当前订阅来自 Android')
+                          ? (currentPlatform == 'android'
+                              ? l.membershipCrossPlatformFromIOSShort
+                              : l.membershipCrossPlatformFromAndroidShort)
                           : isSelectedCurrentPlan
                               ? l.membershipPlanCurrent
                               : '${l.membershipActionSubscribe} ${selectedPlan.displayPrice ?? ""}',
@@ -1277,8 +1302,8 @@ class _MembershipPageState extends State<MembershipPage> {
         _hasActiveSubscription && _activePlatform != null && _activePlatform != currentPlatform;
     if (isCrossPlatformActive) {
       final crossMsg = currentPlatform == 'android'
-          ? '当前订阅来自 iOS，请在 iOS 设备上管理订阅'
-          : '当前订阅来自 Android，请在 Android 设备上管理订阅';
+          ? l.membershipCrossPlatformManageOnIOS
+          : l.membershipCrossPlatformManageOnAndroid;
       _showSnackBarSafe(SnackBar(content: Text(crossMsg)));
       return;
     }

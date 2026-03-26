@@ -28,6 +28,7 @@ class IapService {
 
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   bool _available = false;
+  bool? _iosCanMakePayments;
   bool _initialized = false;
   bool _isQueryingProducts = false;
   Future<void>? _queryProductsFuture;
@@ -35,6 +36,43 @@ class IapService {
   List<ProductDetails> products = [];
 
   bool get isAvailable => _available;
+  bool? get iosCanMakePayments => _iosCanMakePayments;
+
+  Future<void> _logIosAvailabilityDiagnostics() async {
+    if (!Platform.isIOS) return;
+    try {
+      final canMakePayments = await SKPaymentQueueWrapper.canMakePayments();
+      _iosCanMakePayments = canMakePayments;
+      LogUtils.d(
+        _kIapTag,
+        'ios diagnostics: canMakePayments=$canMakePayments, os=${Platform.operatingSystemVersion}',
+      );
+    } catch (e, st) {
+      LogUtils.e(_kIapTag, 'ios diagnostics: canMakePayments check failed', e, st);
+    }
+
+    // isAvailable=false 时主动探测一次商品查询错误细节，便于定位配置/账号问题。
+    try {
+      final response = await _iap.queryProductDetails(_productIds);
+      LogUtils.d(
+        _kIapTag,
+        'ios diagnostics: probe query done, count=${response.productDetails.length}, '
+        'notFound=${response.notFoundIDs.length}',
+      );
+      if (response.error != null) {
+        LogUtils.e(
+          _kIapTag,
+          'ios diagnostics: probe query error code=${response.error!.code} '
+          'message=${response.error!.message}',
+        );
+      }
+      if (response.notFoundIDs.isNotEmpty) {
+        LogUtils.d(_kIapTag, 'ios diagnostics: probe notFoundIDs=${response.notFoundIDs}');
+      }
+    } catch (e, st) {
+      LogUtils.e(_kIapTag, 'ios diagnostics: probe query exception', e, st);
+    }
+  }
 
   Future<void> init({bool forceRefresh = false}) async {
     if (_initialized && !forceRefresh) {
@@ -72,12 +110,19 @@ class IapService {
     LogUtils.d(_kIapTag, 'init: isAvailable=$_available');
 
     if (!_available) {
-      LogUtils.d(_kIapTag, 'init: IAP not available, abort');
-      _initialized = true;
-      return;
+      LogUtils.w(
+        _kIapTag,
+        'init: IAP not available, abort. '
+        'Possible causes: StoreKit account/session issue, parental/MDM restriction, network issue.',
+      );
+      await _logIosAvailabilityDiagnostics();
+      LogUtils.w(
+        _kIapTag,
+        'init: continue querying products despite isAvailable=false',
+      );
     }
 
-    await _queryProducts(force: forceRefresh);
+    await _queryProducts(force: forceRefresh || !_available);
 
     _initialized = true;
     LogUtils.d(_kIapTag, 'init: done, products count=${products.length}');

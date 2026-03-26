@@ -326,6 +326,13 @@ class AppLocalizations {
       'membershipPurchaseFailed': 'Purchase failed',
       'membershipAndroidPlayBillingDeveloperError':
           'Google Play could not complete the plan change. If this keeps happening, check subscription upgrade/downgrade paths in Play Console, or try again later.',
+      'membershipCrossPlatformFromIOSShort': 'Current subscription from iOS',
+      'membershipCrossPlatformFromAndroidShort':
+          'Current subscription from Android',
+      'membershipCrossPlatformManageOnIOS':
+          'Current subscription is from iOS. Please manage it on an iOS device.',
+      'membershipCrossPlatformManageOnAndroid':
+          'Current subscription is from Android. Please manage it on an Android device.',
       'forgotPasswordLink': 'Forgot password?',
       'forgotPasswordEmailHint': 'Enter your registered email',
       'forgotPasswordCodeHint': 'Enter verification code',
@@ -642,6 +649,11 @@ class AppLocalizations {
       'membershipPurchaseFailed': '购买失败',
       'membershipAndroidPlayBillingDeveloperError':
           'Google Play 无法完成套餐切换。若反复出现，请在 Play 控制台检查订阅升降级路径配置，或稍后再试。',
+      'membershipCrossPlatformFromIOSShort': '当前订阅来自 iOS',
+      'membershipCrossPlatformFromAndroidShort': '当前订阅来自 Android',
+      'membershipCrossPlatformManageOnIOS': '当前订阅来自 iOS，请在 iOS 设备上管理订阅',
+      'membershipCrossPlatformManageOnAndroid':
+          '当前订阅来自 Android，请在 Android 设备上管理订阅',
       'forgotPasswordLink': '忘记密码？',
       'forgotPasswordEmailHint': '请输入注册邮箱',
       'forgotPasswordCodeHint': '请输入验证码',
@@ -966,6 +978,14 @@ class AppLocalizations {
   String get membershipPurchaseFailed => _t('membershipPurchaseFailed');
   String get membershipAndroidPlayBillingDeveloperError =>
       _t('membershipAndroidPlayBillingDeveloperError');
+  String get membershipCrossPlatformFromIOSShort =>
+      _t('membershipCrossPlatformFromIOSShort');
+  String get membershipCrossPlatformFromAndroidShort =>
+      _t('membershipCrossPlatformFromAndroidShort');
+  String get membershipCrossPlatformManageOnIOS =>
+      _t('membershipCrossPlatformManageOnIOS');
+  String get membershipCrossPlatformManageOnAndroid =>
+      _t('membershipCrossPlatformManageOnAndroid');
 
   String get commonPassword => _t('commonPassword');
   
