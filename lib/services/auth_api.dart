@@ -55,9 +55,6 @@ class AuthApi {
       } catch (_) {
         data = text;
       }
-      if (resp.statusCode == 401) {
-        NavigationService.handleUnauthorized();
-      }
       return _HttpResult(statusCode: resp.statusCode, data: data);
     } finally {
       client.close(force: true);
