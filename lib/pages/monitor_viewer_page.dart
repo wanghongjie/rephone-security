@@ -230,10 +230,14 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
         LogUtils.i('MonitorViewer', 'Calling camera with ID: ${widget.cameraDeviceId}');
         _signaling!.invite(cameraPeer['id'], 'video', false);
       } else {
+        final l = AppLocalizations.of(context);
         LogUtils.w('MonitorViewer', 'Camera ${widget.cameraDeviceId} not found in peers list');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('相机端 ${widget.cameraName} 不在线'),
+            content: Text(
+              l.monitorViewerCameraOffline
+                  .replaceFirst('{name}', widget.cameraName),
+            ),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -576,8 +580,8 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
                                 color: Colors.red.withOpacity(0.8),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Text(
-                                'REC',
+                              child: Text(
+                                l.monitorViewerRecLabel,
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
