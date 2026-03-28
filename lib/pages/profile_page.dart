@@ -48,7 +48,9 @@ class _ProfilePageState extends State<ProfilePage> {
         ? (kReleaseMode
             ? 'ca-app-pub-6709616886871539/6420803882'
             : 'ca-app-pub-3940256099942544/6300978111')
-        : 'ca-app-pub-3940256099942544/2934735716';
+        : (kReleaseMode
+            ? 'ca-app-pub-6709616886871539/8914838386'
+            : 'ca-app-pub-3940256099942544/2934735716');
 
     final ad = BannerAd(
       adUnitId: adUnitId,
