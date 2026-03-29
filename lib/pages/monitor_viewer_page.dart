@@ -50,10 +50,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
   bool _isSavingToGallery = false;
   int? _androidSdkInt;
 
-  /// iOS 冷启动时 WebRTC 与 `setAppleAudioIOMode` 易竞态（日志 -50）；就绪后延迟重试。
-  Timer? _iosAudioModeRetryTimer;
-  int _iosAudioModeKickGen = 0;
-
   @override
   void initState() {
     super.initState();
@@ -69,9 +65,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
   @override
   void dispose() {
-    _iosAudioModeRetryTimer?.cancel();
-    _iosAudioModeRetryTimer = null;
-    _iosAudioModeKickGen++;
     _stopRecording(showToast: false);
     _hangUp();
     _restoreDefaultAudioRoute();
@@ -128,53 +121,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       _remoteRenderer.srcObject = stream;
     }
     _preferSpeakerForRemotePlayback();
-    if (Platform.isIOS &&
-        stream.getVideoTracks().isNotEmpty &&
-        stream.getAudioTracks().isNotEmpty) {
-      _scheduleIosAudioModeRetriesAfterRemoteReady(stream);
-    }
-  }
-
-  void _scheduleIosAudioModeRetriesAfterRemoteReady(MediaStream stream) {
-    final gen = ++_iosAudioModeKickGen;
-    _iosAudioModeRetryTimer?.cancel();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || gen != _iosAudioModeKickGen) return;
-      unawaited(_applyIosMonitorAudioMode());
-    });
-
-    _rebindIosRemoteRenderer(stream, gen);
-
-    var n = 0;
-    _iosAudioModeRetryTimer =
-        Timer.periodic(const Duration(milliseconds: 600), (t) {
-      if (!mounted || gen != _iosAudioModeKickGen) {
-        t.cancel();
-        _iosAudioModeRetryTimer = null;
-        return;
-      }
-      unawaited(_applyIosMonitorAudioMode());
-      n++;
-      if (n >= 2) {
-        t.cancel();
-        _iosAudioModeRetryTimer = null;
-      }
-    });
-  }
-
-  void _rebindIosRemoteRenderer(MediaStream stream, int gen) {
-    void rebindAfter(int ms) {
-      Future<void>.delayed(Duration(milliseconds: ms), () {
-        if (!mounted || gen != _iosAudioModeKickGen) return;
-        if (_remoteStream?.id != stream.id) return;
-        if (stream.getVideoTracks().isEmpty) return;
-        _remoteRenderer.srcObject = stream;
-      });
-    }
-
-    rebindAfter(350);
-    rebindAfter(1100);
   }
 
   void _restoreDefaultAudioRoute() {
