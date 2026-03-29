@@ -62,9 +62,9 @@ PODS:
     - nanopb (~> 3.30910.0)
     - PromisesSwift (~> 2.1)
   - Flutter (1.0.0)
-  - flutter_webrtc (1.2.0):
+  - flutter_webrtc (1.4.0):
     - Flutter
-    - WebRTC-SDK (= 137.7151.12)
+    - WebRTC-SDK (= 144.7559.01)
   - gallery_saver_plus (0.0.1):
     - Flutter
   - Google-Mobile-Ads-SDK (11.13.0):
@@ -156,7 +156,7 @@ PODS:
     - FlutterMacOS
   - wakelock_plus (0.0.1):
     - Flutter
-  - WebRTC-SDK (137.7151.12)
+  - WebRTC-SDK (144.7559.01)
   - webview_flutter_wkwebview (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -184,6 +184,9 @@ DEPENDENCIES:
 
 SPEC REPOS:
   https://mirrors.tuna.tsinghua.edu.cn/git/CocoaPods/Specs.git:
+    - GoogleUtilities
+    - PromisesObjC
+  trunk:
     - Firebase
     - FirebaseCore
     - FirebaseCoreExtension
@@ -199,7 +202,6 @@ SPEC REPOS:
     - GoogleUtilities
     - MTBBarcodeScanner
     - nanopb
-    - PromisesObjC
     - PromisesSwift
     - TensorFlowLiteC
     - TensorFlowLiteSwift
@@ -260,7 +262,7 @@ SPEC CHECKSUMS:
   FirebaseRemoteConfigInterop: 765ee19cd2bfa8e54937c8dae901eb634ad6787d
   FirebaseSessions: a2d06fd980431fda934c7a543901aca05fc4edcc
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_webrtc: 14e8332bab22e1ed268cf26ae6c0f736c68f1bac
+  flutter_webrtc: 5aa37bfb8b834bff989a03182d1c4266a4f93377
   gallery_saver_plus: c4b59c605df1049a02d036ef81d82972b6dfd606
   Google-Mobile-Ads-SDK: 14f57f2dc33532a24db288897e26494640810407
   google_mobile_ads: fe0e2c1764ad95323dd0e3081d0bb2d58411f957
@@ -282,10 +284,10 @@ SPEC CHECKSUMS:
   TensorFlowLiteSwift: 3a4928286e9e35bdd3e17970f48e53c80d25e793
   tflite_flutter: 9433d086a3060431bbc9f3c7c20d017db0e72d08
   video_player_avfoundation: 7c6c11d8470e1675df7397027218274b6d2360b3
-  wakelock_plus: 8b09852c8876491e4b6d179e17dfe2a0b5f60d47
-  WebRTC-SDK: 1762e2de812354d27a8407d1b2c532064ec39fce
+  wakelock_plus: 76957ab028e12bfa4e66813c99e46637f367fc7e
+  WebRTC-SDK: ab9b5319e458c2bfebdc92b3600740da35d5630d
   webview_flutter_wkwebview: a4af96a051138e28e29f60101d094683b9f82188
 
-PODFILE CHECKSUM: bdd2d76e92b78cfbdf0e9eef53ae97460c3cdba5
+PODFILE CHECKSUM: c070a408ddf77d529ae683583fecdf4b9823e13d
 
 COCOAPODS: 1.16.2

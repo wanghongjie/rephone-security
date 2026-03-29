@@ -22,9 +22,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:image/image.dart' as img;
 
 class CameraEndpointPage extends StatefulWidget {
-  const CameraEndpointPage({super.key, required this.onSwitchToMonitor});
-
-  final VoidCallback onSwitchToMonitor;
+  const CameraEndpointPage({super.key});
 
   @override
   State<CameraEndpointPage> createState() => _CameraEndpointPageState();
@@ -33,6 +31,8 @@ class CameraEndpointPage extends StatefulWidget {
 class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBindingObserver {
   String _role = 'camera';
   final _localRenderer = RTCVideoRenderer();
+  /// Plays monitor talkback audio (remote); kept minimal in layout.
+  final _remoteMonitorRenderer = RTCVideoRenderer();
   bool _isVideoActive = false;
   bool _isMicMuted = true; // 默认关闭麦克风
 
@@ -243,8 +243,8 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     WidgetsBinding.instance.removeObserver(this);
     _detectTimer?.cancel();
     _bannerAd?.dispose();
-    _localRenderer.dispose();
-    // 断开 signaling 并清理回调，避免在页面销毁后仍然触发 setState
+
+    // 先断 signaling，再解绑 renderer，避免与 WebRTC 争用相机 / Surface
     if (_signaling != null) {
       _signaling!
         ..onSignalingStateChange = null
@@ -252,26 +252,74 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         ..onCallStateChange = null
         ..onLocalStream = null
         ..onAddRemoteStream = null
+        ..onAddRemoteAudioStream = null
         ..onRemoveRemoteStream = null
         ..onDataChannel = null
         ..onDataChannelMessage = null;
-      _signaling!.close();
+      unawaited(_signaling!.close());
+      _signaling = null;
     }
+
+    final local = _localRenderer;
+    final remote = _remoteMonitorRenderer;
+    try {
+      local.srcObject = null;
+    } catch (_) {}
+    try {
+      remote.srcObject = null;
+    } catch (_) {}
+
+    // Android: 主预览 renderer 延后 dispose；1×1 对讲辅助 renderer 不再调用 dispose，
+    // 否则 flutter_webrtc 在 Surface 已为 null 时仍 Surface.release()，原生层抛 NPE 并打 MethodChannel E。
+    final delayMs = Platform.isAndroid ? 120 : 24;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(() async {
+        await Future.delayed(Duration(milliseconds: delayMs));
+        try {
+          await local.dispose();
+        } catch (e, _) {
+          LogUtils.w('CameraEndpoint', 'RTCVideoRenderer(local).dispose: $e');
+        }
+        if (Platform.isIOS) {
+          try {
+            await remote.dispose();
+          } catch (e, _) {
+            LogUtils.w('CameraEndpoint', 'RTCVideoRenderer(remote).dispose: $e');
+          }
+        }
+      }());
+    });
+
     super.dispose();
   }
 
+  /// Stops services and connections before leaving this route.
+  /// [RTCVideoRenderer] 在 [dispose] 里延后释放；此处只解绑对讲画面，减轻与 pop 的竞态。
   Future<void> _releaseResources() async {
     if (Platform.isIOS) {
       _stopIosFakeSleepWakelockTimer();
       await _iosScreenWakeDisable();
     }
-    WidgetsBinding.instance.removeObserver(this);
     _stopDetectionTimer();
-    await _signaling?.close();
+    if (_signaling != null) {
+      _signaling!
+        ..onSignalingStateChange = null
+        ..onPeersUpdate = null
+        ..onCallStateChange = null
+        ..onLocalStream = null
+        ..onAddRemoteStream = null
+        ..onAddRemoteAudioStream = null
+        ..onRemoveRemoteStream = null
+        ..onDataChannel = null
+        ..onDataChannelMessage = null;
+      await _signaling!.close();
+      _signaling = null;
+    }
     _stopVideo();
+    try {
+      _remoteMonitorRenderer.srcObject = null;
+    } catch (_) {}
     await _stopForegroundService();
-    await _localRenderer.dispose();
-    _bannerAd?.dispose();
   }
 
   void _loadBannerAd() {
@@ -333,6 +381,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
   void _initRenderer() async {
     await _localRenderer.initialize();
+    await _remoteMonitorRenderer.initialize();
   }
 
   void _connectSignaling() async {
@@ -393,6 +442,13 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       }
     };
 
+    _signaling!.onAddRemoteAudioStream = (Session session, MediaStream stream) {
+      LogUtils.i('CameraEndpoint', 'Remote monitor audio');
+      _remoteMonitorRenderer.srcObject = stream;
+      if (!mounted) return;
+      setState(() {});
+    };
+
     _signaling!.onCallStateChange = (Session session, CallState state) {
       LogUtils.i('CameraEndpoint', 'Call state changed: $state');
       switch (state) {
@@ -417,6 +473,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
           break;
         case CallState.CallStateBye:
           LogUtils.i('CameraEndpoint', '监控端已断开');
+          _remoteMonitorRenderer.srcObject = null;
           break;
         default:
           break;
@@ -1089,9 +1146,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     final theme = Theme.of(context);
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        
+
         final shouldExit = await showDialog<bool>(
           context: context,
           builder: (context) {
@@ -1114,9 +1171,14 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         );
 
         if (shouldExit == true) {
-          await _releaseResources();
+          try {
+            await _releaseResources();
+          } catch (e, st) {
+            LogUtils.e('CameraEndpoint', '_releaseResources failed', e, st);
+          }
+          // 回到系统桌面（Android 退到后台；iOS 最小化），不切监控端 Tab。
           if (mounted) {
-             SystemNavigator.pop();
+            SystemNavigator.pop();
           }
         }
       },
@@ -1245,6 +1307,22 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
                                     objectFit:
                                         RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
                                   ),
+                                ),
+                              ),
+                            ),
+                            // Sub-pixel view so WebRTC plays remote talkback audio on device speaker.
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              width: 1,
+                              height: 1,
+                              child: Opacity(
+                                opacity: 0.02,
+                                child: RTCVideoView(
+                                  _remoteMonitorRenderer,
+                                  mirror: false,
+                                  objectFit: RTCVideoViewObjectFit
+                                      .RTCVideoViewObjectFitContain,
                                 ),
                               ),
                             ),

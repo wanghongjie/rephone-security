@@ -84,6 +84,8 @@ class Signaling {
   var _turnCredential;
   Map<String, Session> _sessions = {};
   MediaStream? _localStream;
+  /// Monitor-only: microphone sent to camera (talkback); disposed when session closes.
+  MediaStream? _monitorMicStream;
   List<MediaStream> _remoteStreams = <MediaStream>[];
   List<RTCRtpSender> _senders = <RTCRtpSender>[];
   VideoSource _videoSource = VideoSource.Camera;
@@ -103,6 +105,7 @@ class Signaling {
   Function(Session session, CallState state)? onCallStateChange;
   Function(MediaStream stream)? onLocalStream;
   Function(Session session, MediaStream stream)? onAddRemoteStream;
+  Function(Session session, MediaStream stream)? onAddRemoteAudioStream;
   Function(Session session, MediaStream stream)? onRemoveRemoteStream;
   Function(dynamic event)? onPeersUpdate;
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
@@ -246,6 +249,64 @@ class Signaling {
     tracks[0].enabled = enabled;
   }
 
+  /// Monitor role only: send local microphone to camera (two-way talk). Triggers SDP renegotiation when first enabled.
+  Future<void> setMonitorTalkbackEnabled(Session session, bool enabled) async {
+    if (useLocalMedia || session.pc == null) return;
+    try {
+      if (enabled) {
+        final senders = await session.pc!.getSenders();
+        final hasAudioOut = senders.any((s) => s.track?.kind == 'audio');
+        if (!hasAudioOut) {
+          _monitorMicStream ??= await navigator.mediaDevices.getUserMedia({
+            'audio': true,
+            'video': false,
+          });
+          final track = _monitorMicStream!.getAudioTracks().first;
+          track.enabled = true;
+          await session.pc!.addTrack(track, _monitorMicStream!);
+          final offer = await session.pc!.createOffer({});
+          await session.pc!.setLocalDescription(_fixSdp(offer));
+          final local = await session.pc!.getLocalDescription();
+          if (local == null) {
+            LogUtils.w('Signaling', 'setMonitorTalkbackEnabled: no local description after offer');
+            return;
+          }
+          _send('offer', {
+            'to': session.pid,
+            'from': _selfId,
+            'description': {'sdp': local.sdp, 'type': local.type},
+            'session_id': session.sid,
+            'media': 'video',
+          });
+        } else if (_monitorMicStream != null) {
+          for (final t in _monitorMicStream!.getAudioTracks()) {
+            t.enabled = true;
+          }
+        }
+      } else if (_monitorMicStream != null) {
+        for (final t in _monitorMicStream!.getAudioTracks()) {
+          t.enabled = false;
+        }
+      }
+    } catch (e) {
+      LogUtils.e('Signaling', 'setMonitorTalkbackEnabled failed', e);
+      rethrow;
+    }
+  }
+
+  Future<void> _disposeMonitorMicStream() async {
+    if (_monitorMicStream == null) return;
+    try {
+      for (final t in _monitorMicStream!.getTracks()) {
+        await t.stop();
+      }
+      await _monitorMicStream!.dispose();
+    } catch (e) {
+      LogUtils.w('Signaling', 'dispose monitor mic stream: $e');
+    }
+    _monitorMicStream = null;
+  }
+
   void invite(String peerId, String media, bool useScreen) async {
     var sessionId = _selfId + '-' + peerId;
     
@@ -320,8 +381,28 @@ class Signaling {
           var description = data['description'];
           var media = data['media'];
           var sessionId = data['session_id'];
-          var session = _sessions[sessionId];
-          var newSession = await _createSession(session,
+          var existing = _sessions[sessionId];
+          // In-call renegotiation (e.g. monitor added microphone) — reuse PC, answer only.
+          if (existing != null &&
+              existing.pc != null &&
+              existing.pc!.signalingState !=
+                  RTCSignalingState.RTCSignalingStateClosed) {
+            try {
+              await existing.pc!.setRemoteDescription(
+                  RTCSessionDescription(description['sdp'], description['type']));
+              if (existing.remoteCandidates.isNotEmpty) {
+                for (final candidate in existing.remoteCandidates) {
+                  await existing.pc!.addCandidate(candidate);
+                }
+                existing.remoteCandidates.clear();
+              }
+              await _createAnswer(existing, media);
+            } catch (e) {
+              LogUtils.e('Signaling', 'Renegotiation (offer) failed', e);
+            }
+            break;
+          }
+          var newSession = await _createSession(existing,
               peerId: peerId,
               sessionId: sessionId,
               media: media);
@@ -559,8 +640,12 @@ class Signaling {
         case 'unified-plan':
           // Unified-Plan
           pc.onTrack = (event) {
+            if (event.streams.isEmpty) return;
+            final stream = event.streams[0];
             if (event.track.kind == 'video') {
-              onAddRemoteStream?.call(newSession, event.streams[0]);
+              onAddRemoteStream?.call(newSession, stream);
+            } else if (event.track.kind == 'audio') {
+              onAddRemoteAudioStream?.call(newSession, stream);
             }
           };
           if (_localStream != null) {
@@ -779,6 +864,7 @@ class Signaling {
   }
 
   Future<void> _cleanSessions() async {
+    await _disposeMonitorMicStream();
     if (_localStream != null) {
       _localStream!.getTracks().forEach((element) async {
         await element.stop();
@@ -817,5 +903,8 @@ class Signaling {
     await session.dc?.close();
     _senders.clear();
     _videoSource = VideoSource.Camera;
+    if (!useLocalMedia) {
+      await _disposeMonitorMicStream();
+    }
   }
 }

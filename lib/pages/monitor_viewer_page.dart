@@ -1,6 +1,6 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -39,6 +39,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
   String? _currentUserEmail;
   String? _connectedCameraId; // 当前连接的相机端ID
   bool _cameraMicEnabled = false; // 监控端控制：相机端麦克风是否开启
+  bool _monitorTalkbackOn = false; // 监控端本地麦克风 → 相机端播放（对讲）
 
   // Recording
   MediaStream? _remoteStream;
@@ -48,6 +49,10 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
   bool get _isRecording => _mediaRecorder != null;
   bool _isSavingToGallery = false;
   int? _androidSdkInt;
+
+  /// iOS 冷启动时 WebRTC 与 `setAppleAudioIOMode` 易竞态（日志 -50）；就绪后延迟重试。
+  Timer? _iosAudioModeRetryTimer;
+  int _iosAudioModeKickGen = 0;
 
   @override
   void initState() {
@@ -64,8 +69,12 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
   @override
   void dispose() {
+    _iosAudioModeRetryTimer?.cancel();
+    _iosAudioModeRetryTimer = null;
+    _iosAudioModeKickGen++;
     _stopRecording(showToast: false);
     _hangUp();
+    _restoreDefaultAudioRoute();
     // 清理 signaling 回调，避免在页面销毁后仍然触发 setState
     if (_signaling != null) {
       _signaling!
@@ -73,7 +82,8 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
         ..onPeersUpdate = null
         ..onCallStateChange = null
         ..onAddRemoteStream = null
-        ..onRemoveRemoteStream = null;
+        ..onRemoveRemoteStream = null
+        ..onAddRemoteAudioStream = null;
     }
     _signaling?.close();
     _remoteRenderer.dispose();
@@ -82,6 +92,107 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
   void _initRenderer() async {
     await _remoteRenderer.initialize();
+  }
+
+  /// Android: earpiece is often effectively silent for WebRTC remote audio.
+  /// iOS: WebRTC 内部用 `PlayAndRecord`；若用 `remoteOnly`（playback）易与 RTCAudioSession
+  /// 抢会话，冷启动常见 -50 且首次无声。监控页统一用 [AppleAudioIOMode.localAndRemote] +
+  /// 扬声器（未开对讲时也不采音，仅会话类别与引擎一致）。
+  void _preferSpeakerForRemotePlayback() {
+    if (Platform.isAndroid) {
+      Helper.setSpeakerphoneOn(true).catchError((Object e, StackTrace st) {
+        LogUtils.w('MonitorViewer', 'setSpeakerphoneOn: $e');
+      });
+    } else if (Platform.isIOS) {
+      unawaited(_applyIosMonitorAudioMode());
+    }
+  }
+
+  Future<void> _applyIosMonitorAudioMode() async {
+    if (!Platform.isIOS) return;
+    try {
+      await Helper.setAppleAudioIOMode(
+        AppleAudioIOMode.localAndRemote,
+        preferSpeakerOutput: true,
+      );
+    } catch (e) {
+      LogUtils.w('MonitorViewer', 'setAppleAudioIOMode: $e');
+    }
+  }
+
+  /// 相机端单流音视频；unified-plan 下 audio/video `onTrack` 顺序不定，有视频轨时绑定
+  /// 主渲染器；音频轨后到时会再次回调，再赋一次 `srcObject` 以便部分机型刷新播放。
+  void _syncRemoteStream(MediaStream stream) {
+    _remoteStream = stream;
+    if (stream.getVideoTracks().isNotEmpty) {
+      _remoteRenderer.srcObject = stream;
+    }
+    _preferSpeakerForRemotePlayback();
+    if (Platform.isIOS &&
+        stream.getVideoTracks().isNotEmpty &&
+        stream.getAudioTracks().isNotEmpty) {
+      _scheduleIosAudioModeRetriesAfterRemoteReady(stream);
+    }
+  }
+
+  void _scheduleIosAudioModeRetriesAfterRemoteReady(MediaStream stream) {
+    final gen = ++_iosAudioModeKickGen;
+    _iosAudioModeRetryTimer?.cancel();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || gen != _iosAudioModeKickGen) return;
+      unawaited(_applyIosMonitorAudioMode());
+    });
+
+    _rebindIosRemoteRenderer(stream, gen);
+
+    var n = 0;
+    _iosAudioModeRetryTimer =
+        Timer.periodic(const Duration(milliseconds: 600), (t) {
+      if (!mounted || gen != _iosAudioModeKickGen) {
+        t.cancel();
+        _iosAudioModeRetryTimer = null;
+        return;
+      }
+      unawaited(_applyIosMonitorAudioMode());
+      n++;
+      if (n >= 2) {
+        t.cancel();
+        _iosAudioModeRetryTimer = null;
+      }
+    });
+  }
+
+  void _rebindIosRemoteRenderer(MediaStream stream, int gen) {
+    void rebindAfter(int ms) {
+      Future<void>.delayed(Duration(milliseconds: ms), () {
+        if (!mounted || gen != _iosAudioModeKickGen) return;
+        if (_remoteStream?.id != stream.id) return;
+        if (stream.getVideoTracks().isEmpty) return;
+        _remoteRenderer.srcObject = stream;
+      });
+    }
+
+    rebindAfter(350);
+    rebindAfter(1100);
+  }
+
+  void _restoreDefaultAudioRoute() {
+    if (Platform.isAndroid) {
+      Helper.setSpeakerphoneOn(false).catchError((Object e, StackTrace st) {
+        LogUtils.w('MonitorViewer', 'reset audio route: $e');
+      });
+    } else if (Platform.isIOS) {
+      unawaited(_applyIosMonitorAudioModeNone());
+    }
+  }
+
+  Future<void> _applyIosMonitorAudioModeNone() async {
+    try {
+      await Helper.setAppleAudioIOMode(AppleAudioIOMode.none);
+    } catch (e) {
+      LogUtils.w('MonitorViewer', 'setAppleAudioIOMode none: $e');
+    }
   }
 
   void _connectSignaling() async {
@@ -160,9 +271,17 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
             _connectedCameraId = session.pid;
           });
           LogUtils.i('MonitorViewer', '视频连接成功');
+          if (Platform.isIOS) {
+            final sid = session.sid;
+            Future<void>.delayed(const Duration(milliseconds: 900), () {
+              if (!mounted || !_inCall || _session?.sid != sid) return;
+              unawaited(_applyIosMonitorAudioMode());
+            });
+          }
           break;
         case CallState.CallStateBye:
           _stopRecording(showToast: false);
+          _restoreDefaultAudioRoute();
           if (!mounted) return;
           setState(() {
             _inCall = false;
@@ -170,6 +289,8 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
             _remoteRenderer.srcObject = null;
             _remoteStream = null;
             _connectedCameraId = null;
+            _cameraMicEnabled = false;
+            _monitorTalkbackOn = false;
           });
           // 如果是相机端主动断开，返回上一页
           if (mounted) {
@@ -196,16 +317,26 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     };
 
     _signaling!.onAddRemoteStream = (session, stream) {
-      LogUtils.i('MonitorViewer', 'Remote stream added');
-      _remoteStream = stream;
-      _remoteRenderer.srcObject = stream;
-       if (!mounted) return;
+      LogUtils.i('MonitorViewer', 'Remote stream added (video track)');
+      _syncRemoteStream(stream);
+      if (!mounted) return;
+      setState(() {});
+    };
+
+    _signaling!.onAddRemoteAudioStream = (session, stream) {
+      LogUtils.i(
+        'MonitorViewer',
+        'Remote audio track: v=${stream.getVideoTracks().length} a=${stream.getAudioTracks().length}',
+      );
+      _syncRemoteStream(stream);
+      if (!mounted) return;
       setState(() {});
     };
 
     _signaling!.onRemoveRemoteStream = (session, stream) {
       LogUtils.i('MonitorViewer', 'Remote stream removed');
       _stopRecording(showToast: false);
+      _restoreDefaultAudioRoute();
       _remoteStream = null;
       _remoteRenderer.srcObject = null;
       if (!mounted) return;
@@ -279,6 +410,55 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     });
   }
 
+  Future<void> _toggleMonitorTalkback() async {
+    final session = _session;
+    final signaling = _signaling;
+    if (session == null || signaling == null) {
+      final l = AppLocalizations.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.cameraEndpointConnecting)),
+      );
+      return;
+    }
+    final wantOn = !_monitorTalkbackOn;
+    if (wantOn) {
+      final status = await Permission.microphone.request();
+      if (!status.isGranted) {
+        if (!mounted) return;
+        final l = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.monitorViewerMicPermissionRequired)),
+        );
+        return;
+      }
+    }
+    try {
+      // iOS: PlayAndRecord 须在 getUserMedia 之前就绪（与页面常驻的 localAndRemote 一致）。
+      if (wantOn && Platform.isIOS) {
+        setState(() => _monitorTalkbackOn = true);
+        await _applyIosMonitorAudioMode();
+      }
+      await signaling.setMonitorTalkbackEnabled(session, wantOn);
+      if (!mounted) return;
+      if (wantOn && !Platform.isIOS) {
+        setState(() => _monitorTalkbackOn = true);
+      } else if (!wantOn) {
+        setState(() => _monitorTalkbackOn = false);
+      }
+    } catch (e) {
+      if (wantOn && Platform.isIOS) {
+        setState(() => _monitorTalkbackOn = false);
+        await _applyIosMonitorAudioMode();
+      }
+      LogUtils.e('MonitorViewer', 'Talkback failed', e);
+      if (!mounted) return;
+      final l = AppLocalizations.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${l.monitorViewerTalkbackFailed}$e')),
+      );
+    }
+  }
+
   Future<void> _startRecording() async {
     if (_isRecording) return;
     final stream = _remoteStream;
@@ -324,7 +504,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       if (mounted) {
         final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${l.cameraEndpointServiceStartFailed}$e')),
+          SnackBar(content: Text('${l.monitorViewerRecordStartFailed}$e')),
         );
       }
     }
@@ -638,6 +818,16 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
                         ? l.cameraEndpointLogMicOn
                         : l.cameraEndpointLogMicOff,
                     onTap: _toggleCameraMic,
+                  ),
+                  _buildControlBtn(
+                    context,
+                    icon: _monitorTalkbackOn ? Icons.mic : Icons.mic_off,
+                    label: _monitorTalkbackOn
+                        ? l.monitorViewerTalkbackOn
+                        : l.monitorViewerTalkbackOff,
+                    onTap: _toggleMonitorTalkback,
+                    iconColor:
+                        _monitorTalkbackOn ? Colors.green : null,
                   ),
                   if (_remoteStream != null)
                     _buildControlBtn(

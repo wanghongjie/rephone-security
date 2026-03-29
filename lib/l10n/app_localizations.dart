@@ -291,6 +291,11 @@ class AppLocalizations {
       'monitorViewerWaiting': 'Waiting for camera...',
       'monitorViewerCameraOffline': 'Camera {name} is offline',
       'monitorViewerRecLabel': 'REC',
+      'monitorViewerTalkbackOn': 'Intercom on',
+      'monitorViewerTalkbackOff': 'Intercom off',
+      'monitorViewerMicPermissionRequired': 'Microphone permission is required for intercom.',
+      'monitorViewerTalkbackFailed': 'Intercom failed: ',
+      'monitorViewerRecordStartFailed': 'Could not start recording: ',
       'emailFlowInputEmailTitle': 'Enter email',
       'emailFlowInputEmailHint': 'Your email address',
       'emailFlowInputEmailDesc':
@@ -617,6 +622,11 @@ class AppLocalizations {
       'monitorViewerWaiting': '等待相机画面...',
       'monitorViewerCameraOffline': '相机端 {name} 不在线',
       'monitorViewerRecLabel': 'REC',
+      'monitorViewerTalkbackOn': '对讲开',
+      'monitorViewerTalkbackOff': '对讲关',
+      'monitorViewerMicPermissionRequired': '对讲需要麦克风权限，请在设置中允许。',
+      'monitorViewerTalkbackFailed': '对讲失败：',
+      'monitorViewerRecordStartFailed': '无法开始录制：',
       'emailFlowInputEmailTitle': '填写邮箱地址',
       'emailFlowInputEmailHint': '你的邮箱地址',
       'emailFlowInputEmailDesc': '我们将根据邮箱判断是否已注册，未注册将进入快捷注册流程。',
@@ -945,6 +955,13 @@ class AppLocalizations {
   String get monitorViewerWaiting => _t('monitorViewerWaiting');
   String get monitorViewerCameraOffline => _t('monitorViewerCameraOffline');
   String get monitorViewerRecLabel => _t('monitorViewerRecLabel');
+  String get monitorViewerTalkbackOn => _t('monitorViewerTalkbackOn');
+  String get monitorViewerTalkbackOff => _t('monitorViewerTalkbackOff');
+  String get monitorViewerMicPermissionRequired =>
+      _t('monitorViewerMicPermissionRequired');
+  String get monitorViewerTalkbackFailed => _t('monitorViewerTalkbackFailed');
+  String get monitorViewerRecordStartFailed =>
+      _t('monitorViewerRecordStartFailed');
 
   String get emailFlowInputEmailTitle => _t('emailFlowInputEmailTitle');
   String get emailFlowInputEmailHint => _t('emailFlowInputEmailHint');

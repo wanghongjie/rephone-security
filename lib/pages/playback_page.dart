@@ -188,7 +188,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
           });
         }
         // 连接建立后，稍作延迟发送请求，确保 DataChannel 就绪
-        // 注意：DataChannel 的开启可能比 CallStateConnected 稍晚，或者需要等待 onDataChannelOpen
+        // 注意：DataChannel 的开启可能比 CallStateConnected 稍晚
         // 但 Signaling 类封装了，sendData 会检查 dc 是否为 null
         // 最好在 onDataChannel 回调中发送，或者重试
       } else if (state == CallState.CallStateBye) {

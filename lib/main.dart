@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -16,7 +18,6 @@ import 'pages/profile_page.dart';
 import 'pages/welcome_page.dart';
 import 'services/push_service.dart';
 import 'services/session_manager.dart';
-import 'services/iap_service.dart';
 import 'utils/log_utils.dart';
 import 'utils/navigation_service.dart';
 
@@ -24,6 +25,16 @@ import 'utils/navigation_service.dart';
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   LogUtils.i('PushBackground', 'Message: ${message.messageId ?? ''}');
+}
+
+/// Camera 端不需要 FCM；仅在确认 [SessionManager] 角色为 monitor 后注册。
+bool _monitorPushRegistrationDone = false;
+
+Future<void> registerMonitorPushIfNeeded() async {
+  if (_monitorPushRegistrationDone) return;
+  _monitorPushRegistrationDone = true;
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  await PushService.init();
 }
 
 void main() async {
@@ -42,10 +53,7 @@ void main() async {
     return true;
   };
 
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  PushService.init();
-  // 启动 IAP 服务（尽早注册监听器）
-  IapService.instance.init();
+  // FCM：见 [registerMonitorPushIfNeeded]，仅在监控端角色就绪后初始化。
 
   // 设置沉浸式状态栏
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -176,11 +184,13 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
-  String _cameraRole = 'monitor'; // monitor 或 camera
+  /// `null` until [SessionManager.getDeviceRole] finishes — avoids mounting
+  /// [MembershipPage] (and Google Play Billing) before we know the user is monitor.
+  String? _cameraRole;
   final GlobalKey _profilePageKey = GlobalKey();
   final GlobalKey _cameraListPageKey = GlobalKey();
   bool _initializedIndex = false;
-  late final List<Widget> _pages;
+  List<Widget>? _monitorTabPages;
 
   @override
   void didChangeDependencies() {
@@ -198,7 +208,10 @@ class _MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
     _loadCameraRole();
-    _pages = [
+  }
+
+  List<Widget> _ensureMonitorTabPages() {
+    return _monitorTabPages ??= [
       CameraListPage(key: _cameraListPageKey),
       const MembershipPage(),
       ProfilePage(key: _profilePageKey),
@@ -207,18 +220,25 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _loadCameraRole() async {
     final role = await SessionManager.getDeviceRole() ?? 'monitor';
-    if (role == 'camera') {
-      setState(() {
-        _cameraRole = 'camera';
-      });
+    if (!mounted) return;
+    if (role == 'monitor') {
+      unawaited(registerMonitorPushIfNeeded());
     }
+    setState(() {
+      _cameraRole = role;
+      if (role == 'monitor') {
+        _ensureMonitorTabPages();
+      }
+    });
   }
 
   Future<void> _switchToMonitor() async {
     setState(() {
       _cameraRole = 'monitor';
+      _ensureMonitorTabPages();
     });
     await SessionManager.setDeviceRole('monitor');
+    await registerMonitorPushIfNeeded();
     PushService.reportTokenForLoggedInMonitor();
   }
 
@@ -253,17 +273,20 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_cameraRole == 'camera') {
-      return CameraEndpointPage(
-        onSwitchToMonitor: _switchToMonitor,
+    if (_cameraRole == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
       );
+    }
+    if (_cameraRole == 'camera') {
+      return const CameraEndpointPage();
     }
 
     return Scaffold(
       appBar: _buildAppBar(),
       body: IndexedStack(
         index: _currentIndex,
-        children: _pages,
+        children: _ensureMonitorTabPages(),
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
@@ -324,7 +347,7 @@ class _MainPageState extends State<MainPage> {
           child: Align(
             alignment: Alignment.centerLeft,
             child: _CameraRoleMenu(
-              value: _cameraRole,
+              value: _cameraRole ?? 'monitor',
               onSelected: (role) {
                 if (role == 'monitor') {
                   _switchToMonitor();

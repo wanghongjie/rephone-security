@@ -32,6 +32,9 @@ class IapService {
   bool _initialized = false;
   bool _isQueryingProducts = false;
   Future<void>? _queryProductsFuture;
+  /// Serializes [init] so Android BillingClient is never hit concurrently from
+  /// main + MembershipPage (avoids "Service not registered" on unbind).
+  Future<void> _initSerial = Future<void>.value();
 
   List<ProductDetails> products = [];
 
@@ -75,12 +78,22 @@ class IapService {
   }
 
   Future<void> init({bool forceRefresh = false}) async {
+    final run = _initSerial.then((_) => _initImpl(forceRefresh));
+    // Keep the queue alive even when [run] fails (Billing/Store flaky).
+    _initSerial = run.catchError((Object e, StackTrace st) {
+      LogUtils.e(_kIapTag, 'init: failed (queue continues)', e, st);
+    });
+    await run;
+  }
+
+  Future<void> _initImpl(bool forceRefresh) async {
     if (_initialized && !forceRefresh) {
       LogUtils.d(_kIapTag, 'init: already initialized, skip');
       return;
     }
 
     if (forceRefresh) {
+      _initialized = false;
       LogUtils.d(_kIapTag, 'init: force refreshing...');
     }
 

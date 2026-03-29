@@ -1,3 +1,5 @@
+# CDN 需排在前面，以便解析 flutter_webrtc 依赖的 WebRTC-SDK 144.x（镜像偶发滞后会报版本冲突）
+source 'https://cdn.cocoapods.org/'
 source 'https://mirrors.tuna.tsinghua.edu.cn/git/CocoaPods/Specs.git'
 # Uncomment this line to define a global platform for your project
 platform :ios, '16.0'

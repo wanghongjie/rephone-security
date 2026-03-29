@@ -102,9 +102,7 @@ class _QRCodeScannerPageState extends State<QRCodeScannerPage> {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
-            builder: (_) => CameraEndpointPage(
-              onSwitchToMonitor: () {},
-            ),
+            builder: (_) => const CameraEndpointPage(),
           ),
           (route) => false,
         );
