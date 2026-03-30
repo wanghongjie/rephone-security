@@ -87,20 +87,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     await _remoteRenderer.initialize();
   }
 
-  /// Android: earpiece is often effectively silent for WebRTC remote audio.
-  /// iOS: WebRTC 内部用 `PlayAndRecord`；若用 `remoteOnly`（playback）易与 RTCAudioSession
-  /// 抢会话，冷启动常见 -50 且首次无声。监控页统一用 [AppleAudioIOMode.localAndRemote] +
-  /// 扬声器（未开对讲时也不采音，仅会话类别与引擎一致）。
-  void _preferSpeakerForRemotePlayback() {
-    if (Platform.isAndroid) {
-      Helper.setSpeakerphoneOn(true).catchError((Object e, StackTrace st) {
-        LogUtils.w('MonitorViewer', 'setSpeakerphoneOn: $e');
-      });
-    } else if (Platform.isIOS) {
-      unawaited(_applyIosMonitorAudioMode());
-    }
-  }
-
   Future<void> _applyIosMonitorAudioMode() async {
     if (!Platform.isIOS) return;
     try {
@@ -120,7 +106,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     if (stream.getVideoTracks().isNotEmpty) {
       _remoteRenderer.srcObject = stream;
     }
-    _preferSpeakerForRemotePlayback();
   }
 
   void _restoreDefaultAudioRoute() {
@@ -217,13 +202,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
             _connectedCameraId = session.pid;
           });
           LogUtils.i('MonitorViewer', '视频连接成功');
-          if (Platform.isIOS) {
-            final sid = session.sid;
-            Future<void>.delayed(const Duration(milliseconds: 900), () {
-              if (!mounted || !_inCall || _session?.sid != sid) return;
-              unawaited(_applyIosMonitorAudioMode());
-            });
-          }
           break;
         case CallState.CallStateBye:
           _stopRecording(showToast: false);
@@ -264,16 +242,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
     _signaling!.onAddRemoteStream = (session, stream) {
       LogUtils.i('MonitorViewer', 'Remote stream added (video track)');
-      _syncRemoteStream(stream);
-      if (!mounted) return;
-      setState(() {});
-    };
-
-    _signaling!.onAddRemoteAudioStream = (session, stream) {
-      LogUtils.i(
-        'MonitorViewer',
-        'Remote audio track: v=${stream.getVideoTracks().length} a=${stream.getAudioTracks().length}',
-      );
       _syncRemoteStream(stream);
       if (!mounted) return;
       setState(() {});
