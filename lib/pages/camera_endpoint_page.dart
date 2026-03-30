@@ -43,6 +43,11 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   bool _isDetecting = false;
   bool _isRecording = false;
   Timer? _detectTimer;
+  /// Detection cooldown: recording 结束后，短时间内跳过人行检测。
+  /// 避免频繁触发录制，同时也避免依赖“冷却结束回调”在后台被暂停导致检测永久停止。
+  DateTime? _detectionCooldownUntil;
+  /// Used to recover from "recording stuck" when timers are throttled/suspended in background.
+  int? _recordingStartedAtMs;
   MediaRecorder? _mediaRecorder;
   bool _isLoggingOut = false;
 
@@ -375,6 +380,28 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       if (!_isConnected) {
         LogUtils.w('CameraEndpoint', 'Resumed but disconnected, forcing reconnect...');
         _signaling?.connect();
+      }
+
+      // Some platforms throttle/suspend timers in background; ensure detection timer is still running.
+      _startDetectionTimer();
+
+      // If recording got stuck while backgrounding (delayed callbacks didn't run), recover.
+      if (_isRecording && _recordingStartedAtMs != null) {
+        final elapsedMs =
+            DateTime.now().millisecondsSinceEpoch - _recordingStartedAtMs!;
+        if (elapsedMs > 30000) {
+          try {
+            unawaited(_mediaRecorder?.stop());
+          } catch (_) {}
+          _mediaRecorder = null;
+          _isRecording = false;
+          _recordingStartedAtMs = null;
+          _detectionCooldownUntil = null;
+          LogUtils.w(
+            'CameraEndpoint',
+            'Recording state recovered after background throttling (elapsedMs=$elapsedMs)',
+          );
+        }
       }
     }
   }
@@ -858,6 +885,8 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
   Future<void> _performDetection() async {
     if (_isRecording || _isDetecting) return;
+    final cooldownUntil = _detectionCooldownUntil;
+    if (cooldownUntil != null && DateTime.now().isBefore(cooldownUntil)) return;
     if (!_isVideoActive) return;
 
     _isDetecting = true;
@@ -1077,7 +1106,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   Future<void> _startTenSecondsRecording(String imagePath) async {
     if (_isRecording) return;
     _isRecording = true;
-    _stopDetectionTimer(); // Stop detection timer during recording
+    _recordingStartedAtMs = DateTime.now().millisecondsSinceEpoch;
 
     try {
       final dir = await getApplicationDocumentsDirectory();
@@ -1095,7 +1124,8 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       if (tracks == null || tracks.isEmpty) {
          LogUtils.w('CameraEndpoint', 'No video tracks available for recording');
          _isRecording = false;
-         _startDetectionTimer(); // Resume detection on error
+         _recordingStartedAtMs = null;
+         _detectionCooldownUntil = null;
          return;
       }
       await _mediaRecorder!.start(
@@ -1112,7 +1142,11 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         } catch (e) {
           LogUtils.e('CameraEndpoint', 'Recording stop error', e);
         }
+        // Recording finished: start cooldown; detection timer keeps running.
+        _detectionCooldownUntil =
+            DateTime.now().add(const Duration(seconds: 10));
         _isRecording = false;
+        _recordingStartedAtMs = null;
         
         await DatabaseHelper().insertEvent(DetectionEvent(
           timestamp: timestamp,
@@ -1123,19 +1157,13 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
         LogUtils.i('CameraEndpoint', 'Recording finished. Cooldown for 10 seconds.');
         _mediaRecorder = null;
-        
-        Future.delayed(const Duration(seconds: 10), () {
-          if (mounted) {
-             _startDetectionTimer();
-             LogUtils.i('CameraEndpoint', 'Cooldown finished, detection resumed.');
-          }
-        });
       });
       
     } catch (e) {
       LogUtils.e('CameraEndpoint', 'Recording error', e);
       _isRecording = false;
-      _startDetectionTimer(); // Resume detection on error
+      _recordingStartedAtMs = null;
+      _detectionCooldownUntil = null;
       _mediaRecorder = null;
     }
   }
