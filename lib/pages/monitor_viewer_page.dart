@@ -102,6 +102,10 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
   /// 相机端单流音视频；unified-plan 下 audio/video `onTrack` 顺序不定，有视频轨时绑定
   /// 主渲染器；音频轨后到时会再次回调，再赋一次 `srcObject` 以便部分机型刷新播放。
   void _syncRemoteStream(MediaStream stream) {
+    LogUtils.d(
+      'MonitorViewer',
+      'syncRemoteStream: id=${stream.id}, videoTracks=${stream.getVideoTracks().length}, audioTracks=${stream.getAudioTracks().length}',
+    );
     _remoteStream = stream;
     if (stream.getVideoTracks().isNotEmpty) {
       _remoteRenderer.srcObject = stream;
@@ -241,7 +245,20 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     };
 
     _signaling!.onAddRemoteStream = (session, stream) {
-      LogUtils.i('MonitorViewer', 'Remote stream added (video track)');
+      LogUtils.i(
+        'MonitorViewer',
+        'Remote stream added (video track): streamId=${stream.id}, videoTracks=${stream.getVideoTracks().length}, audioTracks=${stream.getAudioTracks().length}',
+      );
+      _syncRemoteStream(stream);
+      if (!mounted) return;
+      setState(() {});
+    };
+
+    _signaling!.onAddRemoteAudioStream = (session, stream) {
+      LogUtils.i(
+        'MonitorViewer',
+        'Remote stream updated (audio track): streamId=${stream.id}, videoTracks=${stream.getVideoTracks().length}, audioTracks=${stream.getAudioTracks().length}',
+      );
       _syncRemoteStream(stream);
       if (!mounted) return;
       setState(() {});
@@ -261,7 +278,7 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     await _signaling!.connect();
   }
 
-  void _callCamera() {
+  Future<void> _callCamera() async {
     if (!mounted) return;
     if (_signaling != null && _peers.isNotEmpty) {
       // 根据传入的相机设备ID查找对应的peer
@@ -272,6 +289,10 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
       
       if (cameraPeer != null) {
         _connectedCameraId = cameraPeer['id'];
+        if (Platform.isIOS) {
+          await _applyIosMonitorAudioMode();
+          LogUtils.i('MonitorViewer', 'Applied iOS monitor audio mode before invite');
+        }
         LogUtils.i('MonitorViewer', 'Calling camera with ID: ${widget.cameraDeviceId}');
         _signaling!.invite(cameraPeer['id'], 'video', false);
       } else {
