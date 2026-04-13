@@ -19,8 +19,13 @@ import UserNotifications
       // CallKit 功能已移除，此通道保留占位以避免 Flutter 侧旧代码调用崩溃
       guard let controller = window?.rootViewController as? FlutterViewController else { return }
       let channel = FlutterMethodChannel(name: "camera_service", binaryMessenger: controller.binaryMessenger)
-      channel.setMethodCallHandler { _, result in
-        result(FlutterMethodNotImplemented)
+      channel.setMethodCallHandler { call, result in
+        switch call.method {
+        case "getAppMarket":
+          result("global")
+        default:
+          result(FlutterMethodNotImplemented)
+        }
       }
     }
     registerCameraServiceChannel()

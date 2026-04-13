@@ -11,6 +11,7 @@ import '../services/bind_api.dart';
 import '../services/session_manager.dart';
 import 'qr_code_generator_page.dart';
 import '../models/camera_device.dart';
+import '../utils/app_market.dart';
 import '../utils/log_utils.dart';
 import '../l10n/app_localizations.dart';
 
@@ -64,6 +65,7 @@ class _CameraListPageState extends State<CameraListPage> {
   }
 
   void _loadBannerAd() {
+    if (!AppMarket.adMobEnabled) return;
     final adUnitId = Platform.isAndroid
         ? (kReleaseMode
             ? 'ca-app-pub-6709616886871539/3198659691'

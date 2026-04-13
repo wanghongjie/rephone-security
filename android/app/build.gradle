@@ -29,9 +29,28 @@ android {
         jvmTarget = JavaVersion.VERSION_1_8
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
+    flavorDimensions "market"
+    productFlavors {
+        global {
+            dimension "market"
+            applicationId = "com.rephone.security"
+            buildConfigField "String", "APP_MARKET", "\"global\""
+        }
+        china {
+            dimension "market"
+            applicationId = "com.rephone.security.cn"
+            buildConfigField "String", "APP_MARKET", "\"china\""
+        }
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.rephone.security"
+        resValue "string", "app_name", "RePhone"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdkVersion = flutter.minSdkVersion
@@ -75,4 +94,12 @@ flutter {
 dependencies {
     // Required by qr_code_scanner (uses Java 8+ APIs in Android libraries)
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.2.0'
+}
+
+// china flavor: disable Firebase/FCM related Gradle tasks.
+tasks.configureEach { task ->
+    final name = task.name.toLowerCase()
+    if (name.contains('china') && (name.contains('googleservices') || name.contains('crashlytics'))) {
+        task.enabled = false
+    }
 }

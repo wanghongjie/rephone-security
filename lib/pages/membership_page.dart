@@ -4,12 +4,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/iap_service.dart';
 import '../services/payment_api.dart';
 import '../services/session_manager.dart';
+import '../utils/app_market.dart';
 import '../utils/log_utils.dart';
 
 class MembershipPage extends StatefulWidget {
@@ -85,6 +85,10 @@ class _MembershipPageState extends State<MembershipPage> {
   void initState() {
     super.initState();
     _plans = _defaultPlans();
+    if (AppMarket.value != 'global') {
+      _loadingProducts = false;
+      return;
+    }
     _initIap();
     _listenPurchases();
     // 启动后先刷新一次服务端权益；
@@ -682,6 +686,17 @@ class _MembershipPageState extends State<MembershipPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (AppMarket.value != 'global') {
+      final l = AppLocalizations.of(context);
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(l.membershipPlanBasic),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

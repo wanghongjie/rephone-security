@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/app_market.dart';
 import '../utils/log_utils.dart';
 import '../services/session_manager.dart';
 import 'about_page.dart';
@@ -44,6 +45,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _loadBannerAd() {
+    if (!AppMarket.adMobEnabled) return;
     final adUnitId = Platform.isAndroid
         ? (kReleaseMode
             ? 'ca-app-pub-6709616886871539/6420803882'

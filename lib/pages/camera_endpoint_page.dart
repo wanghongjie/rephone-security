@@ -15,6 +15,7 @@ import '../models/detection_event.dart';
 import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
+import '../utils/app_market.dart';
 import '../utils/log_utils.dart';
 import '../utils/navigation_service.dart';
 import '../l10n/app_localizations.dart';
@@ -328,6 +329,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   }
 
   void _loadBannerAd() {
+    if (!AppMarket.adMobEnabled) return;
     final adUnitId = Platform.isAndroid
         ? (kReleaseMode
             ? 'ca-app-pub-6709616886871539/4916851224'

@@ -18,11 +18,16 @@ import 'pages/profile_page.dart';
 import 'pages/welcome_page.dart';
 import 'services/push_service.dart';
 import 'services/session_manager.dart';
+import 'utils/app_market.dart';
 import 'utils/log_utils.dart';
 import 'utils/navigation_service.dart';
 
+bool get _firebaseEnabled => AppMarket.value == 'global';
+bool get _membershipEnabled => AppMarket.value == 'global';
+
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  if (!_firebaseEnabled) return;
   await Firebase.initializeApp();
   LogUtils.i('PushBackground', 'Message: ${message.messageId ?? ''}');
 }
@@ -31,6 +36,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 bool _monitorPushRegistrationDone = false;
 
 Future<void> registerMonitorPushIfNeeded() async {
+  if (!_firebaseEnabled) return;
   if (_monitorPushRegistrationDone) return;
   _monitorPushRegistrationDone = true;
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -43,15 +49,18 @@ void main() async {
   // 初始化日志工具
   await LogUtils.init();
   await LocaleManager.init();
-  await Firebase.initializeApp();
-  
-  // 捕获 Flutter 框架抛出的异常
-  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-  // 捕获异步异常
-  PlatformDispatcher.instance.onError = (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true;
-  };
+  await AppMarket.init();
+  if (_firebaseEnabled) {
+    await Firebase.initializeApp();
+
+    // 捕获 Flutter 框架抛出的异常
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    // 捕获异步异常
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  }
 
   // FCM：见 [registerMonitorPushIfNeeded]，仅在监控端角色就绪后初始化。
 
@@ -64,14 +73,16 @@ void main() async {
 
   runApp(const RePhoneSecurityApp());
   
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-    await MobileAds.instance.initialize();
-    await MobileAds.instance.updateRequestConfiguration(
-      RequestConfiguration(
-        testDeviceIds: <String>['32269ED36C964717F118F673D33C50C3'],
-      ),
-    );
-  });
+  if (AppMarket.adMobEnabled) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await MobileAds.instance.initialize();
+      await MobileAds.instance.updateRequestConfiguration(
+        RequestConfiguration(
+          testDeviceIds: <String>['32269ED36C964717F118F673D33C50C3'],
+        ),
+      );
+    });
+  }
 }
 
 class RePhoneSecurityApp extends StatelessWidget {
@@ -200,6 +211,9 @@ class _MainPageState extends State<MainPage> {
       if (args is int) {
         _currentIndex = args;
       }
+      if (!_membershipEnabled && _currentIndex > 1) {
+        _currentIndex = 1;
+      }
       _initializedIndex = true;
     }
   }
@@ -211,11 +225,17 @@ class _MainPageState extends State<MainPage> {
   }
 
   List<Widget> _ensureMonitorTabPages() {
-    return _monitorTabPages ??= [
-      CameraListPage(key: _cameraListPageKey),
-      const MembershipPage(),
-      ProfilePage(key: _profilePageKey),
-    ];
+    return _monitorTabPages ??=
+        _membershipEnabled
+            ? [
+                CameraListPage(key: _cameraListPageKey),
+                const MembershipPage(),
+                ProfilePage(key: _profilePageKey),
+              ]
+            : [
+                CameraListPage(key: _cameraListPageKey),
+                ProfilePage(key: _profilePageKey),
+              ];
   }
 
   Future<void> _loadCameraRole() async {
@@ -239,7 +259,9 @@ class _MainPageState extends State<MainPage> {
     });
     await SessionManager.setDeviceRole('monitor');
     await registerMonitorPushIfNeeded();
-    PushService.reportTokenForLoggedInMonitor();
+    if (_firebaseEnabled) {
+      PushService.reportTokenForLoggedInMonitor();
+    }
   }
 
   Future<void> _switchToCamera() async {
@@ -296,10 +318,11 @@ class _MainPageState extends State<MainPage> {
             _currentIndex = index;
           });
           Future.microtask(() async {
+            final profileTabIndex = _membershipEnabled ? 2 : 1;
             if (index == 0) {
               final state = _cameraListPageKey.currentState;
               if (state != null) await (state as dynamic).refresh();
-            } else if (index == 2) {
+            } else if (index == profileTabIndex) {
               final state = _profilePageKey.currentState;
               if (state != null) await (state as dynamic).refresh();
             }
@@ -307,34 +330,47 @@ class _MainPageState extends State<MainPage> {
         },
         selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,
-        items: [
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.videocam),
-            activeIcon: const Icon(Icons.videocam),
-            label: AppLocalizations.of(context).tabCameras,
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.workspace_premium_outlined),
-            activeIcon: const Icon(Icons.workspace_premium),
-            label: AppLocalizations.of(context).tabMembership,
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.person_outline),
-            activeIcon: const Icon(Icons.person),
-            label: AppLocalizations.of(context).tabProfile,
-          ),
-        ],
+        items:
+            _membershipEnabled
+                ? [
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.videocam),
+                      activeIcon: const Icon(Icons.videocam),
+                      label: AppLocalizations.of(context).tabCameras,
+                    ),
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.workspace_premium_outlined),
+                      activeIcon: const Icon(Icons.workspace_premium),
+                      label: AppLocalizations.of(context).tabMembership,
+                    ),
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.person_outline),
+                      activeIcon: const Icon(Icons.person),
+                      label: AppLocalizations.of(context).tabProfile,
+                    ),
+                  ]
+                : [
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.videocam),
+                      activeIcon: const Icon(Icons.videocam),
+                      label: AppLocalizations.of(context).tabCameras,
+                    ),
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.person_outline),
+                      activeIcon: const Icon(Icons.person),
+                      label: AppLocalizations.of(context).tabProfile,
+                    ),
+                  ],
       ),
     );
   }
 
   PreferredSizeWidget _buildAppBar() {
     final l = AppLocalizations.of(context);
-    final titles = [
-      l.tabCameras,
-      l.tabMembership,
-      l.tabProfile,
-    ];
+    final titles =
+        _membershipEnabled
+            ? [l.tabCameras, l.tabMembership, l.tabProfile]
+            : [l.tabCameras, l.tabProfile];
     if (_currentIndex == 0) {
       return AppBar(
         automaticallyImplyLeading: false,

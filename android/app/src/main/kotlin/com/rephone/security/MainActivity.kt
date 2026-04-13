@@ -90,6 +90,9 @@ class MainActivity: FlutterActivity() {
                         result.error("CHECK_ERROR", "Failed to check Google Play services: ${e.message}", null)
                     }
                 }
+                "getAppMarket" -> {
+                    result.success(BuildConfig.APP_MARKET)
+                }
                 else -> {
                     result.notImplemented()
                 }
