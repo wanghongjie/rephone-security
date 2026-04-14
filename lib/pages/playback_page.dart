@@ -13,6 +13,7 @@ import '../models/detection_event.dart'; // 需要用到 DetectionEvent 模型�
 import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
+import '../utils/app_market.dart';
 import '../utils/log_utils.dart';
 import '../l10n/app_localizations.dart';
 
@@ -37,6 +38,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
   Session? _currentSession;
   
   bool _isCurrentlyMember = false;
+  bool get _isChinaFlavorVip => AppMarket.value.toLowerCase() == 'china';
 
   // Pagination
   final ScrollController _scrollController = ScrollController();
@@ -132,7 +134,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
     _currentUserEmail = user?.email;
     if (mounted) {
       setState(() {
-        _isCurrentlyMember = (user?.vipLevel ?? 0) > 0;
+        _isCurrentlyMember = (user?.vipLevel ?? 0) > 0 || _isChinaFlavorVip;
       });
     }
     _connectSignaling();
