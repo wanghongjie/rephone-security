@@ -3,8 +3,13 @@ plugins {
     id "kotlin-android"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
-    id "com.google.gms.google-services"
-    id "com.google.firebase.crashlytics"
+//    id "com.google.gms.google-services"
+//    id "com.google.firebase.crashlytics"
+}
+
+if (project.hasProperty('targetRegion') && project.property('targetRegion') == 'global') {
+    apply plugin: "com.google.gms.google-services"
+    apply plugin: "com.google.firebase.crashlytics"
 }
 
 def keystoreProperties = new Properties()
@@ -98,14 +103,6 @@ dependencies {
     chinaImplementation 'com.pangle.cn:mediation-sdk:7.6.1.1'
     // Required by qr_code_scanner (uses Java 8+ APIs in Android libraries)
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.2.0'
-}
-
-// china flavor: disable Firebase/FCM related Gradle tasks.
-tasks.configureEach { task ->
-    final name = task.name.toLowerCase()
-    if (name.contains('china') && (name.contains('googleservices') || name.contains('crashlytics'))) {
-        task.enabled = false
-    }
 }
 
 android.applicationVariants.all { variant ->
