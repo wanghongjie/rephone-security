@@ -92,6 +92,10 @@ flutter {
 }
 
 dependencies {
+    // Optional: local AAR/JAR adapters under android/app/libs
+    implementation fileTree(include: ['*.jar', '*.aar'], dir: 'libs')
+    // Pangle mediation SDK (China flavor only)
+    chinaImplementation 'com.pangle.cn:mediation-sdk:7.6.1.1'
     // Required by qr_code_scanner (uses Java 8+ APIs in Android libraries)
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.2.0'
 }
@@ -101,5 +105,21 @@ tasks.configureEach { task ->
     final name = task.name.toLowerCase()
     if (name.contains('china') && (name.contains('googleservices') || name.contains('crashlytics'))) {
         task.enabled = false
+    }
+}
+
+android.applicationVariants.all { variant ->
+    // 如果你在编译国内版，把 Google 支付的原生底层 AAR 强行剔除
+    if (variant.flavorName == "china") {
+        configurations.all { config ->
+            config.exclude group: 'com.android.billingclient', module: 'billing'
+        }
+    }
+
+    // 如果你在编译海外版，把国内支付的原生底层 AAR 强行剔除（以微信为例）
+    if (variant.flavorName == "global") {
+        configurations.all { config ->
+            config.exclude group: 'com.tencent.mm.opensdk', module: 'wechat-sdk-android'
+        }
     }
 }

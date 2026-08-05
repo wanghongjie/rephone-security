@@ -14,6 +14,7 @@ import '../models/camera_device.dart';
 import '../utils/app_market.dart';
 import '../utils/log_utils.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/pangle_banner_view.dart';
 
 class CameraListPage extends StatefulWidget {
   const CameraListPage({super.key});
@@ -35,6 +36,26 @@ class _CameraListPageState extends State<CameraListPage> {
   bool _isBannerAdReady = false;
   bool _isVip = false;
   Directory? _docsDir;
+  static const String _pangleBannerCodeId = '104032066';
+
+  ({double widthDp, int widthPx, int heightPx, double heightDp})
+  _computePangleBannerSize(
+    MediaQueryData media,
+  ) {
+    final usableWidthDp =
+        media.size.width - media.padding.left - media.padding.right;
+    final bannerWidthDp = (usableWidthDp - 32).clamp(0.0, 300.0).toDouble();
+    final widthDp = bannerWidthDp > 0 ? bannerWidthDp : usableWidthDp.clamp(0.0, 300.0).toDouble();
+    final heightDp = widthDp / 2;
+    final widthPx = (widthDp * media.devicePixelRatio).round().clamp(1, 1200);
+    final heightPx = (heightDp * media.devicePixelRatio).round().clamp(1, 600);
+    return (
+      widthDp: widthDp,
+      widthPx: widthPx,
+      heightPx: heightPx,
+      heightDp: heightDp,
+    );
+  }
 
   // Delete in-flight
   final Set<String> _deletingCameraIds = <String>{};
@@ -229,6 +250,11 @@ class _CameraListPageState extends State<CameraListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final pangleSize = _computePangleBannerSize(media);
+    final usePangleBanner =
+        Platform.isAndroid && AppMarket.value.toLowerCase() == 'china';
+
     final Widget content = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _cameras.isEmpty
@@ -251,7 +277,18 @@ class _CameraListPageState extends State<CameraListPage> {
     return Scaffold(
       body: Column(
         children: [
-          if (!_isVip && _isBannerAdReady && _bannerAd != null)
+          if (!_isVip && usePangleBanner)
+            SafeArea(
+              bottom: false,
+              child: PangleBannerView(
+                codeId: _pangleBannerCodeId,
+                widthDp: pangleSize.widthDp,
+                widthPx: pangleSize.widthPx,
+                heightPx: pangleSize.heightPx,
+                heightDp: pangleSize.heightDp,
+              ),
+            )
+          else if (!_isVip && _isBannerAdReady && _bannerAd != null)
             SafeArea(
               bottom: false,
               child: Container(

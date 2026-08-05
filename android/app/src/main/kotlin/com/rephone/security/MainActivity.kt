@@ -38,6 +38,25 @@ class MainActivity: FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        try {
+            val clazz = Class.forName("com.rephone.security.pangle.PangleBannerPlatformViewPlugin")
+            val method = clazz.getMethod(
+                "registerWith",
+                Context::class.java,
+                io.flutter.plugin.common.BinaryMessenger::class.java,
+                io.flutter.plugin.platform.PlatformViewRegistry::class.java
+            )
+            method.invoke(
+                null,
+                this,
+                flutterEngine.dartExecutor.binaryMessenger,
+                flutterEngine.platformViewsController.registry
+            )
+        } catch (_: ClassNotFoundException) {
+            // Non-china flavor: no pangle platform view plugin.
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register pangle platform view", e)
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "checkNotificationPermission" -> {
@@ -92,6 +111,28 @@ class MainActivity: FlutterActivity() {
                 }
                 "getAppMarket" -> {
                     result.success(BuildConfig.APP_MARKET)
+                }
+                "initMediationAdSdk" -> {
+                    try {
+                        Log.i(TAG, "MethodChannel initMediationAdSdk called")
+                        runOnUiThread {
+                            try {
+                                val clazz = Class.forName("com.rephone.security.MediationSdkInitializer")
+                                val method = clazz.getMethod("init", Context::class.java)
+                                method.invoke(null, applicationContext)
+                                result.success(true)
+                            } catch (e: ClassNotFoundException) {
+                                // Non-china flavor: initializer class not present.
+                                result.success(false)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "initMediationAdSdk invoke failed", e)
+                                result.error("INIT_ERROR", "Failed to init mediation sdk: ${e.message}", null)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "initMediationAdSdk scheduling failed", e)
+                        result.error("INIT_ERROR", "Failed to schedule mediation sdk init: ${e.message}", null)
+                    }
                 }
                 else -> {
                     result.notImplemented()

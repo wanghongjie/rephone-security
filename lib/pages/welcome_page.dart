@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
+import '../services/mediation_service.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
@@ -72,7 +73,10 @@ class WelcomePage extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton.icon(
                   icon: const Icon(Icons.login),
-                  onPressed: () {
+                  onPressed: () async {
+                    // User enters auth flow after acknowledging terms/privacy entry.
+                    await MediationService.initAfterPrivacyConsent();
+                    if (!context.mounted) return;
                     Navigator.pushNamed(context, '/auth');
                   },
                   label: Padding(
