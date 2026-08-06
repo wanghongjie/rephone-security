@@ -120,3 +120,6 @@ android.applicationVariants.all { variant ->
         }
     }
 }
+
+//flutter build apk --flavor global -t lib/main.dart --debug --android-project-arg=targetRegion=global
+//flutter build apk --flavor china -t lib/main_china.dart --debug
