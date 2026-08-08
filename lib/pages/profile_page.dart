@@ -1,10 +1,8 @@
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+import '../flavors/app_env.dart';
+import '../flavors/service_facades.dart';
 import '../l10n/app_localizations.dart';
-import '../utils/app_market.dart';
-import '../utils/log_utils.dart';
 import '../services/session_manager.dart';
 import 'about_page.dart';
 import 'general_settings_page.dart';
@@ -20,11 +18,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   String? _currentUserEmail;
 
-  // Banner ad
-  BannerAd? _bannerAd;
-  bool _isBannerAdReady = false;
-
-  // 新增 VIP 状态
+  // VIP 状态
   bool _isVip = false;
   DateTime? _expireAt;
 
@@ -38,71 +32,15 @@ class _ProfilePageState extends State<ProfilePage> {
     await _loadUserInfo();
   }
 
-  @override
-  void dispose() {
-    _bannerAd?.dispose();
-    super.dispose();
-  }
-
-  void _loadBannerAd() {
-    if (!AppMarket.adMobEnabled) return;
-    final adUnitId = Platform.isAndroid
-        ? (kReleaseMode
-            ? 'ca-app-pub-6709616886871539/6420803882'
-            : 'ca-app-pub-3940256099942544/6300978111')
-        : (kReleaseMode
-            ? 'ca-app-pub-6709616886871539/8914838386'
-            : 'ca-app-pub-3940256099942544/2934735716');
-
-    final ad = BannerAd(
-      adUnitId: adUnitId,
-      request: const AdRequest(),
-      size: AdSize.banner,
-      listener: BannerAdListener(
-        onAdLoaded: (ad) {
-          if (!mounted) {
-            ad.dispose();
-            return;
-          }
-          setState(() {
-            _bannerAd = ad as BannerAd;
-            _isBannerAdReady = true;
-          });
-        },
-        onAdFailedToLoad: (ad, error) {
-          ad.dispose();
-          if (!mounted) return;
-          setState(() {
-            _bannerAd = null;
-            _isBannerAdReady = false;
-          });
-          // Keep quiet in UI; log only.
-          LogUtils.w('ProfilePage', 'BannerAd failed to load: code=${error.code}, message=${error.message}, domain=${error.domain}');
-        },
-      ),
-    );
-
-    ad.load();
-  }
-
   Future<void> _loadUserInfo() async {
     final user = await SessionManager.getUser();
     if (!mounted) return;
     final isVip = (user?.vipLevel ?? 0) > 0;
-    if (isVip && _bannerAd != null) {
-      _bannerAd?.dispose();
-      _bannerAd = null;
-      _isBannerAdReady = false;
-    }
     setState(() {
       _currentUserEmail = user?.email;
       _isVip = isVip;
       _expireAt = user?.expireAt;
     });
-    // 仅非 VIP 时加载广告，VIP 不加载
-    if (mounted && !isVip && _bannerAd == null) {
-      _loadBannerAd();
-    }
   }
 
   final List<SettingItem> _settingItems = const [
@@ -122,6 +60,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final ad = !_isVip && AppEnv.ads.bannerEnabled
+        ? AppEnv.ads.buildBanner(context, placement: AdPlacement.profile)
+        : const SizedBox.shrink();
     return Scaffold(
       body: Column(
         children: [
@@ -137,16 +78,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           ),
-          if (!_isVip && _isBannerAdReady && _bannerAd != null)
-            SafeArea(
-              top: false,
-              child: Container(
-                alignment: Alignment.center,
-                width: _bannerAd!.size.width.toDouble(),
-                height: _bannerAd!.size.height.toDouble(),
-                child: AdWidget(ad: _bannerAd!),
-              ),
-            ),
+          ad,
         ],
       ),
     );

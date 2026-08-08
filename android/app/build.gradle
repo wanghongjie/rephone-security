@@ -7,7 +7,8 @@ plugins {
 //    id "com.google.firebase.crashlytics"
 }
 
-if (project.hasProperty('targetRegion') && project.property('targetRegion') == 'global') {
+def isGlobalRegion = rootProject.hasProperty('targetRegion') && rootProject.property('targetRegion') == 'global'
+if (isGlobalRegion) {
     apply plugin: "com.google.gms.google-services"
     apply plugin: "com.google.firebase.crashlytics"
 }
@@ -105,19 +106,30 @@ dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.2.0'
 }
 
+// china flavor: disable Firebase/FCM related Gradle tasks.
+//tasks.configureEach { task ->
+//    final name = task.name.toLowerCase()
+//    if (name.contains('china') && (name.contains('googleservices') || name.contains('crashlytics'))) {
+//        task.enabled = false
+//    }
+//}
+
 android.applicationVariants.all { variant ->
-    // 如果你在编译国内版，把 Google 支付的原生底层 AAR 强行剔除
+    println("[variant-config] variant=${variant.name} flavor=${variant.flavorName} buildType=${variant.buildType.name}")
     if (variant.flavorName == "china") {
-        configurations.all { config ->
-            config.exclude group: 'com.android.billingclient', module: 'billing'
-        }
+        println("[variant-config]   -> china flavor: exclude billingclient/gms/firebase from runtime+compile classpath")
+        variant.runtimeConfiguration.exclude group: 'com.android.billingclient'
+        variant.runtimeConfiguration.exclude group: 'com.google.android.gms'
+        variant.runtimeConfiguration.exclude group: 'com.google.firebase'
+        variant.compileConfiguration.exclude group: 'com.android.billingclient'
+        variant.compileConfiguration.exclude group: 'com.google.android.gms'
+        variant.compileConfiguration.exclude group: 'com.google.firebase'
     }
 
-    // 如果你在编译海外版，把国内支付的原生底层 AAR 强行剔除（以微信为例）
     if (variant.flavorName == "global") {
-        configurations.all { config ->
-            config.exclude group: 'com.tencent.mm.opensdk', module: 'wechat-sdk-android'
-        }
+        println("[variant-config]   -> global flavor: exclude wechat-sdk from runtime+compile classpath")
+        variant.runtimeConfiguration.exclude group: 'com.tencent.mm.opensdk', module: 'wechat-sdk-android'
+        variant.compileConfiguration.exclude group: 'com.tencent.mm.opensdk', module: 'wechat-sdk-android'
     }
 }
 

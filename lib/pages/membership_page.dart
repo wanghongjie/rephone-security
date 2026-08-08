@@ -5,11 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
+import '../flavors/app_env.dart';
 import '../l10n/app_localizations.dart';
-import '../services/iap_service.dart';
 import '../services/payment_api.dart';
 import '../services/session_manager.dart';
-import '../utils/app_market.dart';
 import '../utils/log_utils.dart';
 
 class MembershipPage extends StatefulWidget {
@@ -44,8 +43,6 @@ class _MembershipPageState extends State<MembershipPage> {
   DateTime? _lastAutoRestoreOnErrorAt;
   final Map<String, DateTime> _pendingProductUntil = <String, DateTime>{};
   DateTime? _lastBuyTapAt;
-
-  final IapService _iap = IapService.instance;
 
   void _showSnackBarSafe(SnackBar snackBar) {
     if (!mounted) return;
@@ -85,7 +82,8 @@ class _MembershipPageState extends State<MembershipPage> {
   void initState() {
     super.initState();
     _plans = _defaultPlans();
-    if (AppMarket.value != 'global') {
+    final iapEnabled = AppEnv.iap.isEnabled;
+    if (!iapEnabled) {
       _loadingProducts = false;
       return;
     }
@@ -260,7 +258,7 @@ class _MembershipPageState extends State<MembershipPage> {
     if (!Platform.isIOS) return false;
 
     // 系统已弹出「不允许 App 内购买」时，应用层不再重复弹同类错误提示。
-    if (_iap.iosCanMakePayments == false) {
+    if (AppEnv.iap.iosCanMakePayments == false) {
       return true;
     }
 
@@ -308,17 +306,17 @@ class _MembershipPageState extends State<MembershipPage> {
 
   Future<void> _initIap({bool force = false}) async {
     try {
-      await _iap.init(forceRefresh: force);
+      await AppEnv.iap.init();
       if (!mounted) return;
       setState(() {
         _loadingProducts = false;
         for (var i = 0; i < _plans.length; i++) {
           final plan = _plans[i];
-          
+
           // Strategy 2: New Android (Base Plans under 'rephone_pro')
           // Only apply on Android when basePlanId is present
           if (Platform.isAndroid && plan.basePlanId != null) {
-            final parentProduct = _iap.getProduct('rephone_pro');
+            final parentProduct = AppEnv.iap.getProduct('rephone_pro');
             if (parentProduct != null && parentProduct is GooglePlayProductDetails) {
               // New Google Play Billing (base plans). Use priceAmountMicros to avoid
               // localization / thousands-separator issues in formattedPrice.
@@ -339,15 +337,10 @@ class _MembershipPageState extends State<MembershipPage> {
                     productId: 'rephone_pro',
                     offerToken: offer.offerIdToken,
                   );
-                  // Found valid Android plan, skip legacy strategy
-                  continue;
+                  break;
                 }
               }
 
-              // If we found a match and updated the plan, we should check if we need to continue or break
-              // Since we are iterating plans, we just continue to next plan iteration?
-              // No, we need to skip the legacy strategy below for THIS plan if we found a match.
-              // Let's check if productId changed to 'rephone_pro'
               if (_plans[i].productId == 'rephone_pro') {
                 continue;
               }
@@ -357,7 +350,7 @@ class _MembershipPageState extends State<MembershipPage> {
           // Strategy 1: Legacy/iOS (Single Product per Plan)
           // Fallback for Android if Strategy 2 failed, or default for iOS
           if (plan.productId != null) {
-            final product = _iap.getProduct(plan.productId!);
+            final product = AppEnv.iap.getProduct(plan.productId!);
             if (product != null) {
               _plans[i] = plan.copyWith(
                 price: product.rawPrice,
@@ -379,7 +372,7 @@ class _MembershipPageState extends State<MembershipPage> {
   }
 
   void _listenPurchases() {
-    _purchaseSubscription = _iap.purchasesStream.listen((list) async {
+    _purchaseSubscription = AppEnv.iap.purchasesStream.listen((list) async {
       if (!mounted) return;
       final l = AppLocalizations.of(context);
       for (final purchase in list) {
@@ -443,7 +436,7 @@ class _MembershipPageState extends State<MembershipPage> {
               }
 
               // 立即完成 restored，清掉 pending 队列，避免后续 subscribe 再次触发 duplicate transaction。
-              await _iap.completePurchase(purchase);
+              await AppEnv.iap.completePurchase(purchase);
 
               if (!_restoreVerifiedEntitlement) {
                 _restoreSettleTimer?.cancel();
@@ -505,7 +498,7 @@ class _MembershipPageState extends State<MembershipPage> {
                 );
               }
               // 未登录也要完成交易，否则会留下 pending 订单，导致下次购买报错
-              await _iap.completePurchase(purchase);
+              await AppEnv.iap.completePurchase(purchase);
               return;
             }
 
@@ -529,7 +522,7 @@ class _MembershipPageState extends State<MembershipPage> {
 
             if (result != null) {
               if (result['subscription_expired'] == true) {
-                await _iap.completePurchase(purchase);
+                await AppEnv.iap.completePurchase(purchase);
                 _pendingAndroidBasePlanId = null;
                 if (_userInitiatedPurchaseFlow) {
                   _showPurchaseOutcomeSnackBar(
@@ -543,7 +536,7 @@ class _MembershipPageState extends State<MembershipPage> {
                 }
                 break;
               }
-              await _iap.completePurchase(purchase);
+              await AppEnv.iap.completePurchase(purchase);
               final vipLevel = result['vip_level'] as int? ?? 0;
               final expireAtStr = result['expire_at'] as String?;
               final activePlan = result['active_plan'] as String?;
@@ -607,7 +600,7 @@ class _MembershipPageState extends State<MembershipPage> {
               _pendingAndroidBasePlanId = null;
             } else {
               // 验证失败也要 complete，否则交易会一直挂起
-              await _iap.completePurchase(purchase);
+              await AppEnv.iap.completePurchase(purchase);
               _pendingAndroidBasePlanId = null;
               if (_userInitiatedPurchaseFlow) {
                 _showPurchaseOutcomeSnackBar(
@@ -624,7 +617,7 @@ class _MembershipPageState extends State<MembershipPage> {
               'details=${purchase.error?.details}',
             );
             // 出错时完成交易，避免保留 pending 订单
-            await _iap.completePurchase(purchase);
+            await AppEnv.iap.completePurchase(purchase);
             // Errors should still be shown when user initiated the flow.
             if (_userInitiatedPurchaseFlow) {
               if (_shouldSuppressPurchaseErrorSnackBar(purchase)) {
@@ -649,7 +642,7 @@ class _MembershipPageState extends State<MembershipPage> {
                 if (canRestore && mounted) {
                   _lastAutoRestoreOnErrorAt = now;
                   try {
-                    await _iap.restore();
+                    await AppEnv.iap.restore();
                   } catch (_) {
                     // ignore: best-effort
                   }
@@ -659,7 +652,7 @@ class _MembershipPageState extends State<MembershipPage> {
             break;
           case PurchaseStatus.canceled:
             // 用户取消也 complete 一下，清理队列
-            await _iap.completePurchase(purchase);
+            await AppEnv.iap.completePurchase(purchase);
             break;
         }
 
@@ -686,13 +679,17 @@ class _MembershipPageState extends State<MembershipPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (AppMarket.value != 'global') {
+    if (!AppEnv.iap.isEnabled) {
       final l = AppLocalizations.of(context);
       return Scaffold(
+        appBar: AppBar(title: Text(l.profileMembership)),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text(l.membershipPlanBasic),
+            child: Text(
+              l.membershipUnavailableInRegion,
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
       );
@@ -1216,7 +1213,7 @@ class _MembershipPageState extends State<MembershipPage> {
         }
       }
 
-      await _iap.restore();
+      await AppEnv.iap.restore();
 
       if (!mounted) return;
 
@@ -1285,7 +1282,7 @@ class _MembershipPageState extends State<MembershipPage> {
   void _subscribeToPlan(MembershipPlan plan) {
     final l = AppLocalizations.of(context);
     final productId = plan.productId;
-    final product = productId == null ? null : _iap.getProduct(productId);
+    final product = productId == null ? null : AppEnv.iap.getProduct(productId);
 
     // Debounce rapid repeat taps.
     final now = DateTime.now();
@@ -1364,7 +1361,7 @@ class _MembershipPageState extends State<MembershipPage> {
                   } else {
                     _pendingAndroidBasePlanId = null;
                   }
-                await _iap.buy(
+                await AppEnv.iap.buy(
                   product,
                   offerToken: plan.offerToken,
                   // 已过期/无权益：勿传订阅替换，否则 Play 可能对「重购同档」返回 ERROR(6)
@@ -1423,7 +1420,7 @@ class _MembershipPageState extends State<MembershipPage> {
                 } else {
                   _pendingAndroidBasePlanId = null;
                 }
-                await _iap.buy(
+                await AppEnv.iap.buy(
                   product,
                   offerToken: plan.offerToken,
                   skipAndroidSubscriptionReplacement: !_hasActiveSubscription,

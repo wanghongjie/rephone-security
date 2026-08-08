@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../flavors/app_env.dart';
 import '../services/auth_api.dart';
 import '../services/session_manager.dart';
-import '../services/push_service.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/password_validator.dart';
 import 'forgot_password_flow.dart';
@@ -186,7 +186,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
       final user =
           await widget.api.login(widget.email, _passwordController.text.trim());
       await SessionManager.saveUser(user);
-      PushService.reportTokenForLoggedInMonitor();
+      await AppEnv.push.reportTokenForLoggedInMonitor();
       if (!mounted) return;
       final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -488,7 +488,7 @@ class _PasswordRegisterPageState extends State<PasswordRegisterPage> {
         password: _passwordController.text.trim(),
       );
       await SessionManager.saveUser(user);
-      PushService.reportTokenForLoggedInMonitor();
+      await AppEnv.push.reportTokenForLoggedInMonitor();
       if (!mounted) return;
       final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(

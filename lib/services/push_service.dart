@@ -212,3 +212,23 @@ class PushService {
     }
   }
 }
+
+/// FCM 后台消息入口：对应原生侧 FlutterFire 的 `onBackgroundMessage` 回调。
+///
+/// 国内入口不走到该回调；海外入口由 `lib/utils/app_features.dart` 在开关为 true 时转发。
+@pragma('vm:entry-point')
+Future<void> legacyFirebaseMessagingBackgroundHandler(dynamic message) async {
+  if (message == null) return;
+  // Firebase 初始化在海外 main.dart 中执行；背景 isolate 使用独立 AppEnv，
+  // 这里直接使用 dart:io 的 logger 做最小日志，避免依赖业务层单例。
+  // ignore: avoid_print
+  print('[PushService] background message received: '
+      '${message is Map ? message['messageId'] ?? '' : ''}');
+}
+
+/// 监控端启动时按需初始化 FCM 并上报 token（内部实现，外部请调用
+/// `lib/utils/app_features.dart` 导出的同名方法以统一判定能力开关）。
+Future<void> legacyRegisterMonitorPushIfNeeded() async {
+  await PushService.init();
+  await PushService.reportTokenForLoggedInMonitor();
+}

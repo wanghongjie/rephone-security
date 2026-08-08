@@ -1,93 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+
+import 'app.dart';
+import 'flavors/app_env.dart';
+import 'flavors/env_config.dart';
+import 'flavors/features/ad_service_china.dart';
+import 'flavors/features/crash_service_noop.dart';
+import 'flavors/features/iap_service_noop.dart';
+import 'flavors/features/push_service_noop.dart';
 import 'l10n/app_localizations.dart';
-import 'pages/auth_page.dart';
-import 'pages/main_page.dart';
-import 'pages/startup_page.dart';
-import 'pages/welcome_page.dart';
+import 'services/mediation_service.dart';
 import 'utils/app_market.dart';
 import 'utils/log_utils.dart';
-import 'utils/navigation_service.dart';
 
-void main() async {
+/// 国内版入口（上架国内应用市场）。
+///
+/// - 注入 [chinaEnvConfig] / [chinaFeatureToggles]
+/// - 不初始化 Firebase / Crashlytics / Google Mobile Ads
+/// - 崩溃/推送/内购使用 noop 实现；广告优先使用 Pangle（若 Pangle SDK 初始化由 MediationService 负责。
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 初始化日志工具
   await LogUtils.init();
   await LocaleManager.init();
   await AppMarket.init();
 
-  // FCM：见 [registerMonitorPushIfNeeded]，仅在监控端角色就绪后初始化。
+  final config = chinaEnvConfig();
+  final toggles = chinaFeatureToggles();
 
-  // 设置沉浸式状态栏
+  AppEnv.inject(
+    config: config,
+    features: toggles,
+    crash: NoopCrashService(),
+    push: NoopPushService(),
+    iap: NoopIapService(enabled: toggles.enableInAppPurchase),
+    ads: ChinaPangleAdService(enablePangle: toggles.enablePangleAds),
+  );
+
+  // 沉浸式状态栏
+  RePhoneSecurityApp.applySystemUIStyle();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent, // 状态栏透明
-    statusBarIconBrightness: Brightness.dark, // Android 状态栏图标黑色
-    statusBarBrightness: Brightness.light, // iOS 状态栏文字黑色
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
   ));
 
   runApp(const RePhoneSecurityApp());
-}
 
-class RePhoneSecurityApp extends StatelessWidget {
-  const RePhoneSecurityApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<Locale?>(
-      valueListenable: LocaleManager.localeNotifier,
-      builder: (context, locale, _) {
-        return MaterialApp(
-          navigatorKey: NavigationService.navigatorKey,
-          title: 'RePhone Security',
-          onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF2196F3),
-              brightness: Brightness.light,
-            ),
-            useMaterial3: true,
-            appBarTheme: const AppBarTheme(
-              centerTitle: true,
-              elevation: 0,
-            ),
-          ),
-          darkTheme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF2196F3),
-              brightness: Brightness.dark,
-            ),
-            useMaterial3: true,
-            appBarTheme: const AppBarTheme(
-              centerTitle: true,
-              elevation: 0,
-            ),
-          ),
-          locale: locale,
-          supportedLocales: AppLocalizations.supportedLocales,
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          localeResolutionCallback: (deviceLocale, supportedLocales) {
-            if (locale != null) {
-              return locale;
-            }
-            return LocaleManager.resolveLocale(deviceLocale, supportedLocales);
-          },
-          initialRoute: '/',
-          routes: {
-            '/': (_) => const StartupPage(),
-            '/welcome': (_) => const WelcomePage(),
-            '/auth': (_) => const AuthPage(),
-            '/home': (_) => const MainPage(),
-          },
-          debugShowCheckedModeBanner: false,
-        );
-      },
-    );
-  }
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    if (toggles.enablePangleAds) {
+      await MediationService.initSdkIfNeeded();
+    }
+    await AppEnv.ads.init();
+    await AppEnv.iap.init();
+    await AppEnv.push.init();
+    await AppEnv.push.registerMonitorPushIfNeeded();
+    await AppEnv.crash.setupFlutterErrorHandlers();
+  });
 }

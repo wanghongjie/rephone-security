@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../flavors/app_env.dart';
 import '../l10n/app_localizations.dart';
-import '../services/push_service.dart';
 import '../services/session_manager.dart';
 import '../utils/app_features.dart';
 import 'camera_endpoint_page.dart';
@@ -65,7 +65,7 @@ class _MainPageState extends State<MainPage> {
     final role = await SessionManager.getDeviceRole() ?? 'monitor';
     if (!mounted) return;
     if (role == 'monitor') {
-      unawaited(registerMonitorPushIfNeeded());
+      unawaited(AppEnv.push.registerMonitorPushIfNeeded());
     }
     setState(() {
       _cameraRole = role;
@@ -81,10 +81,8 @@ class _MainPageState extends State<MainPage> {
       _ensureMonitorTabPages();
     });
     await SessionManager.setDeviceRole('monitor');
-    await registerMonitorPushIfNeeded();
-    if (firebaseEnabled) {
-      PushService.reportTokenForLoggedInMonitor();
-    }
+    await AppEnv.push.registerMonitorPushIfNeeded();
+    await AppEnv.push.reportTokenForLoggedInMonitor();
   }
 
   Future<void> _switchToCamera() async {

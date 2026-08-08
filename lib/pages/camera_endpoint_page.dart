@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -12,10 +10,11 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import '../db/database_helper.dart';
 import '../models/detection_event.dart';
 
+import '../flavors/app_env.dart';
+import '../flavors/service_facades.dart';
 import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
-import '../utils/app_market.dart';
 import '../utils/log_utils.dart';
 import '../utils/navigation_service.dart';
 import '../l10n/app_localizations.dart';
@@ -52,10 +51,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   MediaRecorder? _mediaRecorder;
   bool _isLoggingOut = false;
 
-  // Banner ad (same style as camera list page)
-  BannerAd? _bannerAd;
-  bool _isBannerAdReady = false;
-  
   // WebRTC signaling
   Signaling? _signaling;
   String? _selfId;
@@ -75,7 +70,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadBannerAd();
     _initRenderer();
     _initDetector();
     _loadUserInfo();
@@ -248,7 +242,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     if (Platform.isIOS) _iosScreenWakeDisable();
     WidgetsBinding.instance.removeObserver(this);
     _detectTimer?.cancel();
-    _bannerAd?.dispose();
 
     // 先断 signaling，再解绑 renderer，避免与 WebRTC 争用相机 / Surface
     if (_signaling != null) {
@@ -326,49 +319,6 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       _remoteMonitorRenderer.srcObject = null;
     } catch (_) {}
     await _stopForegroundService();
-  }
-
-  void _loadBannerAd() {
-    if (!AppMarket.adMobEnabled) return;
-    final adUnitId = Platform.isAndroid
-        ? (kReleaseMode
-            ? 'ca-app-pub-6709616886871539/4916851224'
-            : 'ca-app-pub-3940256099942544/9214589741')
-        : (kReleaseMode
-            ? 'ca-app-pub-6709616886871539/3662511708'
-            : 'ca-app-pub-3940256099942544/2435281174');
-
-    final ad = BannerAd(
-      adUnitId: adUnitId,
-      request: const AdRequest(),
-      size: AdSize.banner,
-      listener: BannerAdListener(
-        onAdLoaded: (ad) {
-          if (!mounted) {
-            ad.dispose();
-            return;
-          }
-          setState(() {
-            _bannerAd = ad as BannerAd;
-            _isBannerAdReady = true;
-          });
-        },
-        onAdFailedToLoad: (ad, error) {
-          ad.dispose();
-          if (!mounted) return;
-          setState(() {
-            _bannerAd = null;
-            _isBannerAdReady = false;
-          });
-          LogUtils.w(
-            'CameraEndpoint',
-            'BannerAd failed to load: code=${error.code}, message=${error.message}, domain=${error.domain}',
-          );
-        },
-      ),
-    );
-
-    ad.load();
   }
 
   @override
@@ -1413,16 +1363,15 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
                       textAlign: TextAlign.center,
                     ),
                   ),
-                if (_isBannerAdReady && _bannerAd != null)
-                  SafeArea(
-                    top: false,
-                    child: Container(
-                      alignment: Alignment.center,
-                      width: _bannerAd!.size.width.toDouble(),
-                      height: _bannerAd!.size.height.toDouble(),
-                      child: AdWidget(ad: _bannerAd!),
-                    ),
-                  ),
+                SafeArea(
+                  top: false,
+                  child: AppEnv.ads.bannerEnabled
+                      ? AppEnv.ads.buildBanner(
+                          context,
+                          placement: AdPlacement.cameraEndpoint,
+                        )
+                      : const SizedBox.shrink(),
+                ),
               ],
             ),
           ),

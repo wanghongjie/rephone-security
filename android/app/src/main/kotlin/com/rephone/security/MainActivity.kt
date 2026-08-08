@@ -11,8 +11,7 @@ import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.google.android.gms.common.ConnectionResult
-import com.google.android.gms.common.GoogleApiAvailability
+import com.rephone.security.platform.PlatformFeatures
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -213,9 +212,7 @@ class MainActivity: FlutterActivity() {
     }
 
     private fun isGooglePlayServicesAvailable(): Boolean {
-        val apiAvailability = GoogleApiAvailability.getInstance()
-        val status = apiAvailability.isGooglePlayServicesAvailable(this)
-        return status == ConnectionResult.SUCCESS
+        return PlatformFeatures.isGooglePlayServicesAvailable(this)
     }
 
     override fun onDestroy() {

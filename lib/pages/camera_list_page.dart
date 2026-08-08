@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'dart:async';
-import 'dart:io' show Platform, File, Directory;
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'dart:io' show File, Directory;
 import 'package:path_provider/path_provider.dart';
+
+import '../flavors/app_env.dart';
+import '../flavors/service_facades.dart';
 import 'monitor_viewer_page.dart';
 import 'playback_page.dart';
 import 'camera_settings_page.dart';
@@ -11,10 +12,8 @@ import '../services/bind_api.dart';
 import '../services/session_manager.dart';
 import 'qr_code_generator_page.dart';
 import '../models/camera_device.dart';
-import '../utils/app_market.dart';
 import '../utils/log_utils.dart';
 import '../l10n/app_localizations.dart';
-import '../widgets/pangle_banner_view.dart';
 
 class CameraListPage extends StatefulWidget {
   const CameraListPage({super.key});
@@ -31,31 +30,8 @@ class _CameraListPageState extends State<CameraListPage> {
   String? _currentUserEmail;
   bool _isQRCodePageOpen = false; // 跟踪二维码页面是否打开
 
-  // Banner ad
-  BannerAd? _bannerAd;
-  bool _isBannerAdReady = false;
   bool _isVip = false;
   Directory? _docsDir;
-  static const String _pangleBannerCodeId = '104032066';
-
-  ({double widthDp, int widthPx, int heightPx, double heightDp})
-  _computePangleBannerSize(
-    MediaQueryData media,
-  ) {
-    final usableWidthDp =
-        media.size.width - media.padding.left - media.padding.right;
-    final bannerWidthDp = (usableWidthDp - 32).clamp(0.0, 300.0).toDouble();
-    final widthDp = bannerWidthDp > 0 ? bannerWidthDp : usableWidthDp.clamp(0.0, 300.0).toDouble();
-    final heightDp = widthDp / 2;
-    final widthPx = (widthDp * media.devicePixelRatio).round().clamp(1, 1200);
-    final heightPx = (heightDp * media.devicePixelRatio).round().clamp(1, 600);
-    return (
-      widthDp: widthDp,
-      widthPx: widthPx,
-      heightPx: heightPx,
-      heightDp: heightDp,
-    );
-  }
 
   // Delete in-flight
   final Set<String> _deletingCameraIds = <String>{};
@@ -81,49 +57,7 @@ class _CameraListPageState extends State<CameraListPage> {
   @override
   void dispose() {
     _pollingTimer?.cancel();
-    _bannerAd?.dispose();
     super.dispose();
-  }
-
-  void _loadBannerAd() {
-    if (!AppMarket.adMobEnabled) return;
-    final adUnitId = Platform.isAndroid
-        ? (kReleaseMode
-            ? 'ca-app-pub-6709616886871539/3198659691'
-            : 'ca-app-pub-3940256099942544/9214589741')
-        : (kReleaseMode
-            ? 'ca-app-pub-6709616886871539/9894245770'
-            : 'ca-app-pub-3940256099942544/2435281174');
-
-    final ad = BannerAd(
-      adUnitId: adUnitId,
-      request: const AdRequest(),
-      size: AdSize.banner,
-      listener: BannerAdListener(
-        onAdLoaded: (ad) {
-          if (!mounted) {
-            ad.dispose();
-            return;
-          }
-          setState(() {
-            _bannerAd = ad as BannerAd;
-            _isBannerAdReady = true;
-          });
-        },
-        onAdFailedToLoad: (ad, error) {
-          ad.dispose();
-          if (!mounted) return;
-          setState(() {
-            _bannerAd = null;
-            _isBannerAdReady = false;
-          });
-          // Keep quiet in UI; log only.
-          LogUtils.w('CameraListPage', 'BannerAd failed to load: code=${error.code}, message=${error.message}, domain=${error.domain}');
-        },
-      ),
-    );
-
-    ad.load();
   }
 
   Future<void> refresh() async {
@@ -134,19 +68,10 @@ class _CameraListPageState extends State<CameraListPage> {
     final user = await SessionManager.getUser();
     if (!mounted) return;
     final isVip = (user?.vipLevel ?? 0) > 0;
-    if (isVip && _bannerAd != null) {
-      _bannerAd?.dispose();
-      _bannerAd = null;
-      _isBannerAdReady = false;
-    }
     setState(() {
       _currentUserEmail = user?.email;
       _isVip = isVip;
     });
-    // 仅非 VIP 时加载广告，VIP 不加载
-    if (mounted && !isVip && _bannerAd == null) {
-      _loadBannerAd();
-    }
     if (_currentUserEmail != null) {
       // 首次进入显示 loading，之后切换 tab 回来只后台刷新
       await _loadBindings(showLoading: !_hasLoadedOnce);
@@ -250,10 +175,9 @@ class _CameraListPageState extends State<CameraListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final pangleSize = _computePangleBannerSize(media);
-    final usePangleBanner =
-        Platform.isAndroid && AppMarket.value.toLowerCase() == 'china';
+    final Widget banner = !_isVip && AppEnv.ads.bannerEnabled
+        ? AppEnv.ads.buildBanner(context, placement: AdPlacement.cameraList)
+        : const SizedBox.shrink();
 
     final Widget content = _isLoading
         ? const Center(child: CircularProgressIndicator())
@@ -277,27 +201,7 @@ class _CameraListPageState extends State<CameraListPage> {
     return Scaffold(
       body: Column(
         children: [
-          if (!_isVip && usePangleBanner)
-            SafeArea(
-              bottom: false,
-              child: PangleBannerView(
-                codeId: _pangleBannerCodeId,
-                widthDp: pangleSize.widthDp,
-                widthPx: pangleSize.widthPx,
-                heightPx: pangleSize.heightPx,
-                heightDp: pangleSize.heightDp,
-              ),
-            )
-          else if (!_isVip && _isBannerAdReady && _bannerAd != null)
-            SafeArea(
-              bottom: false,
-              child: Container(
-                alignment: Alignment.center,
-                width: _bannerAd!.size.width.toDouble(),
-                height: _bannerAd!.size.height.toDouble(),
-                child: AdWidget(ad: _bannerAd!),
-              ),
-            ),
+          banner,
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async {
