@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../../../utils/app_market.dart';
@@ -9,6 +11,52 @@ import '../../../utils/log_utils.dart';
 import '../service_facades.dart';
 
 const String _kTag = 'GlobalAdMobService';
+
+/// Android 下判断 Google Play services 是否可用（是否存在完整 GmsCore）。
+///
+/// 说明：
+/// 国内手机（MIUI/HyperOS、ColorOS、HarmonyOS Android 兼容层 等）通常会
+/// 阉割或禁用 GMS Core，直接调用 [MobileAds.instance.initialize()] 会触发
+/// Google Play Services Dynamite 动态加载链路（DynamiteModule.load），
+/// 在 `Invalid GmsCore APK, remote loading disabled` 场景下进入长超时重试，
+/// 进而阻塞 Flutter 启动阶段的主线程、造成用户感知「卡住/无响应」。
+///
+/// 实现复用 legacy `PushService` 已落地的同名 MethodChannel：
+/// `camera_service#isGooglePlayServicesAvailable`，返回 `true` 表示
+/// `GoogleApiAvailabilityLight.isGooglePlayServicesAvailable() == SUCCESS`。
+/// 非 Android 平台直接返回 `true`（iOS 有独立的 GAD 初始化逻辑）。
+Future<bool> _isGooglePlayServicesAvailableForAds() async {
+  if (!Platform.isAndroid) return true;
+  try {
+    const MethodChannel channel = MethodChannel('camera_service');
+    final result = await channel
+        .invokeMethod<bool>('isGooglePlayServicesAvailable')
+        .timeout(
+      const Duration(milliseconds: 400),
+      onTimeout: () => false,
+    );
+    final available = result ?? false;
+    if (!available) {
+      LogUtils.w(
+        _kTag,
+        'Google Play services unavailable on this Android device, '
+        'skip AdMob initialization (avoid DynamiteModule loading ANR)',
+      );
+    } else {
+      LogUtils.i(
+        _kTag,
+        'Google Play services available, proceed MobileAds initialization',
+      );
+    }
+    return available;
+  } catch (e, st) {
+    LogUtils.w(
+      _kTag,
+      'isGooglePlayServicesAvailable failed: $e\n$st -> skip MobileAds.init',
+    );
+    return false;
+  }
+}
 
 /// 海外版广告实现：基于 Google Mobile Ads，封装各页面通用的横幅广告。
 ///
@@ -80,7 +128,34 @@ class GlobalAdMobService implements AdService {
   @override
   Future<void> init() async {
     if (!bannerEnabled) return;
-    await MobileAds.instance.initialize();
+    // 关键前置守卫：国内手机无 GMS Core 时直接跳过 AdMob 初始化，避免
+    // MobileAds.initialize 触发 DynamiteModule 动态加载链路长超时重试 → ANR 「卡住」。
+    final hasGms = await _isGooglePlayServicesAvailableForAds();
+    if (!hasGms) return;
+    try {
+      // 额外 800ms timeout 保底：即便 GMS 存在，部分定制系统在首次初始化
+      // GMA adapter 时也会出现 2s+ 长阻塞，避免把 Flutter 启动阶段拖死。
+      //
+      // 注：onTimeout 的返回类型必须匹配被 timeout 的 Future 的泛型
+      // （Future<InitializationStatus>），因此这里不返回 void，
+      // 而是显式 throw TimeoutException，外层 try/catch 统一吞掉即可。
+      await MobileAds.instance.initialize().timeout(
+        const Duration(milliseconds: 800),
+        onTimeout: () {
+          LogUtils.w(
+            _kTag,
+            'MobileAds.initialize() timeout after 800ms, skipped',
+          );
+          throw TimeoutException(
+            'MobileAds.initialize() timeout 800ms',
+            const Duration(milliseconds: 800),
+          );
+        },
+      );
+    } catch (e, st) {
+      LogUtils.w(_kTag, 'MobileAds.initialize() failed: $e\n$st');
+      return;
+    }
     if (_testDeviceId.isNotEmpty) {
       try {
         await MobileAds.instance.updateRequestConfiguration(

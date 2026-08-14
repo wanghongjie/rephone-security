@@ -130,12 +130,35 @@ cleanup_pubspec_patch() {
             cd "${ROOT_DIR}"
             flutter pub get --no-example 2>&1 | tail -3
         )
-        # grep -c 命中 0 行时 exit=1，用 wc -l 包一层稳定判断是否含 fluwx 条目
-        has_fluwx="$(grep -c "\"fluwx\"" "${ROOT_DIR}/.dart_tool/package_config.json" 2>/dev/null || echo 0)"
-        if [[ "${has_fluwx}" -gt 0 ]]; then
-            log "cleanup: .dart_tool/package_config.json 已含 fluwx (${has_fluwx} 条)，恢复完成"
+        # grep -c 命中 0 行时 exit=1，本函数内已 set +e，所以直接取 grep -c 结果，
+        # 没命中时返回值是空 -> 用 awk 兜底成 0，-le 判断即可。
+        has_fluwx_count=0
+        raw_count="$(grep -c '"fluwx"' "${ROOT_DIR}/.dart_tool/package_config.json" 2>/dev/null)"
+        if [[ -n "${raw_count}" ]]; then
+          # shell 算术扩展，取第 1 行整数（防止出现多行或尾随换行导致 -gt 语法错）
+          has_fluwx_count=$(( raw_count + 0 ))
+        fi
+        if [[ "${has_fluwx_count}" -gt 0 ]]; then
+            log "cleanup: .dart_tool/package_config.json 已含 fluwx (${has_fluwx_count} 条)，恢复完成"
         else
-            log "cleanup: WARNING package_config.json 未检测到 fluwx (count=${has_fluwx})，如后续构建失败请手动执行 flutter pub get"
+            log "cleanup: package_config.json 未检测到 fluwx (count=${has_fluwx_count})，重试 flutter pub get..."
+            (
+                cd "${ROOT_DIR}"
+                rm -f ".dart_tool/package_config.json" ".dart_tool/package_config_subset"
+                # 关键修复：global 构建期间 pub get 会把 pubspec.lock 中的 fluwx 整段 entry 删除，
+                # 恢复 pubspec.lock 原文件后，再次 flutter pub get 可能因「lockfile 仍与 package_config.json
+                # 状态相匹配」而增量跳过。因此显式 `flutter pub upgrade fluwx` 强制重算锁文件、
+                # 并把 fluwx 重写回 package_config.json。upgrade 仅对 fluwx 生效，不会牵动其他 84 包。
+                flutter pub get --no-example 2>&1 | tail -2
+                flutter pub upgrade fluwx 2>&1 | tail -3
+            )
+            raw_count2="$(grep -c '"fluwx"' "${ROOT_DIR}/.dart_tool/package_config.json" 2>/dev/null)"
+            n2=0; [[ -n "${raw_count2}" ]] && n2=$(( raw_count2 + 0 ))
+            if [[ "${n2}" -gt 0 ]]; then
+                log "cleanup: 重试后 package_config.json 已含 fluwx (${n2} 条)，恢复完成"
+            else
+                log "cleanup: WARNING package_config.json 仍未检测到 fluwx，如后续构建失败请手动执行 flutter pub get"
+            fi
         fi
     else
         log "cleanup: WARNING 文件还原失败 (yaml=${restored_yaml} lock=${restored_lock})，请手动从 ${BACKUP_DIR} 复制 pubspec.yaml / pubspec.lock 回项目根目录"
@@ -155,19 +178,32 @@ apply_global_pubspec_patch() {
     cp -a "${ROOT_DIR}/pubspec.yaml" "${BACKUP_DIR}/pubspec.yaml"
     cp -a "${ROOT_DIR}/pubspec.lock" "${BACKUP_DIR}/pubspec.lock"
 
+    # 【关键防御】备份完成后立刻校验「备份文件里 fluwx 依赖声明」确实存在。
+    # 否则一旦上一轮构建失败，工作目录 pubspec.yaml 本身就处于「已删除 fluwx」的脏状态，
+    # 本次备份会把「脏状态」当成「原始状态」存下来，cleanup 还原后仍是脏的，
+    # 后续 china 构建将遇到 package:fluwx not found 且难以排查。
+    # 通过业务语义级的 grep 判断（而非字节级 cmp）彻底避免该类错误。
+    if ! grep -qiE '^\s*fluwx\s*:' "${BACKUP_DIR}/pubspec.yaml"; then
+        _BADDIR="${BACKUP_DIR}"
+        BACKUP_DIR=""
+        rm -rf "${_BADDIR}"
+        # 重要：PUBSPEC_PATCHED 仍为 0，确保 EXIT trap 不执行任何「从脏 BACKUP 还原」逻辑，
+        # 防止本就存在的工作目录正确文件被脏 BACKUP 覆盖还原回错误状态。
+        die "BACKUP_DIR/pubspec.yaml 中未检测到 fluwx 依赖，工作目录可能处于上一次构建失败后的脏状态，请手动 flutter pub get 或还原 pubspec.yaml 后重试"
+    fi
+
     # 精准删除：
-    #   第 68 行：# 微信支付 SDK（仅国内版本 ...
-    #   第 69 行：# 当前使用 6.x ...
-    #   第 70 行：fluwx: ^6.0.2
-    # 采用 perl -0777 多行模式，slurp 整文件替换；正则精确匹配「换行+任意空白+注释+依赖 三行块，不留空行断层。
-    # 注：\s* 兼容行首空格数变化；[^\n]* 兼容注释未来升级版本号变化；当前 pubspec.yaml 中 dependency_overrides 之前出现
-    #     唯一出现多行块就这一处。
+    #   fluwx: ^6.0.2    （整一行，包括其上方紧邻的换行符）
+    # 采用 perl -0777 多行模式，slurp 整文件替换；
+    # 正则「\n[ \t]*fluwx\s*:\s*[^\n]*」匹配一个换行 + 0~N 个空格/tab + fluwx: + 到行尾全部内容。
+    # 替换为空字符串后，前一行 package_info_plus 的结尾 \n 会直接衔接下一行 dependency_overrides
+    #   之前的空行，不会产生断层的双空行。
     perl -0777 -i -pe \
-      's/\n\s*#\s*微信支付 SDK[^\n]*\n\s*#\s*当前使用\s+6\.x[^\n]*\n\s*fluwx\s*:\s*[^\n]*//' \
+      's/\n[ \t]*fluwx\s*:\s*[^\n]*//' \
       "${ROOT_DIR}/pubspec.yaml"
 
     if grep -qiE '^\s*fluwx\s*:' "${ROOT_DIR}/pubspec.yaml" >/dev/null 2>&1; then
-        die "pubspec.yaml 中仍存在 fluwx 依赖声明，perl 补丁未命中，请检查文件中文注释格式是否变动"
+        die "pubspec.yaml 中仍存在 fluwx 依赖声明，perl 补丁未命中，请检查 fluwx: 行的缩进或格式"
     fi
     log "pubspec.yaml fluwx 依赖已移除，执行 flutter pub get 重建 package_config.json..."
     (cd "${ROOT_DIR}" && flutter pub get)
