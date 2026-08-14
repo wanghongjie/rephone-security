@@ -80,10 +80,22 @@ PUBSPEC_PATCHED=0
 BACKUP_DIR=""
 
 cleanup_pubspec_patch() {
-    # 关键：此函数在 set -euo pipefail 模式下运行，且作为 trap 回调，
-    # 任何一步命令若返回非 0 都会导致整个 trap 中断（且 exit code 可能被置），
-    # 进而造成 pubspec.yaml 未还原的严重后果。因此每条关键命令都显式
-    # 追加 || true 进行 soft-fail；文件复制后用 cmp 或 md5 校验确认。
+    # ==========================================================================
+    # 【关键设计：函数入口立即关闭 set -euo pipefail】
+    # --------------------------------------------------------------------------
+    # trap 回调中任何一步命令的非 0 退出都会在 set -e 下导致整个回调被 bash
+    # 立刻中断（包括以下极容易忽略的 non-zero 场景）：
+    #   · grep "xxx" file  —— 如果没匹配到 grep exit=1
+    #   · grep -c "xxx"    —— 匹配到 0 行 grep exit=1
+    #   · cmp -s a b       —— 文件不同 cmp exit=1
+    #   · rm -f file 不存在时 —— 某些 bash 版本会 non-zero
+    #   · flutter pub get  —— 网络或 lock 不一致时 non-zero
+    # 之前版本因此多次出现 cleanup 中途退出 → pubspec.yaml 未还原的严重事故。
+    # 所以本函数第一条命令必须显式 set +euo pipefail，关闭所有严格模式，
+    # 然后通过 restored_yaml/restored_lock 变量在应用层追踪错误状态。
+    # ==========================================================================
+    set +euo pipefail
+
     if [[ "${PUBSPEC_PATCHED}" -ne 1 ]]; then
         return 0
     fi
@@ -94,45 +106,42 @@ cleanup_pubspec_patch() {
 
     log "cleanup: 还原 pubspec.yaml / pubspec.lock 至构建前状态 (BACKUP_DIR=${BACKUP_DIR}) ..."
 
-    local restored_yaml=0 restored_lock=0
+    restored_yaml=0
+    restored_lock=0
     if [[ -f "${BACKUP_DIR}/pubspec.yaml" ]]; then
-        cp -f "${BACKUP_DIR}/pubspec.yaml" "${ROOT_DIR}/pubspec.yaml" 2>/dev/null || true
-        if cmp -s "${BACKUP_DIR}/pubspec.yaml" "${ROOT_DIR}/pubspec.yaml" 2>/dev/null; then
+        cp -f "${BACKUP_DIR}/pubspec.yaml" "${ROOT_DIR}/pubspec.yaml"
+        if cmp -s "${BACKUP_DIR}/pubspec.yaml" "${ROOT_DIR}/pubspec.yaml"; then
             restored_yaml=1
         fi
     fi
     if [[ -f "${BACKUP_DIR}/pubspec.lock" ]]; then
-        cp -f "${BACKUP_DIR}/pubspec.lock" "${ROOT_DIR}/pubspec.lock" 2>/dev/null || true
-        if cmp -s "${BACKUP_DIR}/pubspec.lock" "${ROOT_DIR}/pubspec.lock" 2>/dev/null; then
+        cp -f "${BACKUP_DIR}/pubspec.lock" "${ROOT_DIR}/pubspec.lock"
+        if cmp -s "${BACKUP_DIR}/pubspec.lock" "${ROOT_DIR}/pubspec.lock"; then
             restored_lock=1
         fi
     fi
 
     if [[ "${restored_yaml}" -eq 1 && "${restored_lock}" -eq 1 ]]; then
         log "cleanup: pubspec.yaml / pubspec.lock 已成功还原，强制重算 .dart_tool/package_config.json (恢复 fluwx 条目)..."
-        # 恢复 .dart_tool 必须执行。直接删除 .dart_tool/package_config.json 强制 flutter pub get 重新生成，
-        # 避免 flutter 使用 stale 缓存导致下一次 china 构建找不到 fluwx。
         rm -f "${ROOT_DIR}/.dart_tool/package_config.json" \
               "${ROOT_DIR}/.dart_tool/package_config_subset" \
-              "${ROOT_DIR}/.dart_tool/flutter_build/"*"/kernel_snapshot_program.d" 2>/dev/null || true
+              "${ROOT_DIR}/.dart_tool/flutter_build/"*"/kernel_snapshot_program.d"
         (
-            set +e
             cd "${ROOT_DIR}"
-            flutter pub get --no-example
-            echo "[cleanup: flutter pub get exit=$?" >/dev/null
-        ) || true
-        # 最终校验：package_config.json 中必须出现 fluwx 才能认为恢复完成
-        if grep -q "fluwx" "${ROOT_DIR}/.dart_tool/package_config.json" >/dev/null 2>&1; then
-            log "cleanup: .dart_tool/package_config.json 已含 fluwx，恢复完成"
+            flutter pub get --no-example 2>&1 | tail -3
+        )
+        # grep -c 命中 0 行时 exit=1，用 wc -l 包一层稳定判断是否含 fluwx 条目
+        has_fluwx="$(grep -c "\"fluwx\"" "${ROOT_DIR}/.dart_tool/package_config.json" 2>/dev/null || echo 0)"
+        if [[ "${has_fluwx}" -gt 0 ]]; then
+            log "cleanup: .dart_tool/package_config.json 已含 fluwx (${has_fluwx} 条)，恢复完成"
         else
-            log "cleanup: WARNING package_config.json 未检测到 fluwx，如后续构建失败请手动执行 flutter pub get"
+            log "cleanup: WARNING package_config.json 未检测到 fluwx (count=${has_fluwx})，如后续构建失败请手动执行 flutter pub get"
         fi
     else
-        log "cleanup: WARNING 文件还原失败，请手动从 ${BACKUP_DIR} 复制 pubspec.yaml / pubspec.lock 回项目根目录"
+        log "cleanup: WARNING 文件还原失败 (yaml=${restored_yaml} lock=${restored_lock})，请手动从 ${BACKUP_DIR} 复制 pubspec.yaml / pubspec.lock 回项目根目录"
     fi
 
-    # 即使还原失败，也尽量删掉备份临时目录避免 /tmp 污染
-    rm -rf "${BACKUP_DIR}" 2>/dev/null || true
+    rm -rf "${BACKUP_DIR}"
     PUBSPEC_PATCHED=0
     log "cleanup: done"
 }

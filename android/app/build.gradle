@@ -106,6 +106,40 @@ dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.2.0'
 }
 
+// ==============================================================================
+// Play Billing Library 版本锁定（合规修复：2026.8.31 起 Play Console 拒绝 < 8.0 的构建）
+// ------------------------------------------------------------------------------
+// 背景：pubspec 中 in_app_purchase_android: 0.4.0+8 默认解析
+//       com.android.billingclient:billing:7.1.1（dependencyInsight 输出可验证），
+//       低于 Google Play Console 自 2026-08-31 起强制执行的 ≥ 8.0.0 门槛。
+//
+// 方案选择：
+//   不直接升级 Flutter 插件到 in_app_purchase_android 0.5.0（该版本内置 Billing 8.0.0），
+//   因为其 CHANGELOG 要求 Flutter 3.44+ / Dart 3.12+；当前本项目为 Flutter 3.41.2，
+//   升级 Flutter SDK 风险面大（可能牵动 80+ 其他包）。
+//
+// Gradle resolutionStrategy.force 可行性：
+//   · Google Play Billing 7.x → 8.x 的 API 兼容性极好，被移除的 API 仅有
+//     queryPurchaseHistoryAsync（BillingClient 层），而 in_app_purchase_android 插件
+//     0.4.x 内部并未调用该 API（本项目 grep 也证明 Dart 层未使用 queryPurchaseHistory*）；
+//   · GitHub flutter/flutter#189974 已明确验证：launchBillingFlow / queryProductDetailsAsync
+//     / queryPurchasesAsync 等核心调用在 8.0 中完全二进制兼容。
+//
+// 生效范围：仅对名称含 "global" 的 Configuration（compileClasspath / runtimeClasspath 等）
+//   强制覆盖版本；china 变体后续 applicationVariants.all 阶段会直接 exclude 整个
+//   billingclient group，无需 force，避免无意义依赖被解析。
+// ==============================================================================
+configurations.configureEach { config ->
+    if (config.name.toLowerCase().contains('global')) {
+        config.resolutionStrategy.force(
+            // 锁定 Billing Client 原生 aar 至 8.0.0（精确满足 Play Console 合规门槛）。
+            // 未来如需升级到 9.x（Play 尚无强制日期），替换 8.0.0 -> 9.x 即可，
+            // 但建议先跟踪 flutter/flutter#189974 关于 androidx.core 1.9+ 的前置依赖。
+            'com.android.billingclient:billing:8.0.0'
+        )
+    }
+}
+
 // china flavor: disable Firebase/FCM related Gradle tasks.
 //tasks.configureEach { task ->
 //    final name = task.name.toLowerCase()
