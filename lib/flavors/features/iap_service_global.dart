@@ -99,4 +99,29 @@ class GlobalStoreIapService implements IapService {
   @override
   Future<void> completePurchase(PurchaseDetails purchase) =>
       _delegate.completePurchase(purchase);
+
+  @override
+  bool get isThirdPartyPaymentEnabled => false;
+
+  @override
+  Future<Map<String, dynamic>?> createServerOrder({
+    required String sku,
+    required String plan,
+    required String email,
+  }) async {
+    // 海外版使用 Play Billing / StoreKit，不走服务端下单模式。
+    return null;
+  }
+
+  @override
+  Future<bool> queryServerOrderStatus(String orderId, {String? email}) async {
+    // 海外版无此链路
+    return false;
+  }
+
+  @override
+  Future<bool> notifyServerOrderPaid(String orderId, {String? email, String? transactionId}) async {
+    // 海外版无此链路
+    return false;
+  }
 }

@@ -71,4 +71,29 @@ class NoopIapService implements IapService {
     debugPrint(
         '[NoopIapService] completePurchase(${purchase.productID})：noop 实现，无商店回调。');
   }
+
+  @override
+  bool get isThirdPartyPaymentEnabled => false;
+
+  @override
+  Future<Map<String, dynamic>?> createServerOrder({
+    required String sku,
+    required String plan,
+    required String email,
+  }) async {
+    debugPrint('[NoopIapService] createServerOrder($sku, $plan)：国内入口暂未接入第三方支付实现。');
+    return null;
+  }
+
+  @override
+  Future<bool> queryServerOrderStatus(String orderId, {String? email}) async {
+    debugPrint('[NoopIapService] queryServerOrderStatus($orderId)：noop 实现。');
+    return false;
+  }
+
+  @override
+  Future<bool> notifyServerOrderPaid(String orderId, {String? email, String? transactionId}) async {
+    debugPrint('[NoopIapService] notifyServerOrderPaid($orderId)：noop 实现。');
+    return false;
+  }
 }

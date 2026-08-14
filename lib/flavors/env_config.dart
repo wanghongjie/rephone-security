@@ -56,6 +56,11 @@ class FeatureToggles {
   /// 是否启用内购会员（海外 Play / App Store）。
   final bool enableInAppPurchase;
 
+  /// 是否启用国内第三方支付（微信支付 / 支付宝等）。
+  /// 国内版本为 true 时，`MembershipPage` 走「服务端创建订单」链路，
+  /// 不调用 Play Billing / StoreKit。
+  final bool enableWechatPay;
+
   /// 是否启用 Firebase 相关能力（FCM / Crashlytics / Analytics 等）。
   final bool enableFirebase;
 
@@ -74,6 +79,7 @@ class FeatureToggles {
   /// 构造能力开关集合。
   const FeatureToggles({
     required this.enableInAppPurchase,
+    required this.enableWechatPay,
     required this.enableFirebase,
     required this.enableGoogleMobileAds,
     required this.enablePangleAds,
@@ -94,6 +100,7 @@ EnvConfig globalEnvConfig() => const EnvConfig(
 /// 预置的 Global（海外）能力开关：默认启用海外 SDK 能力。
 FeatureToggles globalFeatureToggles() => const FeatureToggles(
       enableInAppPurchase: true,
+      enableWechatPay: false,
       enableFirebase: true,
       enableGoogleMobileAds: true,
       enablePangleAds: false,
@@ -110,12 +117,13 @@ EnvConfig chinaEnvConfig() => const EnvConfig(
       authUseHttps: true,
     );
 
-/// 预置的 China（国内）能力开关：默认走 Pangle 或 noop。
+/// 预置的 China（国内）能力开关：默认走 Pangle + 微信支付。
 FeatureToggles chinaFeatureToggles() => const FeatureToggles(
       enableInAppPurchase: false,
+      enableWechatPay: false,
       enableFirebase: false,
       enableGoogleMobileAds: false,
-      enablePangleAds: true,
+      enablePangleAds: false,
       enableCrashReporting: true,
       enableClientPush: true,
     );

@@ -306,6 +306,32 @@ class _MembershipPageState extends State<MembershipPage> {
 
   Future<void> _initIap({bool force = false}) async {
     try {
+      // —— 微信支付模式（国内版本）：不走 IAP 商店查询，直接使用服务端统一定价——
+      // 服务端价格：月卡 2.99 元、年卡 23.99 元（与 `resolveWechatAmount` 保持一致）。
+      // 如需动态改价，可改为调用独立的 /api/payment/products 接口拉取。
+      if (AppEnv.iap.isThirdPartyPaymentEnabled) {
+        await AppEnv.iap.init(); // 仅注册微信 SDK，不会拉取商品
+        if (!mounted) return;
+        setState(() {
+          _loadingProducts = false;
+          for (var i = 0; i < _plans.length; i++) {
+            final plan = _plans[i];
+            if (plan.planType == MembershipPlanType.monthly) {
+              _plans[i] = plan.copyWith(
+                price: 2.99,
+                displayPrice: '¥2.99 / 月',
+              );
+            } else if (plan.planType == MembershipPlanType.yearly) {
+              _plans[i] = plan.copyWith(
+                price: 23.99,
+                displayPrice: '¥23.99 / 年',
+                isRecommended: true,
+              );
+            }
+          }
+        });
+        return;
+      }
       await AppEnv.iap.init();
       if (!mounted) return;
       setState(() {
@@ -813,13 +839,13 @@ class _MembershipPageState extends State<MembershipPage> {
                     ),
                     if (_isCurrentlyMember && _membershipExpiry != null)
                       Text(
-                        [
+                        '${[
                           if (_activePlan == 'monthly') l.membershipPlanMonthly,
                           if (_activePlan == 'yearly') l.membershipPlanYearly,
                           if (_activePlatform == 'ios') 'iOS',
                           if (_activePlatform == 'android') 'Android',
-                        ].where((s) => s.isNotEmpty).join(' · ') +
-                            '\n${l.membershipExpiryPrefix}${_formatDate(_membershipExpiry!)}',
+                          if (_activePlatform == 'wechat') 'WeChat',
+                        ].where((s) => s.isNotEmpty).join(' · ')}\n${l.membershipExpiryPrefix}${_formatDate(_membershipExpiry!)}',
                         style: const TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                   ],
@@ -1281,8 +1307,6 @@ class _MembershipPageState extends State<MembershipPage> {
 
   void _subscribeToPlan(MembershipPlan plan) {
     final l = AppLocalizations.of(context);
-    final productId = plan.productId;
-    final product = productId == null ? null : AppEnv.iap.getProduct(productId);
 
     // Debounce rapid repeat taps.
     final now = DateTime.now();
@@ -1291,6 +1315,17 @@ class _MembershipPageState extends State<MembershipPage> {
       return;
     }
     _lastBuyTapAt = now;
+
+    // —— 微信支付模式：不走商店 IAP，走服务端创建订单 ——
+    // 在最前面判断，这样既不会因为 product == null（因为根本没走 IAP 查询）而报错，
+    // 也不会进入到 IAP 的 pending 校验逻辑（微信用自己的 debounce 机制）。
+    if (AppEnv.iap.isThirdPartyPaymentEnabled) {
+      _subscribeWechat(plan);
+      return;
+    }
+
+    final productId = plan.productId;
+    final product = productId == null ? null : AppEnv.iap.getProduct(productId);
 
     // Debounce if StoreKit/Play reports a pending transaction for this product.
     if (productId != null) {
@@ -1438,6 +1473,196 @@ class _MembershipPageState extends State<MembershipPage> {
       ),
     );
   }
+
+  /// 微信 APP 支付：订阅套餐（月/年）的完整购买流程。
+  ///
+  /// 流程：
+  ///   1. 前置校验：登录态、当前套餐、跨平台互斥、正在购买中、基础套餐等。
+  ///   2. 弹确认对话框，用户确认后标记 `_isPurchasing=true`。
+  ///   3. 调用 [IapService.createServerOrder] → 后端创建微信预支付订单 →
+  ///      内部直接调起微信 SDK 支付，等待 SDK 回调结果。
+  ///   4. 只要 SDK 返回成功（errCode==0），立即调用 `/wechat/verify`
+  ///      让服务端主动查单并加速发放权益（notify 回调可能会有延迟或丢包）。
+  ///   5. 兜底：不论 verify 成功与否，用 `/wechat/query` 做最多 8 次退避轮询（~30s）
+  ///      确保 notify 丢包场景下权益仍会到账。
+  ///   6. 最终 `_checkStatus()` 刷新本地用户状态 + 展示成功/失败提示。
+  ///
+  /// 注意：此方法是「异步 void」设计（与老的 `_subscribeToPlan` 保持一致），
+  /// 内部通过 `setState` + `_showSnackBarSafe` 与 UI 交互，调用方不 await。
+  Future<void> _subscribeWechat(MembershipPlan plan) async {
+    final l = AppLocalizations.of(context);
+
+    // 1. 基础校验：禁止购买基础套餐
+    if (plan.planType == MembershipPlanType.basic) {
+      _showSnackBarSafe(SnackBar(content: Text(l.membershipPlanCurrent)));
+      return;
+    }
+
+    // 2. 登录校验：微信支付必须绑定账号，否则无法发权益
+    final user = await SessionManager.getUser();
+    if (user == null) {
+      _showSnackBarSafe(SnackBar(content: Text(l.membershipPleaseLogin)));
+      return;
+    }
+
+    // 3. 正在购买中：互斥（避免重复点击 → 生成多个 out_trade_no）
+    if (_isPurchasing) {
+      _showSnackBarSafe(SnackBar(content: Text(l.membershipDialogProcessing)));
+      return;
+    }
+
+    // 4. 跨平台订阅互斥：
+    //    如果当前账号已通过海外 IAP（ios/android）购买过，
+    //    不要在微信侧再次发起支付（否则同档双付但只续其中一个平台，易产生纠纷）。
+    if (_hasActiveSubscription &&
+        _activePlatform != null &&
+        _activePlatform != 'wechat') {
+      final crossMsg = _activePlatform == 'ios'
+          ? l.membershipCrossPlatformManageOnIOS
+          : l.membershipCrossPlatformManageOnAndroid;
+      _showSnackBarSafe(SnackBar(content: Text(crossMsg)));
+      return;
+    }
+
+    // 5. 同平台已是当前套餐：禁止重复
+    final isCurrentPlanFromServer = _hasActiveSubscription &&
+        _activePlatform == 'wechat' &&
+        ((_activePlan == 'monthly' && plan.planType == MembershipPlanType.monthly) ||
+            (_activePlan == 'yearly' && plan.planType == MembershipPlanType.yearly));
+    if (isCurrentPlanFromServer) {
+      _showSnackBarSafe(SnackBar(content: Text(l.membershipPlanCurrent)));
+      return;
+    }
+
+    final planLabel = plan.planType == MembershipPlanType.monthly
+        ? l.membershipPlanMonthlyShort
+        : l.membershipPlanYearlyShort;
+    final sku = plan.planType == MembershipPlanType.monthly
+        ? 'rephone_premium_monthly'
+        : 'rephone_premium_yearly';
+    final planStr = plan.planType == MembershipPlanType.monthly ? 'monthly' : 'yearly';
+
+    // 6. 购买确认弹框（与 IAP 风格保持一致）
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l.membershipDialogSubscribeTitle),
+        content: Text(l.membershipDialogSubscribeContent),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l.commonCancel),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l.commonConfirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    setState(() {
+      _isPurchasing = true;
+      _userInitiatedPurchaseFlow = true;
+    });
+    _showSnackBarSafe(
+      SnackBar(content: Text('${l.membershipDialogProcessing} $planLabel')),
+    );
+
+    String? outTradeNo;
+    bool entitlementOk = false;
+    Object? lastErr;
+    try {
+      // 7. 服务端创建订单 + 内部自动调起微信 SDK
+      final orderResult = await AppEnv.iap.createServerOrder(
+        sku: sku,
+        plan: planStr,
+        email: user.email,
+      );
+      outTradeNo = orderResult?['out_trade_no'] as String?;
+      final sdkSuccess = orderResult?['sdk_success'] as bool? ?? false;
+      if (outTradeNo == null) {
+        throw StateError('创建订单失败：服务端未返回订单号');
+      }
+
+      // 8. SDK 成功 → 立即 notifyServerOrderPaid（调 /wechat/verify）
+      if (sdkSuccess) {
+        final ok = await AppEnv.iap.notifyServerOrderPaid(
+          outTradeNo,
+          email: user.email,
+        );
+        if (ok) {
+          entitlementOk = true;
+        }
+      }
+
+      // 9. 兜底：不论 SDK / verify 结果，都用 query 轮询 ~30s 确认真实支付状态。
+      //    覆盖场景：
+      //    - SDK 回调丢失/超时，但用户实际已支付成功
+      //    - notify 回调丢包，verify 时微信还没来得及更新订单状态
+      //    - 用户取消后 10 秒重新支付（不会，因为 debounce + _isPurchasing）
+      if (!entitlementOk) {
+        entitlementOk = await AppEnv.iap.queryServerOrderStatus(
+          outTradeNo,
+          email: user.email,
+        );
+      }
+    } catch (e, st) {
+      lastErr = e;
+      debugPrint('[MembershipPage] _subscribeWechat error: $e $st');
+    } finally {
+      // 10. 刷新服务端权益状态（即使认为成功也刷一次，保证最终一致）
+      try {
+        await _checkStatus();
+      } catch (_) {
+        // ignore
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isPurchasing = false;
+        _userInitiatedPurchaseFlow = false;
+      });
+
+      // 11. UI 结果提示
+      final isNowMember = _hasActiveSubscription || _isCurrentlyMember;
+      if (entitlementOk || isNowMember) {
+        // 已切换套餐
+        final nowActivePlan = _activePlan;
+        if (nowActivePlan != null && nowActivePlan != planStr) {
+          _showPurchaseOutcomeSnackBar(
+            SnackBar(
+              content: Text(l.membershipPurchaseSuccessSwitchPending),
+              duration: const Duration(seconds: 6),
+            ),
+          );
+        } else {
+          _showPurchaseOutcomeSnackBar(
+            SnackBar(content: Text(l.membershipPurchaseSuccess)),
+          );
+        }
+      } else {
+        // 失败：给出具体原因（如果异常包含 message）
+        final String msg;
+        if (lastErr != null) {
+          final errStr = lastErr.toString();
+          if (errStr.contains('创建订单失败') ||
+              errStr.contains('订单号') ||
+              errStr.isNotEmpty) {
+            msg = '${l.membershipPurchaseFailed}：$errStr';
+          } else {
+            msg = l.membershipPurchaseFailed;
+          }
+        } else {
+          msg = l.membershipPurchaseFailed;
+        }
+        _showPurchaseOutcomeSnackBar(SnackBar(content: Text(msg)));
+      }
+    }
+  }
 }
 
 enum MembershipPlanType { basic, monthly, yearly }
@@ -1471,6 +1696,7 @@ class MembershipPlan {
     double? price,
     String? displayPrice,
     bool? isCurrentPlan,
+    bool? isRecommended,
     String? productId,
     String? offerToken,
   }) {
@@ -1478,7 +1704,7 @@ class MembershipPlan {
       id: id,
       planType: planType,
       price: price ?? this.price,
-      isRecommended: isRecommended,
+      isRecommended: isRecommended ?? this.isRecommended,
       isCurrentPlan: isCurrentPlan ?? this.isCurrentPlan,
       productId: productId ?? this.productId,
       basePlanId: basePlanId,

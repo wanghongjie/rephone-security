@@ -105,6 +105,61 @@ abstract class IapService {
 
   /// 调用商店完成交易（Play / StoreKit 必须确认，否则会被自动退款）。
   Future<void> completePurchase(PurchaseDetails purchase);
+
+  // —————————————————————————— 第三方支付（非商店 IAP，国内微信/支付宝等） ——————————————————————————
+
+  /// 是否启用「服务端创建订单 → 客户端调 SDK → 异步回调确认」的第三方支付链路。
+  ///
+  /// - 海外 Google Play / App Store：返回 `false`，业务层走 [buy] / [purchasesStream] 老链路。
+  /// - 国内微信/支付宝：返回 `true`，业务层必须调用 [createServerOrder] 发起购买，
+  ///   不能使用 `purchase` / `buy`（会抛 UnsupportedError）。
+  bool get isThirdPartyPaymentEnabled;
+
+  /// 第三方支付：向服务端申请一笔订单（参数仅传 SKU + 套餐类型，**禁止客户端传金额**，防篡改）。
+  ///
+  /// 返回的 Map 中一般包含：
+  /// ```
+  /// {
+  ///   'out_trade_no': '...',   // 内部订单号，用于后续 verify/query
+  ///   'params': { ... },       // 调起第三方 SDK 所需参数（已由服务端签名）
+  ///   'sdk_success': true,     // 仅部分实现会返回，调用方请勿依赖，仍需通过 [notifyServerOrderPaid] + [queryServerOrderStatus] 兜底确认
+  /// }
+  /// ```
+  ///
+  /// 内部约定：
+  /// - 微信支付：`sku` 取值 `rephone_premium_monthly` / `rephone_premium_yearly`，
+  ///   与服务端 `resolveWechatAmount` 一一对应；
+  ///   `plan` 取值 `'monthly'` / `'yearly'`；
+  ///   `email` 是已登录用户邮箱，用于绑定权益。
+  Future<Map<String, dynamic>?> createServerOrder({
+    required String sku,
+    required String plan,
+    required String email,
+  });
+
+  /// 第三方支付：SDK 回调返回「成功」后，立即调用服务端主动查单，加速权益发放。
+  ///
+  /// - 该调用**不可靠也不唯一**：SDK 回调可能丢包 / 用户切后台，因此仅作为「加速」；
+  ///   业务必须再调用 [queryServerOrderStatus] 做最终一致性兜底。
+  /// - `transactionId` 可选：如第三方 SDK 能拿到微信/支付宝的交易号可传，便于服务端去重。
+  ///
+  /// 返回 `true` 表示服务端已确认到账并发放权益（`paid=true` 或 `verified=true`）。
+  Future<bool> notifyServerOrderPaid(
+    String orderId, {
+    String? email,
+    String? transactionId,
+  });
+
+  /// 第三方支付：查询订单真实支付状态，作为「SDK 回调丢包 / notify 回调丢包」时的兜底。
+  ///
+  /// 实现约定：内部必须做「指数退避 + 超时上限」的重试（参考微信实现最多 ~30s / 8 次）；
+  /// 返回 `true` 即代表服务端最终确认已支付。
+  ///
+  /// 典型场景：
+  ///   - 用户成功支付但网络断开，SDK 没回调；
+  ///   - 微信商户平台到了异步回调 5 分钟延迟上限还没推送到服务端；
+  ///   - 客户端点击支付后立刻杀掉 App，但服务端 notify 已经成功写入 DB。
+  Future<bool> queryServerOrderStatus(String orderId, {String? email});
 }
 
 /// 广告能力门面：Banner 广告加载与 Widget 输出。

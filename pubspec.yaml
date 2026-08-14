@@ -65,6 +65,9 @@ dependencies:
   firebase_crashlytics: ^5.0.8
   tflite_flutter: ^0.12.1
   package_info_plus: ^8.0.2
+  # 微信支付 SDK（仅国内版本 main_china.dart → iap_service_china.dart 使用，海外构建不 import 本文件，因此不会被链接）。
+  # 当前使用 6.x 稳定大版本，API 适配详见 iap_service_china.dart 中的 _Fluwx6 适配层。
+  fluwx: ^6.0.2
 
 dependency_overrides:
   package_info_plus: ^8.0.2

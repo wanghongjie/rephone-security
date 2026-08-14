@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>RePhone Security · 业务运营流程图（用于微信开放平台审核）</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+      width: 1080px;
+      margin: 0 auto;
+      color: #0f172a;
+      line-height: 1.5;
+    }
+
+    /* ========== 顶部提示条 ========== */
+    .tip {
+      width: 1080px;
+      background: linear-gradient(135deg, #0ea5e9, #3b82f6);
+      color: #fff;
+      padding: 20px 32px;
+      border-bottom: 3px dashed #ef4444;
+      font-size: 14px;
+      line-height: 1.9;
+    }
+    .tip b { color: #fef08a; }
+
+    /* ========== 裁切参考线 ========== */
+    .crop-guide {
+      width: 1080px;
+      height: 34px;
+      background: repeating-linear-gradient(
+        45deg,
+        #ef4444, #ef4444 12px,
+        #fecaca 12px, #fecaca 24px
+      );
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+      border-top: 1px solid #fff;
+      border-bottom: 1px solid #fff;
+    }
+
+    /* ========== 单张图容器：1080 × 900（更大画布避免内容放不下 + 遮挡 subtitle） ========== */
+    .chart {
+      width: 1080px;
+      height: 900px;
+      position: relative;
+      background:
+        linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+      overflow: hidden;
+    }
+    /* 四角 L 型参考标 */
+    .chart::before, .chart::after,
+    .chart__c-tr, .chart__c-bl {
+      content: "";
+      position: absolute;
+      width: 28px; height: 28px;
+      border: 3px solid #475569;
+      z-index: 999;
+      pointer-events: none;
+    }
+    .chart::before { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+    .chart::after  { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+    .chart__c-tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+    .chart__c-bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
+
+    /* 头部：标题 + 编号 */
+    .chart__header {
+      padding: 28px 44px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .chart__badge {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      letter-spacing: 0.05em;
+    }
+    .chart__title {
+      font-size: 28px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: 0.01em;
+    }
+    .chart__subtitle {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 6px;
+    }
+    .chart__brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #2563eb;
+      padding: 6px 14px;
+      background: #dbeafe;
+      border-radius: 10px;
+    }
+    .chart__brand-icon {
+      width: 20px; height: 20px;
+      border-radius: 5px;
+      background: linear-gradient(135deg, #38bdf8, #6366f1);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 10px;
+    }
+
+    /* 流程图画布主体：更大（900 - 110 标题 - 24 底边 = 766px，给泳道/节点留出足够空间） */
+    .chart__body {
+      position: absolute;
+      top: 110px; left: 44px; right: 44px; bottom: 24px;
+    }
+
+    /* ========== 基础节点样式 ========== */
+    .node {
+      position: absolute;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #fff;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+      z-index: 2;
+      line-height: 1.35;
+    }
+    .node--startend {
+      background: linear-gradient(135deg, #10b981, #059669);
+      border-radius: 999px;
+    }
+    .node--step {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      border-radius: 10px;
+    }
+    .node--step-purple {
+      background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    }
+    .node--step-orange {
+      background: linear-gradient(135deg, #f97316, #ea580c);
+    }
+    .node--step-teal {
+      background: linear-gradient(135deg, #14b8a6, #0d9488);
+    }
+    .node--step-pink {
+      background: linear-gradient(135deg, #ec4899, #db2777);
+    }
+    .node--decision {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      transform: rotate(0deg);
+      border-radius: 4px;
+      /* 菱形用 clip-path */
+      clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+      padding: 32px 28px;
+    }
+    .node--io {
+      background: linear-gradient(135deg, #06b6d4, #0891b2);
+      border-radius: 6px 18px 6px 18px;
+    }
+    .node--db {
+      background: linear-gradient(135deg, #475569, #334155);
+      border-radius: 6px;
+      border-top: 4px solid #64748b;
+      border-bottom: 4px solid #1e293b;
+    }
+    .node--server {
+      background: linear-gradient(135deg, #64748b, #334155);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+
+    /* ========== 箭头/连线 ========== */
+    .arrow {
+      position: absolute;
+      z-index: 4;
+      pointer-events: none;
+    }
+    .arrow--v {
+      width: 2px;
+      background: #64748b;
+    }
+    .arrow--h {
+      height: 2px;
+      background: #64748b;
+    }
+    .arrow--v::after, .arrow--h::after {
+      content: "";
+      position: absolute;
+      width: 0; height: 0;
+      border: 6px solid transparent;
+    }
+    .arrow--v::after {
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      border-top-color: #64748b;
+      border-bottom: none;
+    }
+    .arrow--h::after {
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      border-left-color: #64748b;
+      border-right: none;
+    }
+    /* 带标签的箭头文字 */
+    .arrow-label {
+      position: absolute;
+      background: #fff;
+      color: #475569;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      z-index: 6;
+      white-space: nowrap;
+    }
+    .arrow-label--yes { color: #16a34a; border-color: #86efac; background: #f0fdf4; }
+    .arrow-label--no  { color: #dc2626; border-color: #fca5a5; background: #fef2f2; }
+
+    /* ========== 分区泳道 ========== */
+    .lane {
+      position: absolute;
+      border-radius: 16px;
+      border: 2px dashed rgba(148, 163, 184, 0.55);
+      background: rgba(255, 255, 255, 0.45);
+    }
+    .lane__title {
+      position: absolute;
+      top: -14px;
+      left: 20px;
+      padding: 4px 14px;
+      background: #fff;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      border: 2px dashed #cbd5e1;
+      letter-spacing: 0.04em;
+    }
+    .lane--user   { border-color: rgba(59, 130, 246, 0.5); }
+    .lane--user .lane__title { color: #2563eb; border-color: rgba(59,130,246,.45); background: #eff6ff; }
+    .lane--app    { border-color: rgba(139, 92, 246, 0.5); }
+    .lane--app .lane__title { color: #7c3aed; border-color: rgba(139,92,246,.45); background: #f5f3ff; }
+    .lane--server { border-color: rgba(249, 115, 22, 0.5); }
+    .lane--server .lane__title { color: #ea580c; border-color: rgba(249,115,22,.45); background: #fff7ed; }
+    .lane--third  { border-color: rgba(20, 184, 166, 0.5); }
+    .lane--third .lane__title { color: #0d9488; border-color: rgba(20,184,166,.45); background: #f0fdfa; }
+
+    /* ========== 图例 ========== */
+    .legend {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.85);
+      border-radius: 10px 0 0 0;
+      font-size: 11px;
+      color: #475569;
+      z-index: 20;
+    }
+    .legend__item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .legend__dot {
+      width: 14px; height: 14px;
+      border-radius: 4px;
+    }
+
+    /* ========== 卡片式元素（用于交互图） ========== */
+    .screen {
+      position: absolute;
+      width: 128px;
+      background: #fff;
+      border: 2px solid #334155;
+      border-radius: 14px;
+      padding: 8px 8px 10px;
+      box-shadow: 0 10px 24px rgba(15,23,42,0.12);
+    }
+    .screen__notch {
+      width: 32px; height: 5px;
+      margin: 0 auto 6px;
+      background: #1e293b;
+      border-radius: 0 0 6px 6px;
+    }
+    .screen__inner {
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 8px;
+      height: 160px;
+      font-size: 9px;
+      color: #334155;
+      overflow: hidden;
+    }
+    .screen__inner b { color: #0f172a; }
+    .screen__title {
+      font-size: 10px;
+      text-align: center;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 6px;
+      padding: 2px 4px;
+      background: linear-gradient(135deg, #dbeafe, #ede9fe);
+      border-radius: 4px;
+    }
+    .screen__row {
+      background: #fff;
+      padding: 4px 5px;
+      margin-bottom: 3px;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+      font-weight: 600;
+    }
+
+    /* 架构图中的大模块 */
+    .module {
+      position: absolute;
+      border-radius: 16px;
+      padding: 18px 16px 16px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      box-shadow: 0 8px 22px rgba(15,23,42,0.14);
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+    .module__icon {
+      font-size: 28px;
+      margin-bottom: 6px;
+    }
+    .module__list {
+      margin-top: 10px;
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.92);
+      line-height: 1.65;
+      text-align: left;
+      background: rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 8px 12px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 顶部导出提示 -->
+<div class="tip">
+  <b>【微信开放平台 · 应用运营业务流程图 / 交互图 导出指引】</b><br/>
+  ① F12 进入 DevTools → 设备模式自定义尺寸 <b>1080 × 7600</b>，Device Pixel Ratio = 1<br/>
+  ② Cmd/Ctrl + Shift + P →「Capture full size screenshot」导出整页 PNG<br/>
+  ③ 用预览.app 按红/白斜纹参考线裁切为 8 张独立图片（每张 1080×900），即可上传审核。
+</div>
+
+<!-- ================================ 图 1 ================================ -->
+<div class="crop-guide">▼ 图 1 · 产品整体业务架构图 · 1080×900 ▼</div>
+<section class="chart">
+  <div class="chart__c-tr"></div><div class="chart__c-bl"></div>
+
+  <div class="chart__header">
+    <div>
+      <span class="chart__badge">CHART 01 / 08</span>
+      <div class="chart__title">RePhone Security · 整体业务架构图</div>
+      <div class="chart__subtitle">展示端到端的用户端、应用端、服务端与第三方服务之间的整体协作架构</div>
+    </div>
+    <div class="chart__brand"><span class="chart__brand-icon">📱</span>RePhone Security</div>
+  </div>
+
+  <div class="chart__body" style="top: 142px; bottom: 12px;">
+    <!-- 泳道：4 条横向分层（相对于 chart__body 的 top，泳道高度整体扩大避免内容拥挤） -->
+    <div class="lane lane--user"   style="top: 0;    left: 0; right: 0; height: 120px;">
+      <div class="lane__title" style="top: 14px;">① 最终用户角色</div>
+    </div>
+    <div class="lane lane--app"    style="top: 130px; left: 0; right: 0; height: 220px;">
+      <div class="lane__title" style="top: 14px;">② 客户端 App（iOS / Android · Flutter 双端）</div>
+    </div>
+    <div class="lane lane--server" style="top: 360px;left: 0; right: 0; height: 220px;">
+      <div class="lane__title" style="top: 14px;">③ 服务端（Go WebRTC Server · 海外部署）</div>
+    </div>
+    <div class="lane lane--third"  style="top: 590px;left: 0; right: 0; height: 156px;">
+      <div class="lane__title" style="top: 14px;">④ 第三方依赖与基础设施</div>
+    </div>
+
+    <!-- 用户层（泳道 1：0~120，节点居中 top=54） -->
+    <div class="node node--step"   style="top: 54px; left: 24px;  width: 160px; height: 46px; font-size: 12.5px;">🏠 家庭（看娃/看宠）</div>
+    <div class="node node--step"   style="top: 54px; left: 210px; width: 160px; height: 46px; font-size: 12.5px;">🛍️ 店铺/小微商家</div>
+    <div class="node node--step"   style="top: 54px; left: 396px; width: 160px; height: 46px; font-size: 12.5px;">🏢 办公室/仓库</div>
+    <div class="node node--step-orange" style="top: 54px; left: 582px; width: 364px; height: 46px; font-size: 12.5px;">📱 任何拥有闲置手机的个人 / 企业用户</div>
+
+    <!-- App 客户端层（泳道 2：top 130~350，内部偏移 +48 = top:178） -->
+    <div class="module" style="top: 178px; left: 38px;  width: 442px; height: 152px; padding: 14px 16px; font-size: 13.5px; background: linear-gradient(135deg, #6366f1, #2563eb);">
+      <div class="module__icon" style="font-size: 26px; margin-bottom: 2px;">📲</div>
+      <div>监控端 App（主手机）</div>
+      <div class="module__list" style="font-size: 11px; line-height: 1.6; margin-top: 10px; padding: 8px 12px;">
+        登录绑定 · 实时观看 · 双向语音 · 告警接收 · 云端回放 · 订阅购买
+      </div>
+    </div>
+    <div class="module" style="top: 178px; left: 506px; width: 442px; height: 152px; padding: 14px 16px; font-size: 13.5px; background: linear-gradient(135deg, #db2777, #f97316);">
+      <div class="module__icon" style="font-size: 26px; margin-bottom: 2px;">📷</div>
+      <div>摄像头端 App（闲置手机）</div>
+      <div class="module__list" style="font-size: 11px; line-height: 1.6; margin-top: 10px; padding: 8px 12px;">
+        同账号登录 · 音视频采集编码 · WebRTC 推流 · 智能检测 · 后台低功耗保活
+      </div>
+    </div>
+
+    <!-- 服务端层（泳道 3：top 360~580，内部偏移 +48 = top:408） -->
+    <div class="module" style="top: 408px; left: 28px;  width: 302px; height: 142px; padding: 14px 16px; font-size: 13px; background: linear-gradient(135deg, #0ea5e9, #0369a1);">
+      <div class="module__icon" style="font-size: 22px; margin-bottom: 2px;">🔌</div><div>WebSocket 信令服务</div>
+      <div class="module__list" style="font-size: 11px; margin-top: 8px; padding: 8px 12px;">JWT 鉴权 · SDP/ICE 交换 · 在线状态广播</div>
+    </div>
+    <div class="module" style="top: 408px; left: 352px; width: 302px; height: 142px; padding: 14px 16px; font-size: 13px; background: linear-gradient(135deg, #14b8a6, #0f766e);">
+      <div class="module__icon" style="font-size: 22px; margin-bottom: 2px;">🛰️</div><div>STUN / TURN 中继服务</div>
+      <div class="module__list" style="font-size: 11px; margin-top: 8px; padding: 8px 12px;">NAT 穿透 · 点对点失败中继 · 传输加密</div>
+    </div>
+    <div class="module" style="top: 408px; left: 676px; width: 282px; height: 142px; padding: 14px 16px; font-size: 13px; background: linear-gradient(135deg, #f97316, #c2410c);">
+      <div class="module__icon" style="font-size: 22px; margin-bottom: 2px;">🧠</div><div>业务与支付服务</div>
+      <div class="module__list" style="font-size: 11px; margin-top: 8px; padding: 8px 12px;">订阅订单 · 支付回调 · 录像索引 · 智能告警调度</div>
+    </div>
+
+    <!-- 第三方服务层（泳道 4：top 590~746，内部偏移 +54 = top:644） -->
+    <div class="node node--server" style="top: 644px; left: 18px;  width: 180px; height: 46px; font-size: 12px;">🍎 Apple IAP / Google Play</div>
+    <div class="node node--server" style="top: 644px; left: 214px; width: 180px; height: 46px; font-size: 12px;">💚 微信支付 V3</div>
+    <div class="node node--server" style="top: 644px; left: 410px; width: 180px; height: 46px; font-size: 12px;">📧 邮件 SMTP 服务</div>
+    <div class="node node--server" style="top: 644px; left: 606px; width: 180px; height: 46px; font-size: 12px;">🗄️ MySQL 8.0 + Redis</div>
+    <div class="node node--server" style="top: 644px; left: 802px; width: 158px; height: 46px; font-size: 12px;">☁️ 对象存储 OSS/S3</div>
+
+    <!-- 图例：右下角泳道外的空白 -->
+    <div class="legend" style="right: 12px; bottom: 8px; padding: 6px 10px; gap: 6px 12px; font-size: 10.5px;">
+      <span class="legend__item"><span class="legend__dot" style="width: 12px; height: 12px; background:linear-gradient(135deg,#3b82f6,#2563eb);"></span>用户角色</span>
+      <span class="legend__item"><span class="legend__dot" style="width: 12px; height: 12px; background:linear-gradient(135deg,#6366f1,#db2777);"></span>App 客户端</span>
+      <span class="legend__item"><span class="legend__dot" style="width: 12px; height: 12px; background:linear-gradient(135deg,#0ea5e9,#c2410c);"></span>后端服务</span>
+      <span class="legend__item"><span class="legend__dot" style="width: 12px; height: 12px; background:#475569;"></span>第三方依赖</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================================ 图 2 ================================ -->
+<div class="crop-guide">▲ 图 1 END · · · 图 2 · 用户注册登录与账号体系流程图 START ▼</div>
+<section class="chart">
+  <div class="chart__c-tr"></div><div class="chart__c-bl"></div>
+
+  <div class="chart__header">
+    <div>
+      <span class="chart__badge" style="background: linear-gradient(135deg,#10b981,#0d9488);">CHART 02 / 08</span>
+      <div class="chart__title">用户注册登录 · 账号体系流程图</div>
+      <div class="chart__subtitle">描述用户从进入 App 到完成账号认证并建立会话的完整业务流程</div>
+    </div>
+    <div class="chart__brand"><span class="chart__brand-icon">📱</span>RePhone Security</div>
+  </div>
+
+  <div class="chart__body" style="top: 142px; bottom: 12px;">
+    <!-- 泳道：3 条垂直（泳道标题 top +16，完全进到泳道内，避免盖住 header 的 subtitle） -->
+    <div class="lane lane--user"   style="top: 0; left: 18px; width: 228px; height: 560px;">
+      <div class="lane__title" style="top: 16px;">泳道 A · 用户</div>
+    </div>
+    <div class="lane lane--app"    style="top: 0; left: 272px;width: 280px; height: 560px;">
+      <div class="lane__title" style="top: 16px;">泳道 B · 客户端 App</div>
+    </div>
+    <div class="lane lane--server" style="top: 0; left: 576px;width: 420px; height: 560px;">
+      <div class="lane__title" style="top: 16px;">泳道 C · 后端服务 + 数据库</div>
+    </div>
+
+    <!-- 第 1 行：开始 → 展示登录页（节点 top 全部 +58，给泳道标题腾出 40+ 空间） -->
+    <div class="node node--startend" style="top: 88px; left: 52px;  width: 160px; height: 46px; font-size: 13px;">① 打开 App</div>
+    <div class="node node--step"     style="top: 88px; left: 310px; width: 200px; height: 46px; font-size: 13px;">② 展示登录/注册页</div>
+    <div class="node node--db"       style="top: 88px; left: 636px; width: 300px; height: 46px; font-size: 12px;">③ users 表等待查询/写入</div>
+
+    <!-- 第 2 行：输入邮箱 → 发送请求 → 查询是否已注册 -->
+    <div class="node node--io"       style="top: 174px; left: 46px;  width: 172px; height: 46px; font-size: 12px;">④ 输入邮箱地址</div>
+    <div class="node node--step"     style="top: 174px; left: 304px; width: 216px; height: 46px; font-size: 12px;">⑤ 提交邮箱至后端校验</div>
+    <div class="node node--decision" style="top: 164px; left: 616px; width: 340px; height: 84px; font-size: 13px;">⑥ 邮箱是否已注册？</div>
+
+    <!-- 第 3 行：新用户分支（验证码 vs 直接生成令牌） -->
+    <div class="node node--step-purple" style="top: 288px; left: 304px; width: 216px; height: 46px; font-size: 12px;">⑦ 发送 6 位邮箱验证码</div>
+    <div class="node node--step-orange" style="top: 288px; left: 614px; width: 160px; height: 46px; font-size: 12px;">新用户 · 暂存档案</div>
+    <div class="node node--step-pink"   style="top: 288px; left: 794px; width: 180px; height: 46px; font-size: 12px;">老用户 · 签发验证码</div>
+
+    <!-- 第 4 行：输入验证码 -->
+    <div class="node node--io"         style="top: 376px; left: 46px;  width: 172px; height: 46px; font-size: 12px;">⑧ 输入 6 位验证码</div>
+    <div class="node node--step"       style="top: 376px; left: 304px; width: 216px; height: 46px; font-size: 12px;">⑨ 提交验证码校验请求</div>
+    <div class="node node--decision"   style="top: 366px; left: 616px; width: 340px; height: 88px; font-size: 13px;">⑩ 验证码正确 & 未过期？</div>
+
+    <!-- 第 5 行：结果分支（整体再 +48 免得底部贴边） -->
+    <div class="node node--startend"   style="top: 496px; left: 56px;  width: 150px; height: 46px; font-size: 12px; background: linear-gradient(135deg, #dc2626, #991b1b);">⑪ 失败 · 重新输入</div>
+    <div class="node node--db"         style="top: 496px; left: 294px; width: 236px; height: 46px; font-size: 11.5px;">⑫ 写库：创建/更新用户档案</div>
+    <div class="node node--step-teal"  style="top: 496px; left: 562px; width: 224px; height: 46px; font-size: 12px;">⑬ 签发 JWT + 刷新令牌</div>
+    <div class="node node--startend"   style="top: 496px; left: 808px; width: 172px; height: 46px; font-size: 12px;">⑭ 进入首页 ✅</div>
+
+    <!-- 垂直箭头（同一泳道内向下） -->
+    <div class="arrow arrow--v" style="top: 134px; left: 132px; height: 40px;"></div>
+    <div class="arrow arrow--v" style="top: 134px; left: 410px; height: 40px;"></div>
+    <div class="arrow arrow--v" style="top: 248px; left: 132px; height: 128px;"></div>
+    <div class="arrow arrow--v" style="top: 220px; left: 410px; height: 68px;"></div>
+    <div class="arrow arrow--v" style="top: 334px; left: 410px; height: 42px;"></div>
+    <div class="arrow arrow--v" style="top: 454px; left: 410px; height: 42px;"></div>
+
+    <!-- 水平箭头（跨泳道） -->
+    <div class="arrow arrow--h" style="top: 111px;  left: 212px; width: 60px;"></div>
+    <div class="arrow arrow--h" style="top: 111px;  left: 552px; width: 60px;"></div>
+    <div class="arrow arrow--h" style="top: 197px;  left: 218px; width: 54px;"></div>
+    <div class="arrow arrow--h" style="top: 197px;  left: 520px; width: 60px;"></div>
+    <div class="arrow arrow--h" style="top: 399px;  left: 218px; width: 54px;"></div>
+    <div class="arrow arrow--h" style="top: 399px;  left: 520px; width: 60px;"></div>
+
+    <!-- ⑥ 判断的分支（下到第 3 行） -->
+    <div class="arrow arrow--v" style="top: 248px; left: 696px; height: 40px;"></div>
+
+    <!-- ⑩ 判断的分支 -->
+    <div class="arrow arrow--v" style="top: 454px; left: 656px; height: 42px;"></div>
+    <div class="arrow arrow--v" style="top: 454px; left: 888px; height: 42px;"></div>
+    <div class="arrow arrow--h" style="top: 519px; left: 786px; width: 22px;"></div>
+
+    <!-- 判断分支标签 -->
+    <span class="arrow-label arrow-label--no"  style="top: 266px; left: 644px; font-size: 10.5px;">否 · 新注册</span>
+    <span class="arrow-label"                 style="top: 266px; left: 830px; font-size: 10.5px;">是 · 已有账号</span>
+    <span class="arrow-label arrow-label--no"  style="top: 472px; left: 588px; font-size: 10.5px;">✗ 验证码错误</span>
+    <span class="arrow-label arrow-label--yes" style="top: 472px; left: 820px; font-size: 10.5px;">✓ 校验通过</span>
+
+    <!-- 图例 -->
+    <div class="legend" style="padding: 5px 9px; gap: 5px 10px; font-size: 10px;">
+      <span class="legend__item"><span class="legend__dot" style="width: 11px; height: 11px; background:linear-gradient(135deg,#10b981,#059669); border-radius:999px;"></span>开始/结束</span>
+      <span class="legend__item"><span class="legend__dot" style="width: 11px; height: 11px; background:linear-gradient(135deg,#f59e0b,#d97706);"></span>判断</span>
+      <span class="legend__item"><span class="legend__dot" style="width: 11px; height: 11px; background:linear-gradient(135deg,#06b6d4,#0891b2);"></span>用户输入</span>
+      <span class="legend__item"><span class="legend__dot" style="width: 11px; height: 11px; background:#475569;"></span>数据库</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================================ 图 3 ================================ -->
+<div class="crop-guide">▲ 图 2 END · · · 图 3 · 摄像头设备绑定部署流程图 START ▼</div>
+<section class="chart">
+  <div class="chart__c-tr"></div><div class="chart__c-bl"></div>
+
+  <div class="chart__header">
+    <div>
+      <span class="chart__badge" style="background: linear-gradient(135deg,#f97316,#dc2626);">CHART 03 / 08</span>
+      <div class="chart__title">闲置手机变身摄像头 · 设备绑定部署流程</div>
+      <div class="chart__subtitle">核心差异化业务：把两台手机（主手机 + 闲置手机）通过账号体系绑定为「监控端 + 摄像头端」</div>
+    </div>
+    <div class="chart__brand"><span class="chart__brand-icon">📱</span>RePhone Security</div>
+  </div>
+
+  <div class="chart__body" style="top: 130px;">
+    <!-- 横向主流程（时间轴式，高度从 720 → 900，所有节点 top +60） -->
+    <div class="node node--startend"   style="top: 60px;  left: 30px;  width: 120px; height: 52px;">① 开始</div>
+    <div class="node node--io"         style="top: 60px;  left: 180px; width: 210px; height: 52px;">主手机下载 App 登录</div>
+    <div class="node node--step"       style="top: 60px;  left: 420px; width: 210px; height: 52px;">闲置手机同账号登录</div>
+    <div class="node node--decision"   style="top: 56px;  left: 660px; width: 170px; height: 72px;">账号是否相同？</div>
+    <div class="node node--startend"   style="top: 60px;  left: 860px; width: 180px; height: 52px;">⑧ 开始使用 ✅</div>
+
+    <!-- 分支：摄像头端的子步骤（top +60） -->
+    <div class="node node--step-purple"  style="top: 236px; left: 420px; width: 210px; height: 48px;">授予摄像头 / 麦克风权限</div>
+    <div class="node node--step-orange"  style="top: 330px; left: 420px; width: 210px; height: 48px;">选择「摄像头模式」→ 生成设备 ID</div>
+    <div class="node node--server"       style="top: 424px; left: 420px; width: 210px; height: 48px;">上报设备信息 + 在线状态</div>
+    <div class="node node--db"           style="top: 518px; left: 420px; width: 210px; height: 48px;">MySQL.cameras 表写入绑定关系</div>
+
+    <!-- 分支：主手机端的子步骤（top +60） -->
+    <div class="node node--step-teal"    style="top: 236px; left: 180px; width: 210px; height: 48px;">点击「添加设备 / +」按钮</div>
+    <div class="node node--io"           style="top: 330px; left: 180px; width: 210px; height: 48px;">输入绑定码 / 扫描二维码</div>
+    <div class="node node--step-pink"    style="top: 424px; left: 180px; width: 210px; height: 48px;">为设备命名（如：客厅 / 婴儿房）</div>
+
+    <!-- 分支：服务器处理（top +60） -->
+    <div class="node node--step"         style="top: 236px; left: 660px; width: 220px; height: 48px;">校验令牌 + 建立设备归属</div>
+    <div class="node node--decision"     style="top: 326px; left: 660px; width: 220px; height: 80px;">绑定关系唯一性校验</div>
+    <div class="node node--step-orange"  style="top: 444px; left: 660px; width: 220px; height: 48px;">下发 WebSocket 在线通知</div>
+    <div class="node node--step-purple"  style="top: 538px; left: 660px; width: 220px; height: 48px;">主手机首页刷新设备列表</div>
+
+    <!-- 箭头：主流程水平 -->
+    <div class="arrow arrow--h" style="top: 86px; left: 150px; width: 30px;"></div>
+    <div class="arrow arrow--h" style="top: 86px; left: 390px; width: 30px;"></div>
+    <div class="arrow arrow--h" style="top: 86px; left: 630px; width: 30px;"></div>
+    <div class="arrow arrow--h" style="top: 86px; left: 830px; width: 30px;"></div>
+
+    <!-- 箭头：下钻子步骤（+60 下移） -->
+    <div class="arrow arrow--v" style="top: 112px; left: 285px; height: 124px;"></div>
+    <div class="arrow arrow--v" style="top: 284px; left: 285px; height: 46px;"></div>
+    <div class="arrow arrow--v" style="top: 378px; left: 285px; height: 46px;"></div>
+
+    <div class="arrow arrow--v" style="top: 112px; left: 525px; height: 124px;"></div>
+    <div class="arrow arrow--v" style="top: 284px; left: 525px; height: 46px;"></div>
+    <div class="arrow arrow--v" style="top: 378px; left: 525px; height: 46px;"></div>
+    <div class="arrow arrow--v" style="top: 472px; left: 525px; height: 46px;"></div>
+
+    <div class="arrow arrow--v" style="top: 128px; left: 770px; height: 108px;"></div>
+    <div class="arrow arrow--v" style="top: 284px; left: 770px; height: 42px;"></div>
+    <div class="arrow arrow--v" style="top: 406px; left: 770px; height: 38px;"></div>
+    <div class="arrow arrow--v" style="top: 492px; left: 770px; height: 46px;"></div>
+
+    <!-- 回到主流程 8 的箭头 -->
+    <div class="arrow arrow--h" style="top: 562px; left: 880px; height: 12px; transform:rotate(-90deg); transform-origin: left top;"></div>
+    <div class="arrow arrow--v" style="top: 586px; left: 880px; height: 32px; background: transparent;"></div>
+    <!-- 从 4.主手机刷新、2.DB 写入 连到最后 -->
+    <span class="arrow-label arrow-label--yes" style="top: 576px; left: 480px;">绑定成功 → 主手机设备列表刷新</span>
+
+    <span class="arrow-label arrow-label--no"  style="top: 80px;  left: 692px;">否 · 禁止绑定</span>
+    <span class="arrow-label arrow-label--yes" style="top: 96px;  left: 842px;">✓</span>
+  </div>
+</section>
+
+<!-- ================================ 图 4 ================================ -->
+<div class="crop-guide">▲ 图 3 END · · · 图 4 · 实时监控 WebRTC 连接业务交互图 START ▼</div>
+<section class="chart">
+  <div class="chart__c-tr"></div><div class="chart__c-bl"></div>
+
+  <div class="chart__header">
+    <div>
+      <span class="chart__badge" style="background: linear-gradient(135deg,#8b5cf6,#4f46e5);">CHART 04 / 08</span>
+      <div class="chart__title">实时监控观看 · WebRTC 连接交互时序图</div>
+      <div class="chart__subtitle">核心功能交互：用户点击设备到建立 P2P 视频通话的端到端协作流程</div>
+    </div>
+    <div class="chart__brand"><span class="chart__brand-icon">📱</span>RePhone Security</div>
+  </div>
+
+  <div class="chart__body" style="top: 142px; bottom: 12px;">
+    <!-- 5 根泳道 竖线（泳道标题下移 16，给 subtitle 腾空间） -->
+    <div class="lane lane--app"    style="top: 0; left: 0;   width: 176px; height: 560px;">
+      <div class="lane__title" style="top: 16px;">A. 监控端 App</div>
+    </div>
+    <div class="lane lane--server" style="top: 0; left: 216px;width: 176px; height: 560px;">
+      <div class="lane__title" style="top: 16px;">B. WebSocket 信令</div>
+    </div>
+    <div class="lane lane--server" style="top: 0; left: 432px;width: 176px; height: 560px;">
+      <div class="lane__title" style="top: 16px;">C. 摄像头端 App</div>
+    </div>
+    <div class="lane lane--third"  style="top: 0; left: 648px;width: 176px; height: 560px;">
+      <div class="lane__title" style="top: 16px;">D. STUN 服务</div>
+    </div>
+    <div class="lane lane--third"  style="top: 0; left: 864px;width: 176px; height: 560px;">
+      <div class="lane__title" style="top: 16px;">E. TURN 中继</div>
+    </div>
+
+    <!-- 步骤节点（每步一行，top +60 腾标题空间） -->
+    <!-- Step 1 -->
+    <div class="node node--io"    style="top: 90px;  left: 22px; width: 136px; height: 42px;">① 点击设备卡片「观看」</div>
+    <div class="node node--step"  style="top: 90px;  left: 236px;width: 136px; height: 42px;">② createOffer 转发 SDP</div>
+    <div class="node node--step-purple" style="top: 90px; left: 452px; width: 136px; height: 42px;">③ setRemoteDescription</div>
+    <!-- Step 4 -->
+    <div class="node node--step"  style="top: 160px; left: 452px; width: 136px; height: 42px;">④ createAnswer 回传 SDP</div>
+    <div class="node node--step-orange" style="top: 160px; left: 236px; width: 136px; height: 42px;">⑤ 双向转发 Answer</div>
+    <div class="node node--step-teal" style="top: 160px; left: 22px; width: 136px; height: 42px;">⑥ setRemoteDescription</div>
+    <!-- Step 7-9 ICE -->
+    <div class="node node--step-pink" style="top: 232px; left: 22px; width: 136px; height: 42px;">⑦ 收集本机 ICE 候选</div>
+    <div class="node node--step-pink" style="top: 232px; left: 452px; width: 136px; height: 42px;">⑨ 收集本机 ICE 候选</div>
+    <div class="node node--db" style="top: 232px; left: 666px; width: 140px; height: 42px;">⑧ STUN：获取公网 IP+端口</div>
+    <!-- Step 10 交换 -->
+    <div class="node node--decision" style="top: 306px; left: 234px; width: 156px; height: 72px;">⑩ P2P 连通性是否可达？</div>
+    <!-- 分支：是 -->
+    <div class="node node--step-teal"  style="top: 412px; left: 40px;  width: 120px; height: 42px;">⑪ P2P 直连推流</div>
+    <div class="node node--step-teal"  style="top: 412px; left: 460px; width: 120px; height: 42px;">⑪ 音视频直接传输</div>
+    <!-- 分支：否 -->
+    <div class="node node--step-orange" style="top: 412px; left: 882px; width: 136px; height: 42px;">⑫ 启用 TURN 中继</div>
+    <div class="node node--step-orange" style="top: 484px; left: 882px; width: 136px; height: 42px;">⑬ 音视频加密封装转发</div>
+    <!-- 最终呈现 -->
+    <div class="node node--startend" style="top: 496px; left: 40px;  width: 120px; height: 48px;">⑭ 画面出现 ✅</div>
+    <div class="node node--startend" style="top: 496px; left: 760px; width: 110px; height: 48px;">⑮ 双向对讲可用</div>
+
+    <!-- 横向箭头（时序） -->
+    <div class="arrow arrow--h" style="top: 111px;  left: 158px; width: 78px;"></div>
+    <div class="arrow arrow--h" style="top: 111px;  left: 372px; width: 80px;"></div>
+
+    <!-- 返回方向箭头 -->
+    <div class="arrow arrow--h" style="top: 181px; left: 588px; width: 218px; transform: scaleX(-1);"></div>
+    <div class="arrow arrow--h" style="top: 181px; left: 372px; width: 216px; transform: scaleX(-1);"></div>
+
+    <!-- 判断分支 -->
+    <span class="arrow-label arrow-label--yes" style="top: 378px; left: 100px;">✓ 直连</span>
+    <span class="arrow-label arrow-label--no"  style="top: 386px; left: 880px;">✗ NAT 不通</span>
+
+    <!-- 图例 -->
+    <div class="legend">
+      <span class="legend__item"><span class="legend__dot" style="background:linear-gradient(135deg,#06b6d4,#0891b2);"></span>用户动作</span>
+      <span class="legend__item"><span class="legend__dot" style="background:linear-gradient(135deg,#3b82f6,#2563eb);"></span>信令交互</span>
+      <span class="legend__item"><span class="legend__dot" style="background:linear-gradient(135deg,#14b8a6,#0d9488);"></span>P2P 直连</span>
+      <span class="legend__item"><span class="legend__dot" style="background:linear-gradient(135deg,#f97316,#ea580c);"></span>TURN 中继</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================================ 图 5 ================================ -->
+<div class="crop-guide">▲ 图 4 END · · · 图 5 · 智能告警推送业务流程图 START ▼</div>
+<section class="chart">
+  <div class="chart__c-tr"></div><div class="chart__c-bl"></div>
+
+  <div class="chart__header">
+    <div>
+      <span class="chart__badge" style="background: linear-gradient(135deg,#ef4444,#b91c1c);">CHART 05 / 08</span>
+      <div class="chart__title">AI 智能检测 · 异动告警推送流程图</div>
+      <div class="chart__subtitle">摄像头端检测人体/异常声音 → 生成事件 → 云端存储 → 推送通知到主手机的完整业务链路</div>
+    </div>
+    <div class="chart__brand"><span class="chart__brand-icon">📱</span>RePhone Security</div>
+  </div>
+
+  <div class="chart__body" style="top: 130px;">
+    <!-- 流程（从左到右再向下） -->
+    <div class="node node--startend" style="top: 40px; left: 30px; width: 160px; height: 52px;">① 摄像头端后台运行</div>
+    <div class="node node--step"     style="top: 40px; left: 230px; width: 200px; height: 52px;">② 持续采集 YUV 帧 + PCM 音频</div>
+    <div class="node node--step-purple" style="top: 40px; left: 470px; width: 230px; height: 52px;">③ 本地 AI 推理（人体/移动/人声识别）</div>
+    <div class="node node--decision" style="top: 36px; left: 736px; width: 180px; height: 76px;">④ 置信度 ≥ 阈值？</div>
+    <div class="node node--startend" style="top: 40px; left: 950px; width: 90px; height: 52px;">无事件 · 等待</div>
+
+    <!-- 下分支 -->
+    <div class="node node--step-orange" style="top: 200px; left: 730px; width: 200px; height: 48px;">⑤ 生成告警事件 + 时间戳</div>
+    <div class="node node--io"       style="top: 290px; left: 730px; width: 200px; height: 48px;">⑥ 抓取事件前后关键帧 / 片段</div>
+    <div class="node node--step-teal" style="top: 380px; left: 730px; width: 200px; height: 48px;">⑦ 加密上传到对象存储</div>
+    <div class="node node--db"       style="top: 470px; left: 730px; width: 200px; height: 48px;">⑧ events 表写入索引记录</div>
+
+    <!-- 左侧推送路径 -->
+    <div class="node node--step-pink"  style="top: 200px; left: 450px; width: 220px; height: 48px;">⑨ 调用推送服务（APNs/FCM）</div>
+    <div class="node node--step"       style="top: 290px; left: 450px; width: 220px; height: 48px;">⑩ 主手机收到通知（有人出现）</div>
+    <div class="node node--decision"   style="top: 378px; left: 450px; width: 220px; height: 76px;">⑪ 用户是否点击通知？</div>
+    <div class="node node--io"         style="top: 504px; left: 450px; width: 220px; height: 48px;">⑫ 进入告警详情 + 立即拉流</div>
+
+    <!-- 云端录像侧 -->
+    <div class="node node--step-orange" style="top: 200px; left: 120px; width: 270px; height: 48px;">⑬ 会员用户 → 自动写入云端录像</div>
+    <div class="node node--decision"   style="top: 290px; left: 120px; width: 270px; height: 76px;">⑭ 会员状态是否有效？</div>
+    <div class="node node--db"         style="top: 416px; left: 120px; width: 270px; height: 48px;">⑮ 按 7 / 30 天策略循环留存</div>
+    <div class="node node--startend"   style="top: 512px; left: 120px; width: 270px; height: 48px;">⑯ 用户可回看检测片段列表</div>
+
+    <!-- 主路径箭头 -->
+    <div class="arrow arrow--h" style="top: 66px; left: 190px; width: 40px;"></div>
+    <div class="arrow arrow--h" style="top: 66px; left: 430px; width: 40px;"></div>
+    <div class="arrow arrow--h" style="top: 66px; left: 700px; width: 36px;"></div>
+    <div class="arrow arrow--h" style="top: 66px; left: 916px; width: 34px;"></div>
+
+    <div class="arrow arrow--v" style="top: 112px; left: 820px; height: 88px;"></div>
+    <div class="arrow arrow--v" style="top: 248px; left: 820px; height: 42px;"></div>
+    <div class="arrow arrow--v" style="top: 338px; left: 820px; height: 42px;"></div>
+    <div class="arrow arrow--v" style="top: 428px; left: 820px; height: 42px;"></div>
+
+    <!-- 到 推送服务/会员路径 的横箭头 -->
+    <div class="arrow arrow--h" style="top: 224px; left: 670px; width: 60px; transform: scaleX(-1);"></div>
+    <div class="arrow arrow--h" style="top: 224px; left: 390px; width: 60px; transform: scaleX(-1);"></div>
+
+    <div class="arrow arrow--v" style="top: 248px; left: 560px; height: 42px;"></div>
+    <div class="arrow arrow--v" style="top: 338px; left: 560px; height: 40px;"></div>
+    <div class="arrow arrow--v" style="top: 454px; left: 560px; height: 50px;"></div>
+
+    <span class="arrow-label arrow-label--no"  style="top: 60px;  left: 940px;">否</span>
+    <span class="arrow-label arrow-label--yes" style="top: 156px; left: 760px;">是 · 告警触发</span>
+    <span class="arrow-label arrow-label--yes" style="top: 460px; left: 384px;">点击 ✓</span>
+    <span class="arrow-label arrow-label--yes" style="top: 332px; left: 156px;">✓ 会员有效</span>
+
+  </div>
+</section>
+
+<!-- ================================ 图 6 ================================ -->
+<div class="crop-guide">▲ 图 5 END · · · 图 6 · 会员订阅付费与权益核销流程图 START ▼</div>
+<section class="chart">
+  <div class="chart__c-tr"></div><div class="chart__c-bl"></div>
+
+  <div class="chart__header">
+    <div>
+      <span class="chart__badge" style="background: linear-gradient(135deg,#f59e0b,#92400e);">CHART 06 / 08</span>
+      <div class="chart__title">会员订阅付费 · 订单核销与权益发放流程图</div>
+      <div class="chart__subtitle">商业化运营核心流程：多平台下单 → 服务端回调 → 权益发放 → 云端录像解锁</div>
+    </div>
+    <div class="chart__brand"><span class="chart__brand-icon">📱</span>RePhone Security</div>
+  </div>
+
+  <div class="chart__body" style="top: 142px; bottom: 12px;">
+    <!-- 四泳道（泳道标题 top +16，不再盖住 subtitle） -->
+    <div class="lane lane--user"   style="top: 0; left: 12px; width: 200px; height: 560px;">
+      <div class="lane__title" style="top: 16px;">A · 用户（主手机）</div>
+    </div>
+    <div class="lane lane--app"    style="top: 0; left: 232px;width: 212px; height: 560px;">
+      <div class="lane__title" style="top: 16px;">B · 客户端 App</div>
+    </div>
+    <div class="lane lane--server" style="top: 0; left: 466px;width: 260px; height: 560px;">
+      <div class="lane__title" style="top: 16px;">C · 业务后端 + DB</div>
+    </div>
+    <div class="lane lane--third"  style="top: 0; left: 748px;width: 276px; height: 560px;">
+      <div class="lane__title" style="top: 16px;">D · 支付平台</div>
+    </div>
+
+    <!-- 第 1 行：进入会员中心 → 请求产品 → 返回套餐（top 统一 +56 给泳道标题腾空间） -->
+    <div class="node node--io"         style="top: 84px; left: 28px;  width: 172px; height: 44px; font-size: 12px;">① 进入「会员中心」</div>
+    <div class="node node--step"       style="top: 84px; left: 252px; width: 172px; height: 44px; font-size: 12px;">② 请求产品列表</div>
+    <div class="node node--db"         style="top: 84px; left: 478px; width: 236px; height: 44px; font-size: 12px;">③ 返回 7 天 / 30 天套餐</div>
+
+    <!-- 第 2 行：选择套餐 + 展示产品 -->
+    <div class="node node--io"         style="top: 162px; left: 28px;  width: 172px; height: 44px; font-size: 12px;">④ 选择套餐点击购买</div>
+    <div class="node node--decision"   style="top: 152px;  left: 246px; width: 184px; height: 76px; font-size: 12.5px;">⑤ 地区判断？</div>
+    <div class="node node--step"       style="top: 162px; left: 478px; width: 236px; height: 44px; font-size: 12px;">⑥ 创建待支付订单</div>
+    <div class="node node--step-purple" style="top: 152px;  left: 760px; width: 248px; height: 44px; font-size: 12px;">海外：Apple / GP 下单</div>
+    <div class="node node--step-orange" style="top: 216px; left: 760px; width: 248px; height: 44px; font-size: 12px;">国内：微信支付 V3 下单</div>
+
+    <!-- 第 3 行：用户确认支付 -->
+    <div class="node node--io"         style="top: 278px; left: 28px;  width: 172px; height: 44px; font-size: 12px;">⑦ 指纹 / 密码 确认支付</div>
+    <div class="node node--step-orange" style="top: 278px; left: 252px; width: 172px; height: 44px; font-size: 11.5px;">⑧ 支付成功 → 调 /verify 兜底</div>
+    <div class="node node--decision"   style="top: 268px; left: 462px; width: 268px; height: 84px; font-size: 12.5px;">⑨ 支付结果核验（8 次退避）</div>
+
+    <!-- 第 4 行：平台异步回调 notify + verify 主动查单 -->
+    <div class="node node--step-teal"  style="top: 388px; left: 760px; width: 248px; height: 44px; font-size: 12px;">⑩ 异步回调 notify_url</div>
+    <div class="node node--step-pink"  style="top: 388px; left: 478px; width: 236px; height: 44px; font-size: 12px;">⑪ 签名校验 + 幂等去重</div>
+
+    <!-- 第 5 行：最终判断 -->
+    <div class="node node--decision"  style="top: 456px; left: 462px; width: 268px; height: 84px; font-size: 12.5px;">⑫ 真实支付成功？</div>
+
+    <!-- 第 6 行：最终结果（最后一行贴底） -->
+    <div class="node node--db"        style="top: 528px; left: 346px; width: 240px; height: 42px; font-size: 11.5px;">⑬ subscriptions 续期 expire_time</div>
+    <div class="node node--startend"  style="top: 528px; left: 106px; width: 210px; height: 42px; font-size: 12px;">⑭ 会员权益已解锁 🔓</div>
+    <div class="node node--startend"  style="top: 528px; left: 776px; width: 208px; height: 42px; font-size: 12px; background: linear-gradient(135deg, #dc2626, #991b1b);">失败 · 用户联系客服</div>
+
+    <!-- 垂直箭头（同步整体下移） -->
+    <div class="arrow arrow--v" style="top: 128px; left: 114px; height: 34px;"></div>
+    <div class="arrow arrow--v" style="top: 128px; left: 338px; height: 24px;"></div>
+    <div class="arrow arrow--v" style="top: 128px; left: 596px; height: 34px;"></div>
+    <div class="arrow arrow--v" style="top: 206px; left: 114px; height: 72px;"></div>
+    <div class="arrow arrow--v" style="top: 228px; left: 338px; height: 50px;"></div>
+    <div class="arrow arrow--v" style="top: 322px; left: 884px; height: 66px;"></div>
+    <div class="arrow arrow--v" style="top: 352px; left: 596px; height: 36px;"></div>
+    <div class="arrow arrow--v" style="top: 432px; left: 596px; height: 24px;"></div>
+
+    <!-- 水平箭头 跨泳道 -->
+    <div class="arrow arrow--h" style="top: 106px;  left: 200px; width: 32px;"></div>
+    <div class="arrow arrow--h" style="top: 106px;  left: 444px; width: 22px;"></div>
+    <div class="arrow arrow--h" style="top: 184px;  left: 200px; width: 32px;"></div>
+    <div class="arrow arrow--h" style="top: 184px;  left: 444px; width: 22px;"></div>
+    <div class="arrow arrow--h" style="top: 184px;  left: 736px; width: 24px;"></div>
+    <div class="arrow arrow--h" style="top: 238px;  left: 714px; width: 22px; transform: scaleX(-1);"></div>
+    <div class="arrow arrow--h" style="top: 300px;  left: 200px; width: 32px;"></div>
+    <div class="arrow arrow--h" style="top: 300px;  left: 444px; width: 22px;"></div>
+    <div class="arrow arrow--h" style="top: 410px;  left: 736px; width: 24px; transform: scaleX(-1);"></div>
+
+    <div class="arrow arrow--h" style="top: 549px; left: 316px; width: 30px; transform: scaleX(-1);"></div>
+    <div class="arrow arrow--h" style="top: 549px; left: 586px; width: 190px;"></div>
+
+    <!-- 分支标签 -->
+    <span class="arrow-label"                 style="top: 202px; left: 256px; font-size: 10.5px;">海外版</span>
+    <span class="arrow-label arrow-label--yes" style="top: 232px; left: 696px; font-size: 10.5px;">国内版</span>
+    <span class="arrow-label arrow-label--yes" style="top: 516px; left: 406px; font-size: 10.5px;">✓ 支付成功 → 续期</span>
+    <span class="arrow-label arrow-label--no"  style="top: 518px; left: 670px; font-size: 10.5px;">✗ 失败</span>
+  </div>
+</section>
+
+<!-- ================================ 图 7 ================================ -->
+<div class="crop-guide">▲ 图 6 END · · · 图 7 · 核心页面交互跳转关系图 START ▼</div>
+<section class="chart">
+  <div class="chart__c-tr"></div><div class="chart__c-bl"></div>
+
+  <div class="chart__header">
+    <div>
+      <span class="chart__badge" style="background: linear-gradient(135deg,#3b82f6,#1e3a8a);">CHART 07 / 08</span>
+      <div class="chart__title">App 核心页面 · 交互跳转关系图</div>
+      <div class="chart__subtitle">从启动到各业务场景的主要页面流转关系（产品交互设计图）</div>
+    </div>
+    <div class="chart__brand"><span class="chart__brand-icon">📱</span>RePhone Security</div>
+  </div>
+
+  <div class="chart__body" style="top: 130px;">
+    <!-- 页面 mockup（画布 900 高，启动页与判断节点拉开距离避免重叠） -->
+    <div class="screen" style="top: 20px; left: 454px;">
+      <div class="screen__notch"></div>
+      <div class="screen__inner">
+        <div class="screen__title">启动页</div>
+        <div class="screen__row" style="text-align:center; padding: 20px 0;">📱 RePhone</div>
+      </div>
+    </div>
+
+    <div class="screen" style="top: 300px; left: 60px;">
+      <div class="screen__notch"></div>
+      <div class="screen__inner">
+        <div class="screen__title">登录 / 注册</div>
+        <div class="screen__row">📧 邮箱地址输入</div>
+        <div class="screen__row">🔑 验证码输入</div>
+      </div>
+    </div>
+
+    <div class="screen" style="top: 300px; left: 230px;">
+      <div class="screen__notch"></div>
+      <div class="screen__inner">
+        <div class="screen__title">首页（设备列表）</div>
+        <div class="screen__row">🟢 HUAWEI 客厅 · Online</div>
+        <div class="screen__row">🟡 iPhone · Bedroom</div>
+        <div class="screen__row">＋ 添加设备按钮</div>
+      </div>
+    </div>
+
+    <div class="screen" style="top: 300px; left: 400px;">
+      <div class="screen__notch"></div>
+      <div class="screen__inner">
+        <div class="screen__title">实时监控页</div>
+        <div class="screen__row" style="height: 40px; background:#000;"></div>
+        <div class="screen__row">🎤 🔊 ● REC</div>
+      </div>
+    </div>
+
+    <div class="screen" style="top: 300px; left: 570px;">
+      <div class="screen__notch"></div>
+      <div class="screen__inner">
+        <div class="screen__title">云端回放页</div>
+        <div class="screen__row">08:44:44 · 人体移动</div>
+        <div class="screen__row">08:26:43 · 检测片段</div>
+      </div>
+    </div>
+
+    <div class="screen" style="top: 300px; left: 740px;">
+      <div class="screen__notch"></div>
+      <div class="screen__inner">
+        <div class="screen__title">告警消息中心</div>
+        <div class="screen__row">🔔 新告警 · 客厅 有人</div>
+        <div class="screen__row">🕘 2 分钟前 · 08:44</div>
+      </div>
+    </div>
+
+    <div class="screen" style="top: 300px; left: 910px;">
+      <div class="screen__notch"></div>
+      <div class="screen__inner">
+        <div class="screen__title">会员中心</div>
+        <div class="screen__row">💎 7 天云端 / ¥28/月</div>
+        <div class="screen__row">💎 30 天云端 / ¥68/月</div>
+      </div>
+    </div>
+
+    <!-- 底部 2 个辅助页面（下移 +80） -->
+    <div class="screen" style="top: 560px; left: 300px;">
+      <div class="screen__notch"></div>
+      <div class="screen__inner">
+        <div class="screen__title">设置 / 个人中心</div>
+        <div class="screen__row">👤 账号信息</div>
+        <div class="screen__row">📄 用户协议 · 隐私</div>
+        <div class="screen__row">📨 联系客服</div>
+      </div>
+    </div>
+    <div class="screen" style="top: 560px; left: 660px;">
+      <div class="screen__notch"></div>
+      <div class="screen__inner">
+        <div class="screen__title">设备设置</div>
+        <div class="screen__row">🔤 修改设备名</div>
+        <div class="screen__row">⚙ 检测灵敏度</div>
+        <div class="screen__row">🔊 告警声音开关</div>
+      </div>
+    </div>
+
+    <!-- 启动 → 登录 判断是否已登录（菱形，下移 +60 避免与启动页重叠） -->
+    <div class="node node--decision" style="top: 160px; left: 436px; width: 180px; height: 76px;">已有登录态？</div>
+    <span class="arrow-label arrow-label--no"  style="top: 318px; left: 90px;">否</span>
+    <span class="arrow-label arrow-label--yes" style="top: 260px; left: 326px;">是 → 进首页</span>
+
+    <!-- 首页 辐射到周边 5 个页面 -->
+    <div class="node node--step-teal"  style="top: 546px; left: 520px; width: 100px; height: 32px; font-size: 11px;">Tab 切换</div>
+
+    <!-- 箭头（同步下移 +60） -->
+    <div class="arrow arrow--v" style="top: 236px; left: 524px; height: 64px;"></div>
+    <div class="arrow arrow--h" style="top: 198px; left: 300px; width: 136px;"></div>
+    <div class="arrow arrow--h" style="top: 198px; left: 190px; width: 110px;"></div>
+
+    <!-- 首页 -> 实时监控 / 回放 / 告警 / 会员 / 设置 -->
+    <div class="arrow arrow--h" style="top: 400px; left: 188px; width: 212px;"></div>
+    <div class="arrow arrow--h" style="top: 400px; left: 358px; width: 42px;"></div>
+    <div class="arrow arrow--h" style="top: 400px; left: 528px; width: 42px;"></div>
+    <div class="arrow arrow--h" style="top: 400px; left: 698px; width: 42px;"></div>
+    <div class="arrow arrow--h" style="top: 400px; left: 868px; width: 42px;"></div>
+
+    <!-- 首页 <-> 设置 / 设备设置 -->
+    <div class="arrow arrow--v" style="top: 480px; left: 302px; height: 80px;"></div>
+    <div class="arrow arrow--v" style="top: 480px; left: 732px; height: 80px;"></div>
+
+    <div class="legend">
+      <span class="legend__item"><span class="legend__dot" style="background:linear-gradient(135deg,#6366f1,#2563eb);"></span>启动入口</span>
+      <span class="legend__item"><span class="legend__dot" style="background:#f59e0b; transform:rotate(45deg);"></span>条件判断</span>
+      <span class="legend__item"><span class="legend__dot" style="background:#fff; border:2px solid #334155;"></span>核心页面</span>
+      <span class="legend__item"><span class="legend__dot" style="background:#14b8a6;"></span>底部 Tab</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================================ 图 8 ================================ -->
+<div class="crop-guide">▲ 图 7 END · · · 图 8 · 隐私与数据安全合规流程图 START ▼</div>
+<section class="chart">
+  <div class="chart__c-tr"></div><div class="chart__c-bl"></div>
+
+  <div class="chart__header">
+    <div>
+      <span class="chart__badge" style="background: linear-gradient(135deg,#0ea5e9,#155e75);">CHART 08 / 08</span>
+      <div class="chart__title">用户隐私与数据安全 · 合规流程图</div>
+      <div class="chart__subtitle">展示用户数据从采集、传输、存储到删除的全生命周期合规处理逻辑（过审核心）</div>
+    </div>
+    <div class="chart__brand"><span class="chart__brand-icon">📱</span>RePhone Security</div>
+  </div>
+
+  <div class="chart__body" style="top: 130px;">
+    <!-- 数据生命周期 6 大阶段（整体下移 80px，在 900 高度画布居中） -->
+    <div class="node node--startend"  style="top: 110px; left: 30px;  width: 150px; height: 56px;">① 用户首次启动</div>
+    <div class="node node--io"        style="top: 110px; left: 210px; width: 180px; height: 56px;">② 弹窗展示：隐私协议 + 服务条款</div>
+    <div class="node node--decision" style="top: 108px; left: 418px; width: 180px; height: 70px;">③ 用户是否同意？</div>
+    <div class="node node--startend" style="top: 110px; left: 626px; width: 170px; height: 56px;">拒绝 → 退出 App</div>
+
+    <div class="node node--step"       style="top: 220px; left: 420px; width: 190px; height: 48px;">④ 权限分级申请</div>
+    <div class="node node--step-orange" style="top: 296px; left: 212px; width: 190px; height: 48px;">⑤ 摄像头 / 麦克风授权</div>
+    <div class="node node--step-orange" style="top: 296px; left: 628px; width: 190px; height: 48px;">⑥ 相册 / 通知授权</div>
+
+    <div class="node node--step-purple" style="top: 380px; left: 30px;  width: 230px; height: 48px;">⑦ 传输加密：TLS + DTLS-SRTP</div>
+    <div class="node node--step-purple" style="top: 380px; left: 300px; width: 230px; height: 48px;">⑧ 默认不保存音视频到服务器</div>
+    <div class="node node--step-purple" style="top: 380px; left: 570px; width: 230px; height: 48px;">⑨ 云端录像 AES 加密存储</div>
+    <div class="node node--step-teal"   style="top: 380px; left: 840px; width: 170px; height: 48px;">⑩ 本地录像存相册</div>
+
+    <div class="node node--decision"    style="top: 464px; left: 386px; width: 260px; height: 74px;">⑪ 用户是否发起删除？</div>
+    <div class="node node--db"          style="top: 564px; left: 100px; width: 250px; height: 48px;">⑫ DB 账号注销 / 录像硬删除</div>
+    <div class="node node--db"          style="top: 564px; left: 400px; width: 250px; height: 48px;">⑬ 对象存储内文件物理删除</div>
+    <div class="node node--startend"    style="top: 564px; left: 720px; width: 250px; height: 48px;">⑭ 通知用户删除完成 ✅</div>
+
+    <!-- 节点间箭头（同步 +80） -->
+    <div class="arrow arrow--h" style="top: 138px; left: 180px; width: 30px;"></div>
+    <div class="arrow arrow--h" style="top: 138px; left: 390px; width: 28px;"></div>
+    <div class="arrow arrow--h" style="top: 138px; left: 598px; width: 28px;"></div>
+
+    <div class="arrow arrow--v" style="top: 178px; left: 506px; height: 42px;"></div>
+    <div class="arrow arrow--v" style="top: 268px; left: 506px; height: 28px;"></div>
+    <div class="arrow arrow--h" style="top: 320px; left: 402px; width: 16px;"></div>
+    <div class="arrow arrow--h" style="top: 320px; left: 608px; width: 20px;"></div>
+
+    <div class="arrow arrow--v" style="top: 344px; left: 142px; height: 36px;"></div>
+    <div class="arrow arrow--v" style="top: 344px; left: 414px; height: 36px;"></div>
+    <div class="arrow arrow--v" style="top: 344px; left: 684px; height: 36px;"></div>
+    <div class="arrow arrow--v" style="top: 344px; left: 924px; height: 36px;"></div>
+
+    <!-- 下到 判断删除 -->
+    <div class="arrow arrow--h" style="top: 428px; left: 258px; width: 128px; transform: scaleX(-1);"></div>
+    <div class="arrow arrow--h" style="top: 428px; left: 528px; width: 128px; transform: scaleX(-1);"></div>
+    <div class="arrow arrow--h" style="top: 428px; left: 798px; width: 42px;  transform: scaleX(-1);"></div>
+
+    <div class="arrow arrow--v" style="top: 538px; left: 224px; height: 26px;"></div>
+    <div class="arrow arrow--v" style="top: 538px; left: 524px; height: 26px;"></div>
+    <div class="arrow arrow--v" style="top: 538px; left: 844px; height: 26px;"></div>
+
+    <span class="arrow-label arrow-label--no"  style="top: 142px; left: 640px;">否 · 拒绝</span>
+    <span class="arrow-label arrow-label--yes" style="top: 196px; left: 440px;">✓ 同意</span>
+    <span class="arrow-label arrow-label--yes" style="top: 516px; left: 156px;">是 · 注销/删除</span>
+  </div>
+</section>
+
+<div class="crop-guide">▲ 图 8 END · 全部 8 张业务流程图导出完成 ▲</div>
+
+</body>
+</html>

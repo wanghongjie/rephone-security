@@ -6,7 +6,7 @@ import 'flavors/app_env.dart';
 import 'flavors/env_config.dart';
 import 'flavors/features/ad_service_china.dart';
 import 'flavors/features/crash_service_noop.dart';
-import 'flavors/features/iap_service_noop.dart';
+import 'flavors/features/iap_service_china.dart';
 import 'flavors/features/push_service_noop.dart';
 import 'l10n/app_localizations.dart';
 import 'services/mediation_service.dart';
@@ -17,7 +17,8 @@ import 'utils/log_utils.dart';
 ///
 /// - 注入 [chinaEnvConfig] / [chinaFeatureToggles]
 /// - 不初始化 Firebase / Crashlytics / Google Mobile Ads
-/// - 崩溃/推送/内购使用 noop 实现；广告优先使用 Pangle（若 Pangle SDK 初始化由 MediationService 负责。
+/// - 崩溃/推送使用 noop 实现；广告优先使用 Pangle；**支付接入微信 APP 支付**
+///   （[ChinaWechatIapService] 封装了服务端下单 + SDK 调起 + 轮询兜底全链路）。
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -33,7 +34,7 @@ Future<void> main() async {
     features: toggles,
     crash: NoopCrashService(),
     push: NoopPushService(),
-    iap: NoopIapService(enabled: toggles.enableInAppPurchase),
+    iap: ChinaWechatIapService(enabled: toggles.enableWechatPay),
     ads: ChinaPangleAdService(enablePangle: toggles.enablePangleAds),
   );
 
