@@ -44,9 +44,6 @@ dependencies:
   path_provider: ^2.1.2
   permission_handler: ^11.3.1
   gallery_saver_plus: ^3.2.9
-  # NOTE: google_mobile_ads ^6+ requires Dart >= 3.6.0. This project currently uses Dart 3.5.x,
-  # so we let pub choose the newest compatible version. Upgrade Flutter/Dart to use ^7.0.0.
-  google_mobile_ads: any
   qr_flutter: ^4.1.0
   qr_code_scanner: ^1.0.1
   webview_flutter: ^4.10.0
@@ -63,6 +60,7 @@ dependencies:
   in_app_purchase_android: ^0.4.0+8
   in_app_purchase_storekit: ^0.3.0
   firebase_crashlytics: ^5.0.8
+  google_mobile_ads: any
   tflite_flutter: ^0.12.1
   package_info_plus: ^8.0.2
   fluwx: ^6.0.2
