@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../flavors/app_env.dart';
+import '../flavors/env_config.dart';
 import '../services/session_manager.dart';
 import '../services/auth_api.dart';
 import '../l10n/app_localizations.dart';
@@ -19,23 +21,25 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final isChina = AppEnv.config.market == Market.china;
     return Scaffold(
       appBar: AppBar(
         title: Text(l.settingsGeneral),
       ),
       body: ListView(
         children: [
-          _buildSettingItem(
-            icon: Icons.language,
-            title: l.settingsLanguage,
-            subtitle: _buildLanguageSubtitle(l),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const LanguageSettingsPage()),
-              );
-            },
-          ),
+          if (!isChina)
+            _buildSettingItem(
+              icon: Icons.language,
+              title: l.settingsLanguage,
+              subtitle: _buildLanguageSubtitle(l),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LanguageSettingsPage()),
+                );
+              },
+            ),
           _buildSettingItem(
             icon: Icons.security,
             title: l.settingsAppPermissions,

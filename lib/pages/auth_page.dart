@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../flavors/app_env.dart';
+import '../flavors/env_config.dart';
 import '../l10n/app_localizations.dart';
 import 'email_auth_flow.dart';
 import 'qr_code_scanner_page.dart';
@@ -90,10 +92,13 @@ class AuthPage extends StatelessWidget {
                         visualDensity: VisualDensity.compact,
                       ),
                       onPressed: () {
+                        final isChina = AppEnv.config.market == Market.china;
                         final lang = Localizations.localeOf(context).languageCode;
-                        final url = lang == 'en'
-                            ? 'https://rephone.top/terms_us.html'
-                            : 'https://rephone.top/terms.html';
+                        final url = isChina
+                            ? 'https://rephone.top/terms_china.html'
+                            : (lang == 'en'
+                                ? 'https://rephone.top/terms_us.html'
+                                : 'https://rephone.top/terms.html');
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -120,10 +125,13 @@ class AuthPage extends StatelessWidget {
                         visualDensity: VisualDensity.compact,
                       ),
                       onPressed: () {
+                        final isChina = AppEnv.config.market == Market.china;
                         final lang = Localizations.localeOf(context).languageCode;
-                        final url = lang == 'en'
-                            ? 'https://rephone.top/privacy_us.html'
-                            : 'https://rephone.top/privacy.html';
+                        final url = isChina
+                            ? 'https://rephone.top/privacy_china.html'
+                            : (lang == 'en'
+                                ? 'https://rephone.top/privacy_us.html'
+                                : 'https://rephone.top/privacy.html');
                         Navigator.push(
                           context,
                           MaterialPageRoute(

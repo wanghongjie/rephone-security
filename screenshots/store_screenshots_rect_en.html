@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8" />
+  <title>RePhone Security · App Store Screenshots (Rectangular Edition)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      padding: 0 0 0 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      width: 540px;
+      margin: 0 auto;
+    }
+    .tip {
+      width: 540px;
+      text-align: center;
+      color: #fff;
+      line-height: 1.9;
+      background: #0ea5e9;
+      padding: 18px 22px;
+      font-size: 0.9rem;
+      border-bottom: 2px dashed #ef4444;
+    }
+    .tip b { color: #fef08a; }
+
+    .crop-guide {
+      width: 540px;
+      height: 28px;
+      background: repeating-linear-gradient(
+        45deg,
+        #ef4444,
+        #ef4444 10px,
+        #fca5a5 10px,
+        #fca5a5 20px
+      );
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+      border-top: 1px solid #fff;
+      border-bottom: 1px solid #fff;
+    }
+
+    .shot {
+      width: 540px;
+      height: 960px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 0;
+      box-shadow: none;
+      display: flex;
+      flex-direction: column;
+    }
+    .shot::before,
+    .shot::after {
+      content: "";
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      border: 2px solid rgba(255,255,255,0.55);
+      z-index: 999;
+      pointer-events: none;
+    }
+    .shot::before {
+      top: 8px; left: 8px;
+      border-right: none; border-bottom: none;
+    }
+    .shot::after {
+      bottom: 8px; right: 8px;
+      border-left: none; border-top: none;
+    }
+    .shot__corner-tr,
+    .shot__corner-bl {
+      position: absolute;
+      width: 22px; height: 22px;
+      border: 2px solid rgba(255,255,255,0.55);
+      z-index: 999;
+      pointer-events: none;
+    }
+    .shot__corner-tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+    .shot__corner-bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+    .shot__tag {
+      position: absolute;
+      top: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: 0.12em;
+      padding: 6px 18px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.25);
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+
+    .shot__top {
+      padding: 72px 36px 28px;
+      color: #fff;
+      position: relative;
+      z-index: 2;
+    }
+    .shot__title {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1.25;
+      letter-spacing: 0.02em;
+      margin-bottom: 10px;
+    }
+    .shot__subtitle {
+      font-size: 16px;
+      line-height: 1.7;
+      opacity: 0.9;
+    }
+    .shot__features {
+      margin-top: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .shot__feat {
+      padding: 5px 12px;
+      font-size: 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.25);
+      backdrop-filter: blur(4px);
+    }
+
+    .shot__phone-wrap {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 10px 24px 40px;
+      position: relative;
+      z-index: 2;
+    }
+    .phone {
+      width: 320px;
+      height: 640px;
+      background: #0b1220;
+      border-radius: 46px;
+      padding: 10px;
+      box-shadow:
+        0 0 0 2px rgba(255,255,255,0.15),
+        0 22px 50px rgba(0,0,0,0.35),
+        inset 0 0 0 1px rgba(255,255,255,0.08);
+      position: relative;
+    }
+    .phone::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 92px;
+      height: 26px;
+      border-radius: 0 0 18px 18px;
+      background: #0b1220;
+      z-index: 20;
+    }
+    .phone__screen {
+      width: 100%;
+      height: 100%;
+      background: #f5f7fb;
+      border-radius: 36px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .shot__bottom {
+      position: absolute;
+      bottom: 26px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: #fff;
+      z-index: 10;
+    }
+    .shot__logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      padding: 8px 18px;
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 999px;
+      backdrop-filter: blur(8px);
+    }
+    .shot__logo-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      background: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+
+    .shot--1 {
+      background:
+        radial-gradient(circle at 15% 10%, rgba(255,255,255,0.18), transparent 55%),
+        linear-gradient(160deg, #0ea5e9 0%, #6366f1 60%, #8b5cf6 100%);
+    }
+    .shot--2 {
+      background:
+        radial-gradient(circle at 85% 15%, rgba(255,255,255,0.16), transparent 55%),
+        linear-gradient(160deg, #0891b2 0%, #2563eb 60%, #4f46e5 100%);
+    }
+    .shot--3 {
+      background:
+        radial-gradient(circle at 15% 85%, rgba(255,255,255,0.14), transparent 55%),
+        linear-gradient(160deg, #f59e0b 0%, #ef4444 55%, #be123c 100%);
+    }
+    .shot--4 {
+      background:
+        radial-gradient(circle at 85% 90%, rgba(255,255,255,0.14), transparent 55%),
+        linear-gradient(160deg, #10b981 0%, #0891b2 55%, #3b82f6 100%);
+    }
+
+    .ui1__ad {
+      height: 56px;
+      background: linear-gradient(90deg, #dbeafe, #fef3c7);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      font-size: 11px;
+      color: #334155;
+      gap: 8px;
+    }
+    .ui1__ad-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: #0ea5e9;
+    }
+    .ui1__card {
+      margin: 16px 14px;
+      background: #fff;
+      border-radius: 22px;
+      box-shadow: 0 8px 24px rgba(15,23,42,0.08);
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+    .ui1__card-head {
+      padding: 14px 16px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ui1__device {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .ui1__dot {
+      width: 12px; height: 12px; border-radius: 50%; background: #22c55e;
+      box-shadow: 0 0 0 4px rgba(34,197,94,0.18);
+    }
+    .ui1__device-name {
+      font-size: 17px; font-weight: 700; color: #0f172a;
+    }
+    .ui1__device-room {
+      font-size: 13px; color: #94a3b8; margin-left: 4px;
+    }
+    .ui1__status-online {
+      color: #16a34a; font-weight: 700; font-size: 14px;
+    }
+    .ui1__status-time {
+      font-size: 11px; color: #94a3b8; text-align: right;
+    }
+    .ui1__thumb {
+      position: relative;
+      height: 200px;
+      background:
+        linear-gradient(135deg, rgba(15,23,42,0.05), rgba(15,23,42,0.0)),
+        linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
+      margin: 0 12px;
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .ui1__thumb-light {
+      position: absolute;
+      top: 18%; left: 8%;
+      width: 48%; height: 36%;
+      background: linear-gradient(135deg, #fff 0%, #fef9c3 100%);
+      border-radius: 10px;
+      transform: skewY(-8deg);
+      box-shadow: 0 20px 30px rgba(251, 191, 36, 0.35);
+    }
+    .ui1__thumb-ceil {
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 70%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.8), rgba(226,232,240,0.4));
+    }
+    .ui1__play {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 64px; height: 64px;
+      background: rgba(15,23,42,0.55);
+      border-radius: 50%;
+      backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      font-size: 24px;
+    }
+    .ui1__actions {
+      display: flex;
+      padding: 14px 16px 18px;
+      gap: 10px;
+    }
+    .ui1__btn {
+      flex: 1;
+      height: 46px;
+      border-radius: 14px;
+      background: #eff6ff;
+      color: #2563eb;
+      font-weight: 600;
+      font-size: 14px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .ui1__fab {
+      position: absolute;
+      right: 20px; bottom: 22px;
+      width: 62px; height: 62px;
+      border-radius: 20px;
+      background: #bfdbfe;
+      color: #1d4ed8;
+      font-size: 26px;
+      font-weight: 300;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 10px 24px rgba(59,130,246,0.25);
+    }
+
+    .ui2__bar {
+      height: 44px;
+      background: linear-gradient(90deg, #22c55e, #16a34a);
+      color: #fff;
+      display: flex; align-items: center;
+      padding: 0 14px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .ui2__scene {
+      position: absolute;
+      top: 44px; left: 0; right: 0; bottom: 0;
+      background:
+        linear-gradient(180deg, #1e293b 0%, #1e293b 18%, #fafaf9 18%, #fafaf9 100%);
+      overflow: hidden;
+    }
+    .ui2__ceil {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 58%;
+      background: linear-gradient(180deg, #e7e5e4 0%, #f5f5f4 100%);
+    }
+    .ui2__beam {
+      position: absolute;
+      top: 0; left: 30%;
+      width: 26%; height: 100%;
+      background: linear-gradient(90deg, rgba(0,0,0,0.08), transparent 40%, rgba(0,0,0,0.12));
+      transform: skewX(-15deg);
+    }
+    .ui2__beam:nth-child(2) { left: 60%; width: 22%; }
+    .ui2__light {
+      position: absolute;
+      top: 36%; left: 10%;
+      width: 42%; height: 22%;
+      background: linear-gradient(135deg, #fff 0%, #fef9c3 100%);
+      transform: skewY(-10deg) rotate(-4deg);
+      border-radius: 12px;
+      box-shadow: 0 30px 60px rgba(251, 191, 36, 0.4);
+    }
+    .ui2__speaker {
+      position: absolute;
+      top: 8%; left: 44%;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #a8a29e 20%, #57534e 70%);
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.35);
+    }
+    .ui2__wall {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 42%;
+      background: linear-gradient(180deg, #fafaf9 0%, #f5f5f4 100%);
+    }
+    .ui2__bookshelf {
+      position: absolute;
+      left: 22%;
+      bottom: 10%;
+      width: 34%;
+      height: 72%;
+      background: #fff;
+      border: 1px solid #e7e5e4;
+      border-radius: 4px;
+      padding: 4px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: 2px;
+    }
+    .ui2__bookshelf span {
+      background: linear-gradient(90deg, #60a5fa, #818cf8);
+      border-radius: 2px;
+    }
+    .ui2__bookshelf span:nth-child(odd) { background: linear-gradient(90deg, #f87171, #fb923c); }
+    .ui2__bookshelf span:nth-child(3n) { background: linear-gradient(90deg, #34d399, #22d3ee); }
+    .ui2__door {
+      position: absolute;
+      right: 18%;
+      bottom: 10%;
+      width: 22%;
+      height: 76%;
+      background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+      border-radius: 6px 6px 2px 2px;
+    }
+    .ui2__coat {
+      position: absolute;
+      right: 42%; bottom: 30%;
+      width: 30px; height: 70px;
+      background: linear-gradient(180deg, #dc2626, #b91c1c);
+      border-radius: 12px 12px 4px 4px;
+    }
+    .ui2__coat--black {
+      right: 36%;
+      background: #0f172a;
+      width: 50px;
+      height: 110px;
+      bottom: 14%;
+    }
+    .ui2__coat--yellow {
+      right: 52%;
+      background: #fbbf24;
+      width: 24px;
+      height: 60px;
+    }
+    .ui2__water {
+      position: absolute;
+      bottom: 10%;
+      right: 0;
+      width: 18%;
+      height: 58%;
+      background: linear-gradient(180deg, #e0f2fe, #bae6fd);
+      border-radius: 6px 6px 4px 4px;
+    }
+    .ui2__water::after {
+      content: "";
+      position: absolute;
+      top: 20%; left: 10%; right: 10%;
+      height: 50%;
+      background: linear-gradient(180deg, rgba(14,165,233,0.35), rgba(56,189,248,0.55));
+      border-radius: 4px;
+    }
+
+    .ui3__list {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      padding: 16px 14px 20px;
+      overflow: hidden;
+    }
+    .ui3__item {
+      background: #fff;
+      border-radius: 18px;
+      border: 1px solid #e2e8f0;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 14px rgba(15,23,42,0.06);
+    }
+    .ui3__thumb {
+      width: 96px; height: 96px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #cbd5e1, #e2e8f0);
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .ui3__thumb--1 {
+      background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 50%, #fafaf9 50%);
+    }
+    .ui3__thumb--1::after {
+      content: "";
+      position: absolute;
+      bottom: 30%; left: 50%; transform: translateX(-50%);
+      width: 36px; height: 36px;
+      background: linear-gradient(90deg, #60a5fa, #3b82f6);
+      border-radius: 4px;
+    }
+    .ui3__thumb--2 {
+      background: linear-gradient(180deg, #f5f5f4 0%, #e7e5e4 50%, #fafaf9 50%);
+    }
+    .ui3__person {
+      position: absolute;
+      bottom: 8%; left: 20%;
+      width: 22px; height: 40px;
+      border-radius: 11px 11px 6px 6px;
+      background: #ef4444;
+    }
+    .ui3__person::before {
+      content: "";
+      position: absolute;
+      top: -12px; left: 50%; transform: translateX(-50%);
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #fcd34d;
+    }
+    .ui3__person--2 {
+      background: #0f172a; height: 56px; width: 30px; left: 35%;
+    }
+    .ui3__person--2::before { background: #fcd34d; width: 18px; height: 18px; top: -16px; }
+    .ui3__person--3 {
+      background: #ec4899; height: 44px; width: 28px; left: 40%;
+    }
+    .ui3__person--3::before { background: #1f2937; width: 18px; height: 18px; top: -16px; }
+    .ui3__meta { flex: 1; }
+    .ui3__date {
+      font-size: 12px; color: #94a3b8; margin-bottom: 2px;
+    }
+    .ui3__time {
+      font-size: 22px; font-weight: 800; color: #0f172a;
+      letter-spacing: 0.02em;
+      line-height: 1.2;
+      margin-bottom: 6px;
+    }
+    .ui3__tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #2563eb;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .ui3__tag-icon {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      border: 2px solid #2563eb;
+    }
+    .ui3__play {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: #dbeafe;
+      color: #2563eb;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .ui4__scene {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(180deg, #f5f5f4 0%, #e7e5e4 40%, #fafaf9 40%);
+      overflow: hidden;
+    }
+    .ui4__ceil-light {
+      position: absolute;
+      top: 30%; left: 44%;
+      width: 100px; height: 70px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,0.9), rgba(253,224,71,0.5) 60%, transparent 80%);
+      filter: blur(2px);
+    }
+    .ui4__ac {
+      position: absolute;
+      top: 48%; left: 16%;
+      width: 120px; height: 22px;
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+    }
+    .ui4__ac::after {
+      content: "";
+      position: absolute;
+      inset: 6px 14px;
+      background: repeating-linear-gradient(90deg, #cbd5e1, #cbd5e1 2px, transparent 2px, transparent 6px);
+      border-radius: 2px;
+    }
+    .ui4__door-frame {
+      position: absolute;
+      bottom: 0;
+      left: 38%;
+      width: 28%;
+      height: 52%;
+      background: #e7e5e4;
+      border: 2px solid #d6d3d1;
+      border-bottom: none;
+    }
+    .ui4__door-glass {
+      position: absolute;
+      top: 10%; left: 18%; right: 18%;
+      height: 60%;
+      background: linear-gradient(180deg, #7dd3fc, #38bdf8);
+      opacity: 0.65;
+      border-radius: 2px;
+    }
+    .ui4__person-big {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 220px;
+      height: 440px;
+    }
+    .ui4__head {
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 92px; height: 100px;
+      background: linear-gradient(180deg, #fde68a, #fcd34d);
+      border-radius: 46px 46px 40px 40px;
+    }
+    .ui4__hair {
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 104px; height: 58px;
+      background: #1f2937;
+      border-radius: 52px 52px 30px 30px;
+    }
+    .ui4__body {
+      position: absolute;
+      top: 94px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 230px; height: 340px;
+      background: #0f172a;
+      border-radius: 115px 115px 20px 20px;
+    }
+    .ui4__bbox {
+      position: absolute;
+      bottom: 2%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 240px; height: 480px;
+      border: 3px solid #ef4444;
+      border-radius: 6px;
+      box-shadow: 0 0 0 2px rgba(239,68,68,0.25);
+    }
+    .ui4__bbox::before {
+      content: "98% · Person";
+      position: absolute;
+      top: -26px; left: -3px;
+      background: #ef4444;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px 4px 4px 0;
+      letter-spacing: 0.02em;
+    }
+    .ui4__alert {
+      position: absolute;
+      top: 14px; left: 14px; right: 14px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: linear-gradient(90deg, rgba(239,68,68,0.9), rgba(249,115,22,0.9));
+      color: #fff;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .ui4__alert-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #fff;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink {
+      50% { opacity: 0.3; }
+    }
+    .ui4__controls {
+      position: absolute;
+      left: 14px; right: 14px; bottom: 16px;
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+    }
+    .ui4__ctrl {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: rgba(15,23,42,0.5);
+      backdrop-filter: blur(6px);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .ui4__ctrl--rec {
+      background: #ef4444;
+      box-shadow: 0 0 0 4px rgba(239,68,68,0.3);
+    }
+    .ui4__live {
+      position: absolute;
+      top: 54px; left: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(239,68,68,0.85);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+    .ui4__live-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #fff;
+      animation: blink 1s infinite;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="tip">
+    <b>Export Instructions (Please first crop out this blue top tip bar + all red guide lines below):</b><br/>
+    1. Press F12 to open DevTools → 2. In Device Mode, set custom size <b>540 × 4000</b> (DPR=2, final exported PNG will be 1080×8000) → 3. Cmd/Ctrl+Shift+P → select "Capture full size screenshot" → 4. Use Preview.app to crop along the red stripes into 4 separate images.
+  </div>
+
+  <div class="crop-guide">▼ CROP ABOVE THIS LINE · IMAGE 1 · 540×960 (9:16) ▼</div>
+
+  <section class="shot shot--1">
+    <div class="shot__corner-tr"></div>
+    <div class="shot__corner-bl"></div>
+    <div class="shot__tag">FEATURE 01 · Smart Device Management</div>
+    <div class="shot__top">
+      <div class="shot__title">Turn Old Phones<br/>Into Pro Cameras</div>
+      <div class="shot__subtitle">Don't throw away your old phone. Install RePhone Security and instantly turn it into an HD security camera.<br/>One device per account, unified multi-device management, real-time online status at a glance.</div>
+      <div class="shot__features">
+        <span class="shot__feat">📱 iOS / Android Supported</span>
+        <span class="shot__feat">✅ Real-Time Online Status</span>
+        <span class="shot__feat">🖥️ Multi-Device Management</span>
+      </div>
+    </div>
+    <div class="shot__phone-wrap">
+      <div class="phone">
+        <div class="phone__screen">
+          <div class="ui1__ad">
+            <div class="ui1__ad-dot"></div>
+            <div><b>Avanti24</b><br/><span style="opacity:.75;">Advertisement Placeholder</span></div>
+          </div>
+          <div class="ui1__card">
+            <div class="ui1__card-head">
+              <div class="ui1__device">
+                <div class="ui1__dot"></div>
+                <div>
+                  <div style="display:flex;align-items:baseline;gap:6px;">
+                    <span class="ui1__device-name">HUAWEI</span>
+                    <span class="ui1__device-room">(Living Room)</span>
+                  </div>
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <div class="ui1__status-online">● Online</div>
+                <div class="ui1__status-time">12 hours ago</div>
+              </div>
+            </div>
+            <div class="ui1__thumb">
+              <div class="ui1__thumb-ceil"></div>
+              <div class="ui1__thumb-light"></div>
+              <div class="ui1__play">▶</div>
+            </div>
+            <div class="ui1__actions">
+              <div class="ui1__btn">↻ Playback</div>
+              <div class="ui1__btn">⚙ Settings</div>
+            </div>
+          </div>
+          <div class="ui1__card" style="opacity:.55; transform:scale(.96); margin-top:-6px;">
+            <div class="ui1__card-head">
+              <div class="ui1__device">
+                <div class="ui1__dot" style="background:#f59e0b; box-shadow:0 0 0 4px rgba(245,158,11,.18);"></div>
+                <div>
+                  <div style="display:flex;align-items:baseline;gap:6px;">
+                    <span class="ui1__device-name">iPhone X</span>
+                    <span class="ui1__device-room">(Bedroom)</span>
+                  </div>
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <div class="ui1__status-online" style="color:#f59e0b;">● Standby</div>
+                <div class="ui1__status-time">1 day ago</div>
+              </div>
+            </div>
+            <div class="ui1__thumb" style="height:100px; opacity:.6;"></div>
+          </div>
+          <div class="ui1__fab">+</div>
+        </div>
+      </div>
+    </div>
+    <div class="shot__bottom">
+      <span class="shot__logo">
+        <span class="shot__logo-icon">📱</span>
+        RePhone Security
+      </span>
+    </div>
+  </section>
+
+  <div class="crop-guide">▲ IMAGE 1 CROP BELOW · · · IMAGE 2 (9:16) CROP ABOVE ▼</div>
+
+  <section class="shot shot--2">
+    <div class="shot__corner-tr"></div>
+    <div class="shot__corner-bl"></div>
+    <div class="shot__tag">FEATURE 02 · HD Real-Time Monitoring</div>
+    <div class="shot__top">
+      <div class="shot__title">Watch Live Video<br/>Anytime, Anywhere</div>
+      <div class="shot__subtitle">Powered by WebRTC low-latency peer-to-peer transmission with millisecond-level response.<br/>Check on your family, pets, or store instantly — no matter where you are.</div>
+      <div class="shot__features">
+        <span class="shot__feat">⚡ WebRTC Ultra-Fast Connection</span>
+        <span class="shot__feat">📹 HD Real-Time Video</span>
+        <span class="shot__feat">🎤 Two-Way Audio Talk</span>
+      </div>
+    </div>
+    <div class="shot__phone-wrap">
+      <div class="phone">
+        <div class="phone__screen" style="background:#0f172a;">
+          <div class="ui2__bar">
+            🔗 Connected to server (ID: 68775900_monitor)
+          </div>
+          <div class="ui2__scene">
+            <div class="ui2__ceil">
+              <div class="ui2__beam"></div>
+              <div class="ui2__beam"></div>
+              <div class="ui2__speaker"></div>
+              <div class="ui2__light"></div>
+            </div>
+            <div class="ui2__wall">
+              <div class="ui2__bookshelf">
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+              </div>
+              <div class="ui2__coat ui2__coat--yellow"></div>
+              <div class="ui2__coat"></div>
+              <div class="ui2__coat ui2__coat--black"></div>
+              <div class="ui2__door"></div>
+              <div class="ui2__water"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="shot__bottom">
+      <span class="shot__logo">
+        <span class="shot__logo-icon">📱</span>
+        RePhone Security
+      </span>
+    </div>
+  </section>
+
+  <div class="crop-guide">▲ IMAGE 2 CROP BELOW · · · IMAGE 3 (9:16) CROP ABOVE ▼</div>
+
+  <section class="shot shot--3">
+    <div class="shot__corner-tr"></div>
+    <div class="shot__corner-bl"></div>
+    <div class="shot__tag">FEATURE 03 · Smart Alerts & Cloud Playback</div>
+    <div class="shot__top">
+      <div class="shot__title">Instant Motion Alerts<br/>Cloud Recording Stored</div>
+      <div class="shot__subtitle">AI automatically detects human figures and unusual sounds, pushing alert notifications instantly.<br/>Detected clips are stored in the cloud with loop storage — play back anytime, never miss an important moment.</div>
+      <div class="shot__features">
+        <span class="shot__feat">🔔 Push Alert Notifications</span>
+        <span class="shot__feat">☁️ Cloud Recording Playback</span>
+        <span class="shot__feat">🗓️ 7 / 30 Day Retention</span>
+      </div>
+    </div>
+    <div class="shot__phone-wrap">
+      <div class="phone">
+        <div class="phone__screen">
+          <div class="ui3__list">
+            <div class="ui3__item">
+              <div class="ui3__thumb ui3__thumb--2">
+                <div class="ui3__person ui3__person--3"></div>
+              </div>
+              <div class="ui3__meta">
+                <div class="ui3__date">2026-02-22</div>
+                <div class="ui3__time">08:44:44</div>
+                <div class="ui3__tag">
+                  <div class="ui3__tag-icon"></div>
+                  Smart Detection Clip
+                </div>
+              </div>
+              <div class="ui3__play">▶</div>
+            </div>
+            <div class="ui3__item">
+              <div class="ui3__thumb ui3__thumb--2">
+                <div class="ui3__person ui3__person"></div>
+              </div>
+              <div class="ui3__meta">
+                <div class="ui3__date">2026-02-22</div>
+                <div class="ui3__time">08:43:34</div>
+                <div class="ui3__tag">
+                  <div class="ui3__tag-icon"></div>
+                  Smart Detection Clip
+                </div>
+              </div>
+              <div class="ui3__play">▶</div>
+            </div>
+            <div class="ui3__item">
+              <div class="ui3__thumb ui3__thumb--2">
+                <div class="ui3__person ui3__person--2"></div>
+              </div>
+              <div class="ui3__meta">
+                <div class="ui3__date">2026-02-22</div>
+                <div class="ui3__time">08:26:43</div>
+                <div class="ui3__tag">
+                  <div class="ui3__tag-icon"></div>
+                  Smart Detection Clip
+                </div>
+              </div>
+              <div class="ui3__play">▶</div>
+            </div>
+            <div class="ui3__item" style="opacity:.75;">
+              <div class="ui3__thumb ui3__thumb--1"></div>
+              <div class="ui3__meta">
+                <div class="ui3__date">2026-02-22</div>
+                <div class="ui3__time">08:20:01</div>
+                <div class="ui3__tag">
+                  <div class="ui3__tag-icon"></div>
+                  Smart Detection Clip
+                </div>
+              </div>
+              <div class="ui3__play">▶</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="shot__bottom">
+      <span class="shot__logo">
+        <span class="shot__logo-icon">📱</span>
+        RePhone Security
+      </span>
+    </div>
+  </section>
+
+  <div class="crop-guide">▲ IMAGE 3 CROP BELOW · · · IMAGE 4 (9:16) CROP ABOVE ▼</div>
+
+  <section class="shot shot--4">
+    <div class="shot__corner-tr"></div>
+    <div class="shot__corner-bl"></div>
+    <div class="shot__tag">FEATURE 04 · AI Human Detection</div>
+    <div class="shot__top">
+      <div class="shot__title">AI Human Recognition<br/>Accurate & Reliable</div>
+      <div class="shot__subtitle">Smart algorithm identifies human figures in real time, automatically drawing bounding boxes with confidence scores.<br/>Eliminate false alarms from bugs, light/shadow changes — only alert you when a real person is detected.</div>
+      <div class="shot__features">
+        <span class="shot__feat">🧍 Precise Human Recognition</span>
+        <span class="shot__feat">🎯 98% Recognition Accuracy</span>
+        <span class="shot__feat">📉 Low False Alarm Rate</span>
+      </div>
+    </div>
+    <div class="shot__phone-wrap">
+      <div class="phone">
+        <div class="phone__screen" style="background:#0f172a;">
+          <div class="ui4__scene">
+            <div class="ui4__ceil-light"></div>
+            <div class="ui4__ac"></div>
+            <div class="ui4__door-frame">
+              <div class="ui4__door-glass"></div>
+            </div>
+            <div class="ui4__person-big">
+              <div class="ui4__hair"></div>
+              <div class="ui4__head"></div>
+              <div class="ui4__body"></div>
+            </div>
+            <div class="ui4__bbox"></div>
+            <div class="ui4__alert">
+              <div class="ui4__alert-dot"></div>
+              Human Motion Detected · MOTION DETECTED
+            </div>
+            <div class="ui4__live">
+              <div class="ui4__live-dot"></div>
+              LIVE · REC
+            </div>
+            <div class="ui4__controls">
+              <div class="ui4__ctrl">🎤</div>
+              <div class="ui4__ctrl ui4__ctrl--rec">●</div>
+              <div class="ui4__ctrl">🔊</div>
+              <div class="ui4__ctrl">⚙</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="shot__bottom">
+      <span class="shot__logo">
+        <span class="shot__logo-icon">📱</span>
+        RePhone Security
+      </span>
+    </div>
+  </section>
+
+  <div class="crop-guide">▲ IMAGE 4 CROP BELOW · ALL IMAGES EXPORTED ▲</div>
+
+</body>
+</html>

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../flavors/app_env.dart';
+import '../flavors/env_config.dart';
 import '../l10n/app_localizations.dart';
 import 'webview_page.dart';
 
@@ -51,10 +53,13 @@ class _AboutPageState extends State<AboutPage> {
                   subtitle: Text(l.aboutView),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
+                    final isChina = AppEnv.config.market == Market.china;
                     final lang = Localizations.localeOf(context).languageCode;
-                    final url = lang == 'en'
-                        ? 'https://rephone.top/terms_us.html'
-                        : 'https://rephone.top/terms.html';
+                    final url = isChina
+                        ? 'https://rephone.top/terms_china.html'
+                        : (lang == 'en'
+                            ? 'https://rephone.top/terms_us.html'
+                            : 'https://rephone.top/terms.html');
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -73,10 +78,13 @@ class _AboutPageState extends State<AboutPage> {
                   subtitle: Text(l.aboutView),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
+                    final isChina = AppEnv.config.market == Market.china;
                     final lang = Localizations.localeOf(context).languageCode;
-                    final url = lang == 'en'
-                        ? 'https://rephone.top/privacy_us.html'
-                        : 'https://rephone.top/privacy.html';
+                    final url = isChina
+                        ? 'https://rephone.top/privacy_china.html'
+                        : (lang == 'en'
+                            ? 'https://rephone.top/privacy_us.html'
+                            : 'https://rephone.top/privacy.html');
                     Navigator.push(
                       context,
                       MaterialPageRoute(
