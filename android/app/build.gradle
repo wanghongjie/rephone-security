@@ -50,6 +50,8 @@ android {
             dimension "market"
             applicationId = "com.rephone.security.cn"
             buildConfigField "String", "APP_MARKET", "\"china\""
+            // 国内版安装名称：与创建名称/软著名称/备案名称保持一致
+            resValue "string", "app_name", "RePhone Security"
         }
     }
 
@@ -89,6 +91,9 @@ android {
             } else {
                 signingConfig = signingConfigs.debug
             }
+            // R8 混淆规则：跳过 Pangle/字节侧缺失类（缺类明细见 proguard-china.pro）。
+            // Flutter 工具链已自动为 release 开启 minify 并注入默认规则，此处仅追加本项目规则。
+            proguardFiles 'proguard-china.pro'
         }
     }
 }
@@ -133,6 +138,7 @@ configurations.configureEach { config ->
     if (config.name.toLowerCase().contains('global')) {
         config.resolutionStrategy.force(
             // 锁定 Billing Client 原生 aar 至 8.0.0（精确满足 Play Console 合规门槛）。
+            // 2026-08-16 已验证：价格查询挂起与版本无关（根因为代理节点不稳），8.0.0 可安全使用。
             // 未来如需升级到 9.x（Play 尚无强制日期），替换 8.0.0 -> 9.x 即可，
             // 但建议先跟踪 flutter/flutter#189974 关于 androidx.core 1.9+ 的前置依赖。
             'com.android.billingclient:billing:8.0.0'

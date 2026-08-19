@@ -2,10 +2,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import '../flavors/app_env.dart';
+import '../flavors/iap_models.dart';
 import '../l10n/app_localizations.dart';
 import '../services/payment_api.dart';
 import '../services/session_manager.dart';
@@ -22,6 +21,10 @@ class _MembershipPageState extends State<MembershipPage> {
   bool _isCurrentlyMember = false;
   DateTime? _membershipExpiry;
   bool _loadingProducts = true;
+  /// IAP 初始化完成后仍不可用（例如无商店/无支付能力）时置 true。
+  /// 不能直接在 build 里读 `AppEnv.iap.isEnabled`：init 前它为 false，
+  /// 会导致页面在 init 完成前就定型为「不可用」，即使 init 后价格已返回。
+  bool _iapUnavailable = false;
   bool _isRestoring = false;
   bool _isRestoreButtonLoading = false;
   bool _isPurchasing = false;
@@ -29,14 +32,14 @@ class _MembershipPageState extends State<MembershipPage> {
   String? _activePlatform; // ios|android (from server)
   String? _pendingAndroidBasePlanId; // for verify after purchase (rephone_pro base plan)
   String? _error;
-  StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
+  StreamSubscription<List<IapPurchase>>? _purchaseSubscription;
   bool _userInitiatedPurchaseFlow = false;
   DateTime? _lastSnackAt;
   bool _restoreVerifiedEntitlement = false;
   Completer<void>? _restoreVerificationCompleter;
   Completer<void>? _restoreGotRestoredEventCompleter;
   Timer? _restoreSettleTimer;
-  PurchaseDetails? _restoreLatestRestoredPurchase;
+  IapPurchase? _restoreLatestRestoredPurchase;
   int _restoreLatestRestoredTxMs = -1;
   bool _isCheckingStatus = false;
   DateTime? _lastCheckStatusAt;
@@ -82,12 +85,9 @@ class _MembershipPageState extends State<MembershipPage> {
   void initState() {
     super.initState();
     _plans = _defaultPlans();
-    final iapEnabled = AppEnv.iap.isEnabled;
-    if (!iapEnabled) {
-      _loadingProducts = false;
-      return;
-    }
-    _initIap();
+    // 每次进入会员页都强制刷新商品价格，避免启动时 init 失败后
+    // 命中 "already initialized, skip" 导致页面一直展示加载失败。
+    _initIap(force: true);
     _listenPurchases();
     // 启动后先刷新一次服务端权益；
     // 只有在 iOS 且当前判断为非会员时，才执行一次 restore 以补齐历史凭证。
@@ -181,7 +181,7 @@ class _MembershipPageState extends State<MembershipPage> {
   }
 
   /// 与后端 [active_plan] 对齐：monthly | yearly（用于购买成功后的提示文案）。
-  String? _intendedPlanKeyForPurchase(PurchaseDetails purchase) {
+  String? _intendedPlanKeyForPurchase(IapPurchase purchase) {
     final id = purchase.productID;
     if (id == 'rephone_premium_monthly') return 'monthly';
     if (id == 'rephone_premium_yearly') return 'yearly';
@@ -192,7 +192,7 @@ class _MembershipPageState extends State<MembershipPage> {
     return null;
   }
 
-  String _friendlyPurchaseError(PurchaseDetails purchase, AppLocalizations l) {
+  String _friendlyPurchaseError(IapPurchase purchase, AppLocalizations l) {
     final raw = purchase.error;
     final code = raw?.code ?? '';
     final msg = raw?.message ?? '';
@@ -242,7 +242,7 @@ class _MembershipPageState extends State<MembershipPage> {
     return raw?.message ?? l.membershipPurchaseFailed;
   }
 
-  bool _shouldAutoRestoreOnIOSPurchaseError(PurchaseDetails purchase) {
+  bool _shouldAutoRestoreOnIOSPurchaseError(IapPurchase purchase) {
     if (!Platform.isIOS) return false;
     final msg = (purchase.error?.message ?? '').toLowerCase();
     final code = (purchase.error?.code ?? '').toLowerCase();
@@ -254,7 +254,7 @@ class _MembershipPageState extends State<MembershipPage> {
         (code.contains('500') && (msg.contains('asd') || msg.contains('ams')));
   }
 
-  bool _shouldSuppressPurchaseErrorSnackBar(PurchaseDetails purchase) {
+  bool _shouldSuppressPurchaseErrorSnackBar(IapPurchase purchase) {
     if (!Platform.isIOS) return false;
 
     // 系统已弹出「不允许 App 内购买」时，应用层不再重复弹同类错误提示。
@@ -332,8 +332,16 @@ class _MembershipPageState extends State<MembershipPage> {
         });
         return;
       }
-      await AppEnv.iap.init();
+      await AppEnv.iap.init(forceRefresh: force);
       if (!mounted) return;
+      if (!AppEnv.iap.isEnabled) {
+        // init 完成后仍不可用（无商店/无支付能力）才判定为「该地区不可用」。
+        setState(() {
+          _iapUnavailable = true;
+          _loadingProducts = false;
+        });
+        return;
+      }
       setState(() {
         _loadingProducts = false;
         for (var i = 0; i < _plans.length; i++) {
@@ -343,11 +351,10 @@ class _MembershipPageState extends State<MembershipPage> {
           // Only apply on Android when basePlanId is present
           if (Platform.isAndroid && plan.basePlanId != null) {
             final parentProduct = AppEnv.iap.getProduct('rephone_pro');
-            if (parentProduct != null && parentProduct is GooglePlayProductDetails) {
+            if (parentProduct != null && parentProduct.subscriptionOffers.isNotEmpty) {
               // New Google Play Billing (base plans). Use priceAmountMicros to avoid
               // localization / thousands-separator issues in formattedPrice.
-              final detailsWrapper = parentProduct.productDetails;
-              final offers = detailsWrapper.subscriptionOfferDetails ?? [];
+              final offers = parentProduct.subscriptionOffers;
 
               for (final offer in offers) {
                 if (offer.basePlanId == plan.basePlanId &&
@@ -405,7 +412,7 @@ class _MembershipPageState extends State<MembershipPage> {
         // Track pending store transactions to debounce repeated purchase attempts.
         // Pending transactions can persist across app sessions and will cause
         // StoreKit duplicate/pending errors if we try to buy again immediately.
-        if (purchase.status == PurchaseStatus.pending) {
+        if (purchase.status == IapPurchaseStatus.pending) {
           _pendingProductUntil[purchase.productID] =
               DateTime.now().add(const Duration(minutes: 5));
         } else {
@@ -415,7 +422,7 @@ class _MembershipPageState extends State<MembershipPage> {
         // Restore 阶段：只要收到 restored 事件就标记一下，避免 pendingCompletePurchase=false
         // 导致外层误判“没有可恢复购买”。
         if (_isRestoring &&
-            purchase.status == PurchaseStatus.restored &&
+            purchase.status == IapPurchaseStatus.restored &&
             _restoreGotRestoredEventCompleter != null &&
             !_restoreGotRestoredEventCompleter!.isCompleted) {
           _restoreGotRestoredEventCompleter!.complete();
@@ -423,14 +430,14 @@ class _MembershipPageState extends State<MembershipPage> {
 
         // 避免重复处理同一笔交易
         if (!purchase.pendingCompletePurchase &&
-            (purchase.status == PurchaseStatus.purchased ||
-                purchase.status == PurchaseStatus.restored ||
-                purchase.status == PurchaseStatus.error ||
-                purchase.status == PurchaseStatus.canceled)) {
+            (purchase.status == IapPurchaseStatus.purchased ||
+                purchase.status == IapPurchaseStatus.restored ||
+                purchase.status == IapPurchaseStatus.error ||
+                purchase.status == IapPurchaseStatus.canceled)) {
           continue;
         }
         switch (purchase.status) {
-          case PurchaseStatus.pending:
+          case IapPurchaseStatus.pending:
             // Only show UI hints when user just initiated a purchase.
             if (_userInitiatedPurchaseFlow) {
               _showSnackBarSafe(
@@ -438,12 +445,12 @@ class _MembershipPageState extends State<MembershipPage> {
               );
             }
             break;
-          case PurchaseStatus.purchased:
-          case PurchaseStatus.restored:
+          case IapPurchaseStatus.purchased:
+          case IapPurchaseStatus.restored:
             // iOS: storekit_duplicate_product_object 会让插件内部自动触发 restorePurchases()
             // 并吐出大量 restored，但此时 `_isRestoring` 可能是 false（因为不是你手动/页面进入的 restore）。
             // 为避免 restored 风暴逐条后端校验，这里把“自动 restore（由用户点击订阅触发）”也纳入 restore 抑制范围。
-            final bool isRestoreStatus = purchase.status == PurchaseStatus.restored &&
+            final bool isRestoreStatus = purchase.status == IapPurchaseStatus.restored &&
                 (_isRestoring || (_userInitiatedPurchaseFlow && _isPurchasing));
 
             if (isRestoreStatus) {
@@ -635,7 +642,7 @@ class _MembershipPageState extends State<MembershipPage> {
               }
             }
             break;
-          case PurchaseStatus.error:
+          case IapPurchaseStatus.error:
             LogUtils.d(
               'IAP',
               'purchaseStream error productId=${purchase.productID} '
@@ -676,7 +683,7 @@ class _MembershipPageState extends State<MembershipPage> {
               }
             }
             break;
-          case PurchaseStatus.canceled:
+          case IapPurchaseStatus.canceled:
             // 用户取消也 complete 一下，清理队列
             await AppEnv.iap.completePurchase(purchase);
             break;
@@ -684,13 +691,13 @@ class _MembershipPageState extends State<MembershipPage> {
 
         // 任意终态都解除 UI 的“购买中”状态
         if (mounted &&
-            purchase.status != PurchaseStatus.pending &&
+            purchase.status != IapPurchaseStatus.pending &&
             _isPurchasing) {
           setState(() => _isPurchasing = false);
         }
 
         // Any terminal state ends user-initiated UX flow.
-        if (purchase.status != PurchaseStatus.pending) {
+        if (purchase.status != IapPurchaseStatus.pending) {
           _userInitiatedPurchaseFlow = false;
         }
       }
@@ -705,7 +712,7 @@ class _MembershipPageState extends State<MembershipPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (!AppEnv.iap.isEnabled) {
+    if (_iapUnavailable) {
       final l = AppLocalizations.of(context);
       return Scaffold(
         appBar: AppBar(title: Text(l.profileMembership)),

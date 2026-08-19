@@ -162,7 +162,11 @@ class IapService {
     _queryProductsFuture = completer.future;
     try {
       LogUtils.d(_kIapTag, 'queryProducts: requesting $_productIds');
-      final response = await _iap.queryProductDetails(_productIds);
+      // 超时兜底：BillingClient 在查询失败（如 BILLING_UNAVAILABLE/code=3）时
+      // 只打日志、不回调 listener，Dart 侧只能靠 timeout 感知失败，因此必须有超时。
+      // 若不加超时，_isQueryingProducts 会永久为 true，之后所有查询都会卡在
+      // "already in progress, await" 分支，形成永久挂起（雪球效应），只能杀进程恢复。
+      var response = await _queryWithTimeout();
       if (response.error != null) {
         LogUtils.e(
           _kIapTag,
@@ -187,6 +191,24 @@ class IapService {
       _isQueryingProducts = false;
       completer.complete();
     }
+  }
+
+  /// 单次商品查询并带超时。BillingClient 在查询失败时只打日志、不回调
+  /// listener，因此超时后按空响应处理，让调用方继续走失败流程。
+  Future<ProductDetailsResponse> _queryWithTimeout() {
+    return _iap.queryProductDetails(_productIds).timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            LogUtils.w(
+              _kIapTag,
+              'queryProducts: TIMEOUT after 5s, treat as empty response',
+            );
+            return ProductDetailsResponse(
+              productDetails: [],
+              notFoundIDs: [],
+            );
+          },
+        );
   }
 
   ProductDetails? getProduct(String id) {

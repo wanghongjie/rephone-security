@@ -8,6 +8,7 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
 
 import '../../services/iap_service.dart' as legacy;
+import '../iap_models.dart';
 import '../service_facades.dart';
 
 const String _kIapTag = 'IAP';
@@ -34,17 +35,19 @@ class GlobalStoreIapService implements IapService {
   bool? get iosCanMakePayments => _delegate.iosCanMakePayments;
 
   @override
-  List<ProductDetails> get products => _delegate.products;
+  List<IapProduct> get products =>
+      _delegate.products.map(_toIapProduct).toList();
 
   @override
-  Stream<List<PurchaseDetails>> get purchasesStream =>
-      _delegate.purchasesStream;
+  Stream<List<IapPurchase>> get purchasesStream =>
+      _delegate.purchasesStream
+          .map((list) => list.map(_toIapPurchase).toList());
 
   @override
-  Future<void> init() async {
+  Future<void> init({bool forceRefresh = false}) async {
     if (!_enabled) return;
     try {
-      await _delegate.init();
+      await _delegate.init(forceRefresh: forceRefresh);
     } catch (e, st) {
       if (kDebugMode) {
         debugPrint('[GlobalStoreIapService.init] failed: $e\n$st');
@@ -54,14 +57,17 @@ class GlobalStoreIapService implements IapService {
   }
 
   @override
-  Future<List<Object>> loadProducts() async {
-    if (!_enabled) return const <Object>[];
+  Future<List<IapProduct>> loadProducts() async {
+    if (!_enabled) return const <IapProduct>[];
     await _delegate.init();
-    return _delegate.products;
+    return _delegate.products.map(_toIapProduct).toList();
   }
 
   @override
-  ProductDetails? getProduct(String id) => _delegate.getProduct(id);
+  IapProduct? getProduct(String id) {
+    final d = _delegate.getProduct(id);
+    return d == null ? null : _toIapProduct(d);
+  }
 
   @override
   Future<void> purchase(String sku) async {
@@ -74,17 +80,24 @@ class GlobalStoreIapService implements IapService {
     if (product == null) {
       throw StateError('[GlobalStoreIapService] product not found: sku=$sku');
     }
-    await buy(product);
+    await buy(_toIapProduct(product));
   }
 
   @override
   Future<void> buy(
-    ProductDetails product, {
+    IapProduct product, {
     String? offerToken,
     bool skipAndroidSubscriptionReplacement = false,
   }) {
+    final native = product.nativeHandle;
+    final details = native is ProductDetails ? native : _delegate.getProduct(product.id);
+    if (details == null) {
+      throw StateError(
+        '[GlobalStoreIapService] buy: native ProductDetails not found for ${product.id}',
+      );
+    }
     return _delegate.buy(
-      product,
+      details,
       offerToken: offerToken,
       skipAndroidSubscriptionReplacement: skipAndroidSubscriptionReplacement,
     );
@@ -97,8 +110,15 @@ class GlobalStoreIapService implements IapService {
   Future<void> restore() => _delegate.restore();
 
   @override
-  Future<void> completePurchase(PurchaseDetails purchase) =>
-      _delegate.completePurchase(purchase);
+  Future<void> completePurchase(IapPurchase purchase) {
+    final native = purchase.nativeHandle;
+    if (native is! PurchaseDetails) {
+      throw StateError(
+        '[GlobalStoreIapService] completePurchase: native PurchaseDetails not found for ${purchase.productID}',
+      );
+    }
+    return _delegate.completePurchase(native);
+  }
 
   @override
   bool get isThirdPartyPaymentEnabled => false;
@@ -123,5 +143,84 @@ class GlobalStoreIapService implements IapService {
   Future<bool> notifyServerOrderPaid(String orderId, {String? email, String? transactionId}) async {
     // 海外版无此链路
     return false;
+  }
+}
+
+// ———————————————————————— SDK → DTO 转换（仅本文件内部使用） ————————————————————————
+
+/// 将 SDK 的 [ProductDetails] 转为业务层 DTO [IapProduct]。
+IapProduct _toIapProduct(ProductDetails d) {
+  return IapProduct(
+    id: d.id,
+    title: d.title,
+    description: d.description,
+    price: d.price,
+    rawPrice: d.rawPrice,
+    currencyCode: d.currencyCode,
+    subscriptionOffers: _toIapOffers(d),
+    nativeHandle: d,
+  );
+}
+
+/// 提取订阅 base plan / offer 信息（仅 Google Play 有，Apple 返回空列表）。
+List<IapSubscriptionOffer> _toIapOffers(ProductDetails d) {
+  final offers = d is GooglePlayProductDetails
+      ? d.productDetails.subscriptionOfferDetails
+      : null;
+  if (offers == null) return const <IapSubscriptionOffer>[];
+  return offers
+      .map((o) => IapSubscriptionOffer(
+            basePlanId: o.basePlanId,
+            offerIdToken: o.offerIdToken,
+            pricingPhases: o.pricingPhases
+                .map((p) => IapPricingPhase(
+                      priceAmountMicros: p.priceAmountMicros,
+                      formattedPrice: p.formattedPrice,
+                      billingPeriod: p.billingPeriod,
+                      billingCycleCount: p.billingCycleCount,
+                      priceCurrencyCode: p.priceCurrencyCode,
+                    ))
+                .toList(),
+          ))
+      .toList();
+}
+
+/// 将 SDK 的 [PurchaseDetails] 转为业务层 DTO [IapPurchase]。
+IapPurchase _toIapPurchase(PurchaseDetails p) {
+  return IapPurchase(
+    productID: p.productID,
+    purchaseID: p.purchaseID,
+    status: _toIapStatus(p.status),
+    transactionDate: p.transactionDate,
+    pendingCompletePurchase: p.pendingCompletePurchase,
+    error: p.error == null
+        ? null
+        : IapPurchaseError(
+            code: p.error!.code,
+            message: p.error!.message,
+            details: p.error!.details,
+          ),
+    verificationData: IapVerificationData(
+      source: p.verificationData.source.toString(),
+      serverVerificationData: p.verificationData.serverVerificationData,
+      localVerificationData: p.verificationData.localVerificationData,
+    ),
+    nativeHandle: p,
+  );
+}
+
+/// 将 SDK 的 [PurchaseStatus] 转为业务层 [IapPurchaseStatus]。
+IapPurchaseStatus _toIapStatus(PurchaseStatus s) {
+  switch (s) {
+    case PurchaseStatus.purchased:
+      return IapPurchaseStatus.purchased;
+    case PurchaseStatus.error:
+      return IapPurchaseStatus.error;
+    case PurchaseStatus.pending:
+      return IapPurchaseStatus.pending;
+    case PurchaseStatus.restored:
+      return IapPurchaseStatus.restored;
+    case PurchaseStatus.canceled:
+      return IapPurchaseStatus.canceled;
   }
 }

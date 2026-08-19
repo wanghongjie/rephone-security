@@ -24,22 +24,34 @@
 #   ./scripts/build_flavors.sh ios global ios
 #
 # ------------------------------------------------------------------------------
-# 【关键实现】global 构建：在 pubspec 层面移除国内支付 SDK
+# 【关键实现】构建期 pubspec 依赖裁剪：实现国内 / 海外包的原生 SDK 隔离
 # ------------------------------------------------------------------------------
-# 海外版本上架 Google Play / App Store 严禁出现任何国内支付 SDK 痕迹（例如微信支付 fluwx）。
-# 仅通过 Dart 层条件 import + Android productFlavor exclude 仍会留下以下遗留物：
+# 海外版上架 Google Play / App Store 严禁出现任何国内支付 SDK 痕迹（例如微信支付 fluwx）：
 #   · :fluwx AndroidManifest 中的 WXEntryActivity / FluwxFileProvider / queries com.tencent.mm
 #   · .aar 中的 classes.dex 含 com/jarvan/fluwx 包名
 # Play 自动静态审核会命中后轻则开发者验证或直接拒审。
 #
-# 因此 market=global 时，采用以下流程在构建前从 pubspec.yaml/lock 直接移除 fluwx 依赖：
+# 国内版（安卓各厂商市场 / iOS 国区）不应携带 Google Play Billing / StoreKit 商店支付 SDK：
+#   · :in_app_purchase_android 原生插件会把 Play BillingClient 链接进国内 APK
+#   · :in_app_purchase_storekit 会把 StoreKit.framework 链接进 iOS 包
+# 厂商市场 SDK 扫描 / Play 依赖申报都会因此产生不必要的合规风险。
+#
+# Dart 层已通过 DTO（lib/flavors/iap_models.dart）完成代码隔离——业务层不引用任何
+# in_app_purchase 类型；但原生插件仍由 pubspec 依赖注入 GeneratedPluginRegistrant，
+# 所以必须再做构建期 pubspec 裁剪才能真正断掉原生链路：
+#
+# market=global 时，构建前从 pubspec.yaml/lock 直接移除 fluwx 依赖；
+# market=china  时，构建前从 pubspec.yaml/lock 直接移除国内版不应携带的商店支付 /
+#   Firebase / AdMob 依赖（共 7 个）：
+#     in_app_purchase / in_app_purchase_android / in_app_purchase_storekit
+#     firebase_core / firebase_messaging / firebase_crashlytics / google_mobile_ads
+#
+# 统一流程：
 #   1. 将 pubspec.yaml / pubspec.lock 原子备份到 /tmp 下随机文件名；
-#   2. perl 多行正则精准删除 2 行中文注释 + 1 行 fluwx: ^x.y.z 共 3 行块（精准到 dependency_overrides 之前不留空行断层）；
+#   2. perl 多行正则精准删除目标依赖行；
 #   3. 强制 flutter pub get 让 .dart_tool/package_config.json / GeneratedPluginRegistrant 重建；
 #   4. 执行构建；
-#   5. trap EXIT/INT/TERM 无论构建成功失败 ctrl-c 都还原，确保开发者本地仓库不留脏代码
-#
-# market=china 时：不做任何 pubspec 变动，直接构建
+#   5. trap EXIT/INT/TERM 无论构建成功失败 ctrl-c 都按 patch 方向还原，确保本地仓库不留脏代码
 # ------------------------------------------------------------------------------
 
 set -euo pipefail
@@ -74,6 +86,9 @@ esac
 #   BACKUP_DIR 放在 /tmp 下，与项目目录保持干净，使用 mktemp -d 防并发构建相互覆盖。
 # ==============================================================================
 PUBSPEC_PATCHED=0
+# patch 方向：global（移除 fluwx）| china（移除 in_app_purchase*）。
+# cleanup 还原时按该方向校验并恢复对应依赖，避免误还原成另一个市场的状态。
+PUBSPEC_PATCH_MARKET=""
 # 注意：BACKUP_DIR 必须声明为 readonly / 全局字符串，避免某些 bash 版本在 trap
 # 触发时进入子 shell 导致变量丢失；这里不用 export（仅本脚本使用），但使用
 # 「绝对路径 + 在创建后立刻 dump 日志」确保可追踪。
@@ -121,8 +136,27 @@ cleanup_pubspec_patch() {
         fi
     fi
 
+    # 按 patch 方向确定「需要验证恢复的包」与「flutter pub upgrade 恢复的包」。
+    # global → fluwx；china → in_app_purchase* 三件套。
+    case "${PUBSPEC_PATCH_MARKET}" in
+      global)
+        PATCH_CHECK_PKG="fluwx"
+        PATCH_RESTORE_DEPS=(fluwx)
+        ;;
+      china)
+        PATCH_CHECK_PKG="in_app_purchase"
+        PATCH_RESTORE_DEPS=(in_app_purchase in_app_purchase_android in_app_purchase_storekit \
+                            firebase_core firebase_messaging firebase_crashlytics google_mobile_ads)
+        ;;
+      *)
+        log "WARNING: 未知 PUBSPEC_PATCH_MARKET='${PUBSPEC_PATCH_MARKET}'，跳过依赖恢复校验"
+        PATCH_CHECK_PKG=""
+        PATCH_RESTORE_DEPS=()
+        ;;
+    esac
+
     if [[ "${restored_yaml}" -eq 1 && "${restored_lock}" -eq 1 ]]; then
-        log "cleanup: pubspec.yaml / pubspec.lock 已成功还原，强制重算 .dart_tool/package_config.json (恢复 fluwx 条目)..."
+        log "cleanup: pubspec.yaml / pubspec.lock 已成功还原，强制重算 .dart_tool/package_config.json (恢复 ${PATCH_CHECK_PKG} 条目)..."
         rm -f "${ROOT_DIR}/.dart_tool/package_config.json" \
               "${ROOT_DIR}/.dart_tool/package_config_subset" \
               "${ROOT_DIR}/.dart_tool/flutter_build/"*"/kernel_snapshot_program.d"
@@ -132,32 +166,39 @@ cleanup_pubspec_patch() {
         )
         # grep -c 命中 0 行时 exit=1，本函数内已 set +e，所以直接取 grep -c 结果，
         # 没命中时返回值是空 -> 用 awk 兜底成 0，-le 判断即可。
-        has_fluwx_count=0
-        raw_count="$(grep -c '"fluwx"' "${ROOT_DIR}/.dart_tool/package_config.json" 2>/dev/null)"
-        if [[ -n "${raw_count}" ]]; then
-          # shell 算术扩展，取第 1 行整数（防止出现多行或尾随换行导致 -gt 语法错）
-          has_fluwx_count=$(( raw_count + 0 ))
+        has_pkg_count=0
+        if [[ -n "${PATCH_CHECK_PKG}" ]]; then
+          raw_count="$(grep -c "\"${PATCH_CHECK_PKG}\"" "${ROOT_DIR}/.dart_tool/package_config.json" 2>/dev/null)"
+          if [[ -n "${raw_count}" ]]; then
+            # shell 算术扩展，取第 1 行整数（防止出现多行或尾随换行导致 -gt 语法错）
+            has_pkg_count=$(( raw_count + 0 ))
+          fi
         fi
-        if [[ "${has_fluwx_count}" -gt 0 ]]; then
-            log "cleanup: .dart_tool/package_config.json 已含 fluwx (${has_fluwx_count} 条)，恢复完成"
+        if [[ "${has_pkg_count}" -gt 0 ]]; then
+            log "cleanup: .dart_tool/package_config.json 已含 ${PATCH_CHECK_PKG} (${has_pkg_count} 条)，恢复完成"
         else
-            log "cleanup: package_config.json 未检测到 fluwx (count=${has_fluwx_count})，重试 flutter pub get..."
+            log "cleanup: package_config.json 未检测到 ${PATCH_CHECK_PKG} (count=${has_pkg_count})，重试 flutter pub get..."
             (
                 cd "${ROOT_DIR}"
                 rm -f ".dart_tool/package_config.json" ".dart_tool/package_config_subset"
-                # 关键修复：global 构建期间 pub get 会把 pubspec.lock 中的 fluwx 整段 entry 删除，
+                # 关键修复：patch 期间 pub get 会把 pubspec.lock 中的对应包整段 entry 删除，
                 # 恢复 pubspec.lock 原文件后，再次 flutter pub get 可能因「lockfile 仍与 package_config.json
-                # 状态相匹配」而增量跳过。因此显式 `flutter pub upgrade fluwx` 强制重算锁文件、
-                # 并把 fluwx 重写回 package_config.json。upgrade 仅对 fluwx 生效，不会牵动其他 84 包。
+                # 状态相匹配」而增量跳过。因此显式 `flutter pub upgrade <deps>` 强制重算锁文件、
+                # 并把依赖重写回 package_config.json。upgrade 仅对 patch 相关包生效，不会牵动其他包。
                 flutter pub get --no-example 2>&1 | tail -2
-                flutter pub upgrade fluwx 2>&1 | tail -3
+                if [[ "${#PATCH_RESTORE_DEPS[@]}" -gt 0 ]]; then
+                    flutter pub upgrade "${PATCH_RESTORE_DEPS[@]}" 2>&1 | tail -3
+                fi
             )
-            raw_count2="$(grep -c '"fluwx"' "${ROOT_DIR}/.dart_tool/package_config.json" 2>/dev/null)"
-            n2=0; [[ -n "${raw_count2}" ]] && n2=$(( raw_count2 + 0 ))
-            if [[ "${n2}" -gt 0 ]]; then
-                log "cleanup: 重试后 package_config.json 已含 fluwx (${n2} 条)，恢复完成"
+            raw_count2=0
+            if [[ -n "${PATCH_CHECK_PKG}" ]]; then
+              rc2="$(grep -c "\"${PATCH_CHECK_PKG}\"" "${ROOT_DIR}/.dart_tool/package_config.json" 2>/dev/null)"
+              [[ -n "${rc2}" ]] && raw_count2=$(( rc2 + 0 ))
+            fi
+            if [[ "${raw_count2}" -gt 0 ]]; then
+                log "cleanup: 重试后 package_config.json 已含 ${PATCH_CHECK_PKG} (${raw_count2} 条)，恢复完成"
             else
-                log "cleanup: WARNING package_config.json 仍未检测到 fluwx，如后续构建失败请手动执行 flutter pub get"
+                log "cleanup: WARNING package_config.json 仍未检测到 ${PATCH_CHECK_PKG}，如后续构建失败请手动执行 flutter pub get"
             fi
         fi
     else
@@ -166,10 +207,14 @@ cleanup_pubspec_patch() {
 
     rm -rf "${BACKUP_DIR}"
     PUBSPEC_PATCHED=0
+    PUBSPEC_PATCH_MARKET=""
     log "cleanup: done"
 }
-# 兼容 bash trap 语法：一次挂多个信号；另额外 TRAP 到 EXIT 防止脚本任何路径下正常退出遗漏清理
-trap cleanup_pubspec_patch EXIT INT TERM HUP QUIT ABRT
+# 兼容 bash trap 语法：一次挂多个信号；另额外 TRAP 到 EXIT 防止脚本任何路径下正常退出遗漏清理。
+# 必须包含 PIPE：脚本输出被管道消费者提前关闭（如 `... | head`）时会收到 SIGPIPE，
+# 若不 trap，bash 默认行为是立即终止且不触发 EXIT trap，导致 pubspec 补丁无法还原、
+# 工作区遗留脏状态（后续构建会误报「脏状态」）。
+trap cleanup_pubspec_patch EXIT INT TERM HUP QUIT ABRT PIPE
 
 apply_global_pubspec_patch() {
     log "market=global：为彻底移除 pubspec 中的 fluwx 微信 SDK 依赖（构建结束 trap 自动还原）..."
@@ -208,12 +253,66 @@ apply_global_pubspec_patch() {
     log "pubspec.yaml fluwx 依赖已移除，执行 flutter pub get 重建 package_config.json..."
     (cd "${ROOT_DIR}" && flutter pub get)
     PUBSPEC_PATCHED=1
+    PUBSPEC_PATCH_MARKET="global"
     log "global 构建环境准备就绪"
 }
 
-if [[ "${MARKET}" == "global" ]]; then
+apply_china_pubspec_patch() {
+    log "market=china：为彻底移除 pubspec 中的 in_app_purchase* / firebase* / google_mobile_ads 依赖（构建结束 trap 自动还原）..."
+    BACKUP_DIR="$(mktemp -d -t rephone_china_build_pubspec_bak.XXXXXXXX)"
+
+    cp -a "${ROOT_DIR}/pubspec.yaml" "${BACKUP_DIR}/pubspec.yaml"
+    cp -a "${ROOT_DIR}/pubspec.lock" "${BACKUP_DIR}/pubspec.lock"
+
+    # 【关键防御】备份完成后立刻校验「备份文件里 in_app_purchase / firebase_core 依赖声明」确实存在。
+    # 否则一旦上一轮构建失败，工作目录 pubspec.yaml 本身就处于「已删除对应依赖」的脏状态，
+    # 本次备份会把「脏状态」当成「原始状态」存下来，cleanup 还原后仍是脏的，
+    # 后续 global 构建将遇到 package:xxx not found 且难以排查。
+    if ! grep -qiE '^\s*in_app_purchase\s*:' "${BACKUP_DIR}/pubspec.yaml" || \
+       ! grep -qiE '^\s*firebase_core\s*:' "${BACKUP_DIR}/pubspec.yaml"; then
+        _BADDIR="${BACKUP_DIR}"
+        BACKUP_DIR=""
+        rm -rf "${_BADDIR}"
+        # 重要：PUBSPEC_PATCHED 仍为 0，确保 EXIT trap 不执行任何「从脏 BACKUP 还原」逻辑，
+        # 防止本就存在的工作目录正确文件被脏 BACKUP 覆盖还原回错误状态。
+        die "BACKUP_DIR/pubspec.yaml 中未检测到 in_app_purchase / firebase_core 依赖，工作目录可能处于上一次构建失败后的脏状态，请手动 flutter pub get 或还原 pubspec.yaml 后重试"
+    fi
+
+    # 精准删除以下 7 行（含每行上方紧邻的换行符）：
+    #   in_app_purchase: ^3.2.0
+    #   in_app_purchase_android: ^0.4.0+8
+    #   in_app_purchase_storekit: ^0.3.0
+    #   firebase_core: any
+    #   firebase_messaging: any
+    #   firebase_crashlytics: ^5.0.8
+    #   google_mobile_ads: any
+    # 采用 perl -0777 多行模式，slurp 整文件替换；
+    # 正则「\n[ \t]*(?:in_app_purchase(?:_android|_storekit)?|firebase_core|firebase_messaging|
+    #   firebase_crashlytics|google_mobile_ads)\s*:\s*[^\n]*」+ /g 逐行删除。
+    # 前缀不会误伤：in_app_purchase_android 行的 in_app_purchase 后紧跟 _android，不满足 \s*:；
+    # firebase_core_platform_interface 行的 firebase_core 后紧跟 _，同样不满足 \s*:。
+    perl -0777 -i -pe \
+      's/\n[ \t]*(?:in_app_purchase(?:_android|_storekit)?|firebase_core|firebase_messaging|firebase_crashlytics|google_mobile_ads)\s*:\s*[^\n]*//g' \
+      "${ROOT_DIR}/pubspec.yaml"
+
+    if grep -qiE '^\s*(in_app_purchase(_android|_storekit)?|firebase_core|firebase_messaging|firebase_crashlytics|google_mobile_ads)\s*:' "${ROOT_DIR}/pubspec.yaml" >/dev/null 2>&1; then
+        die "pubspec.yaml 中仍存在 in_app_purchase* / firebase* / google_mobile_ads 依赖声明，perl 补丁未命中，请检查依赖行缩进或格式"
+    fi
+    log "pubspec.yaml in_app_purchase* / firebase* / google_mobile_ads 依赖已移除，执行 flutter pub get 重建 package_config.json..."
+    (cd "${ROOT_DIR}" && flutter pub get)
+    PUBSPEC_PATCHED=1
+    PUBSPEC_PATCH_MARKET="china"
+    log "china 构建环境准备就绪"
+}
+
+case "${MARKET}" in
+  global)
     apply_global_pubspec_patch
-fi
+    ;;
+  china)
+    apply_china_pubspec_patch
+    ;;
+esac
 
 FLUTTER_ARGS=("--${BUILD_TYPE}")
 ANDROID_PROJECT_ARGS=()

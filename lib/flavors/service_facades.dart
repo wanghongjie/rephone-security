@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
+
+import 'iap_models.dart';
 
 /// 横幅广告位标识（placement）：语义化的页面/场景名称。
 ///
@@ -62,12 +63,16 @@ abstract class PushService {
 /// 海外实现一般对接 `in_app_purchase`（Play Billing / StoreKit）；
 /// 国内实现可对接微信/支付宝/RMB 支付，或先使用空实现占位。
 ///
-/// 注：该抽象类型仍暴露 `PurchaseDetails` / `ProductDetails`，
-/// 保证 legacy MembershipPage 的完整购买流程不回退；
-/// 后续若要替换为非 Store/非 Billing 支付，可再升级为 DTO 类型。
+/// 隔离约定：本门面**只暴露 [iap_models.dart] 中的 DTO 类型**
+/// （[IapProduct] / [IapPurchase] / [IapPurchaseStatus] 等），
+/// 业务代码不得 import `in_app_purchase` / `in_app_purchase_android` 等 SDK 包；
+/// 具体 SDK 类型仅在 `features/iap_service_global.dart` 内部转换，
+/// 从而在 Dart 层完成国内包 / 海外包的彻底隔离。
 abstract class IapService {
   /// 初始化：例如监听购买流、建立与后端的订阅验证通道。
-  Future<void> init();
+  ///
+  /// [forceRefresh] 为 true 时强制重新拉取商品（用于会员页重试 / 反复进入）。
+  Future<void> init({bool forceRefresh = false});
 
   /// 判断当前市场是否启用内购（主要用于 UI 展示）。
   bool get isEnabled;
@@ -75,24 +80,24 @@ abstract class IapService {
   /// iOS 侧是否允许支付（例如家长控制关闭时为 false）。
   bool? get iosCanMakePayments;
 
-  /// 原始的商店商品列表（Play Billing / StoreKit 查询结果）。
-  List<ProductDetails> get products;
+  /// 商店商品列表（Play Billing / StoreKit 查询结果，已转为 DTO）。
+  List<IapProduct> get products;
 
-  /// 商店的购买状态流（purchased / restored / pending / error）。
-  Stream<List<PurchaseDetails>> get purchasesStream;
+  /// 商店的购买状态流（purchased / restored / pending / error，已转为 DTO）。
+  Stream<List<IapPurchase>> get purchasesStream;
 
   /// 加载商品（会员 SKU、新单 SKU 等）。
-  Future<List<Object>> loadProducts();
+  Future<List<IapProduct>> loadProducts();
 
   /// 通过商品 ID 取已缓存的商店商品明细。
-  ProductDetails? getProduct(String id);
+  IapProduct? getProduct(String id);
 
   /// 触发一次购买（由 UI 传入 SKU 标识）。
   Future<void> purchase(String sku);
 
-  /// 按 `in_app_purchase` 的 ProductDetails 直接发起购买（含 Android 升降级/ base plans）。
+  /// 按商品 DTO 直接发起购买（含 Android 升降级/ base plans）。
   Future<void> buy(
-    ProductDetails product, {
+    IapProduct product, {
     String? offerToken,
     bool skipAndroidSubscriptionReplacement = false,
   });
@@ -104,7 +109,7 @@ abstract class IapService {
   Future<void> restore();
 
   /// 调用商店完成交易（Play / StoreKit 必须确认，否则会被自动退款）。
-  Future<void> completePurchase(PurchaseDetails purchase);
+  Future<void> completePurchase(IapPurchase purchase);
 
   // —————————————————————————— 第三方支付（非商店 IAP，国内微信/支付宝等） ——————————————————————————
 

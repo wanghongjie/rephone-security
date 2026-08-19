@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 // 微信 SDK fluwx 6.x（社区维护版）：仅本文件 import，海外入口 main.dart 永不引用，
 // 从而不会把微信 SDK 代码链接进 Play Store / App Store 包。
 import 'package:fluwx/fluwx.dart' as fluwx;
 
 import '../../services/payment_api.dart';
+import '../iap_models.dart';
 import '../service_facades.dart';
 
 const String _kTag = 'WechatIAP';
@@ -34,11 +34,10 @@ const String _kTag = 'WechatIAP';
 ///      确保即使 notify 回调丢失，权益也能在 30s 内发放。
 ///
 /// 4. **IapService 兼容性**：
-///    由于 [IapService] 仍声明 `purchasesStream` / `products` 等
-///    `in_app_purchase` 类型的 getter（为了兼容海外分支的 [MembershipPage] 逻辑），
+///    由于 [IapService] 门面仍声明 `purchasesStream` / `products` 等 getter，
 ///    本实现中：
 ///    - `products` 返回空列表（会员套餐展示直接由 MembershipPage 硬编码或后端下发）
-///    - `purchasesStream` 返回一个空的广播流（微信支付不会产生 `PurchaseDetails` 事件）
+///    - `purchasesStream` 返回一个空的广播流（微信支付不会产生购买事件）
 ///    - `buy` / `purchase` / `restorePurchases` 等 IAP 原生方法直接报错或 noop
 ///    业务页面在微信分支下，应**通过 [isThirdPartyPaymentEnabled] 判真后，
 ///    走 [createServerOrder] 链路**，不走 `buy / purchasesStream` 老链路。
@@ -46,8 +45,8 @@ class ChinaWechatIapService implements IapService {
   final bool _enabled;
 
   /// 客户端支付参数 Stream：上层 MembershipPage 可以监听，也可以直接用 await 返回值。
-  final StreamController<List<PurchaseDetails>> _purchases =
-      StreamController<List<PurchaseDetails>>.broadcast();
+  final StreamController<List<IapPurchase>> _purchases =
+      StreamController<List<IapPurchase>>.broadcast();
 
   // ——— Fluwx 6.x SDK 适配层 ———
   // 6.x 之后不再使用全局函数，改为通过 Fluwx 实例操作：
@@ -81,10 +80,10 @@ class ChinaWechatIapService implements IapService {
   bool? get iosCanMakePayments => null;
 
   @override
-  List<ProductDetails> get products => const <ProductDetails>[];
+  List<IapProduct> get products => const <IapProduct>[];
 
   @override
-  Stream<List<PurchaseDetails>> get purchasesStream => _purchases.stream;
+  Stream<List<IapPurchase>> get purchasesStream => _purchases.stream;
 
   /// 初始化：注册微信 SDK AppID。
   ///
@@ -98,7 +97,7 @@ class ChinaWechatIapService implements IapService {
   /// 或后端接口下发；为了让当前改造能直接跑通，示例值与 `configs/config.ini`
   /// 中 `[wechat_pay].app_id` 的占位一致，后续从后端初始化接口拉取更规范。
   @override
-  Future<void> init() async {
+  Future<void> init({bool forceRefresh = false}) async {
     if (!_enabled) return;
     if (_sdkInitialized) return;
     try {
@@ -118,15 +117,15 @@ class ChinaWechatIapService implements IapService {
   }
 
   @override
-  Future<List<Object>> loadProducts() async {
+  Future<List<IapProduct>> loadProducts() async {
     // 微信支付模式下：套餐列表由 MembershipPage 自己硬编码（月卡/年卡），
     // 或调用独立的后端接口（/api/payment/products）拉取。
     // 这里返回空列表，不影响现有逻辑。
-    return const <Object>[];
+    return const <IapProduct>[];
   }
 
   @override
-  ProductDetails? getProduct(String id) => null;
+  IapProduct? getProduct(String id) => null;
 
   // —————————— 商店 IAP 老链路（微信支付不使用，按 noop/报错处理） ——————————
 
@@ -144,7 +143,7 @@ class ChinaWechatIapService implements IapService {
 
   @override
   Future<void> buy(
-    ProductDetails product, {
+    IapProduct product, {
     String? offerToken,
     bool skipAndroidSubscriptionReplacement = false,
   }) async {
@@ -164,7 +163,7 @@ class ChinaWechatIapService implements IapService {
   Future<void> restore() => restorePurchases();
 
   @override
-  Future<void> completePurchase(PurchaseDetails purchase) async {
+  Future<void> completePurchase(IapPurchase purchase) async {
     // 微信 SDK 不需要手动完成交易（没有 Play/StoreKit 的 3 天退款窗口）。
     debugPrint('[ChinaWechatIapService] completePurchase：微信支付无需调用。');
   }

@@ -111,7 +111,7 @@ FeatureToggles globalFeatureToggles() => const FeatureToggles(
 /// 预置的 China（国内）环境配置：默认剔除 Firebase/AdMob/IAP。
 EnvConfig chinaEnvConfig() => const EnvConfig(
       market: Market.china,
-      appName: 'RePhone Security CN',
+      appName: 'RePhone Security',
       authHost: 'rephone.top',
       authPort: 8086,
       authUseHttps: true,

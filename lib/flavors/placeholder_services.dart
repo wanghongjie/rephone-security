@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 
 import 'env_config.dart';
+import 'iap_models.dart';
 import 'service_facades.dart';
 
 /// 通用的占位实现：Phase1 过渡阶段，能力门面先用占位实现注入，保证两条入口都能跑通；
@@ -51,7 +51,7 @@ class PlaceholderIapService implements IapService {
   PlaceholderIapService(this._features);
 
   @override
-  Future<void> init() async {}
+  Future<void> init({bool forceRefresh = false}) async {}
 
   @override
   bool get isEnabled => _features.enableInAppPurchase;
@@ -60,17 +60,17 @@ class PlaceholderIapService implements IapService {
   bool? get iosCanMakePayments => null;
 
   @override
-  List<ProductDetails> get products => const <ProductDetails>[];
+  List<IapProduct> get products => const <IapProduct>[];
 
   @override
-  Stream<List<PurchaseDetails>> get purchasesStream =>
-      const Stream<List<PurchaseDetails>>.empty();
+  Stream<List<IapPurchase>> get purchasesStream =>
+      const Stream<List<IapPurchase>>.empty();
 
   @override
-  Future<List<Object>> loadProducts() async => const <Object>[];
+  Future<List<IapProduct>> loadProducts() async => const <IapProduct>[];
 
   @override
-  ProductDetails? getProduct(String id) => null;
+  IapProduct? getProduct(String id) => null;
 
   @override
   Future<void> purchase(String sku) async {
@@ -79,7 +79,7 @@ class PlaceholderIapService implements IapService {
 
   @override
   Future<void> buy(
-    ProductDetails product, {
+    IapProduct product, {
     String? offerToken,
     bool skipAndroidSubscriptionReplacement = false,
   }) async {
@@ -97,7 +97,32 @@ class PlaceholderIapService implements IapService {
   }
 
   @override
-  Future<void> completePurchase(PurchaseDetails purchase) async {}
+  Future<void> completePurchase(IapPurchase purchase) async {}
+
+  @override
+  bool get isThirdPartyPaymentEnabled => false;
+
+  @override
+  Future<Map<String, dynamic>?> createServerOrder({
+    required String sku,
+    required String plan,
+    required String email,
+  }) async {
+    debugPrint('[PlaceholderIapService] createServerOrder($sku, $plan) 未实现（Phase1 占位）');
+    return null;
+  }
+
+  @override
+  Future<bool> queryServerOrderStatus(String orderId, {String? email}) async {
+    debugPrint('[PlaceholderIapService] queryServerOrderStatus($orderId) 未实现（Phase1 占位）');
+    return false;
+  }
+
+  @override
+  Future<bool> notifyServerOrderPaid(String orderId, {String? email, String? transactionId}) async {
+    debugPrint('[PlaceholderIapService] notifyServerOrderPaid($orderId) 未实现（Phase1 占位）');
+    return false;
+  }
 }
 
 /// 广告占位实现：Phase1 返回空 SizedBox；Phase2 将提供 AdMob / Pangle 具体实现。

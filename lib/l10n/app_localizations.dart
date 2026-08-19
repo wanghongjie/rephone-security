@@ -65,6 +65,31 @@ class AppLocalizations {
       'aboutPrivacy': 'Privacy Policy',
       'aboutView': 'Tap to view',
       'aboutVersion': 'Version',
+      'privacyDialogTitle': 'Privacy Policy Notice',
+      'privacyDialogContent': 'Welcome to RePhone Security. We value your privacy. '
+          'Before you start, please read this notice carefully.\n\n'
+          '1. Information We Collect and Use\n'
+          'To provide remote monitoring, device binding, alert push, cloud storage and other '
+          'core services, we may collect the following information with your consent:\n'
+          '• Account information: the email address used to sign in;\n'
+          '• Device information: device model, OS version, device identifier, network status;\n'
+          '• Feature data: camera feeds (only transmitted when you actively enable monitoring), '
+          'device binding records and alert history.\n'
+          'The above information is used solely to provide product features, ensure account and '
+          'device security, and improve service quality. We never collect personal information '
+          'unrelated to the app features, nor do we share your information with unrelated third '
+          'parties.\n\n'
+          '2. Data Storage\n'
+          'Your information is stored on secure servers for the shortest period necessary to '
+          'fulfill the purposes of processing, unless otherwise required by law.\n\n'
+          '3. Your Rights\n'
+          'You can read the full Privacy Policy at any time via the in-app link below, and you '
+          'may exercise your rights to access, correct and delete your personal information.\n\n'
+          'If you do not agree with the above, we cannot provide the services. Please tap '
+          '"Disagree" to exit the app.',
+      'privacyDialogReadFull': 'Read Full Privacy Policy',
+      'privacyDialogAgree': 'Agree',
+      'privacyDialogDisagree': 'Disagree',
       'helpCenterTitle': 'Help center',
       'helpFeedback': 'Feedback',
       'helpFeedbackHint': 'Describe issues, feature requests or suggestions...',
@@ -409,6 +434,27 @@ class AppLocalizations {
       'aboutPrivacy': '隐私协议',
       'aboutView': '点击查看',
       'aboutVersion': '版本',
+      'privacyDialogTitle': '隐私政策提示',
+      'privacyDialogContent': '欢迎使用 RePhone Security。我们高度重视你的个人信息和隐私安全，'
+          '请在使用本应用前仔细阅读以下提示。\n\n'
+          '一、我们收集和使用的信息\n'
+          '为向你提供远程监控、设备绑定、告警推送、云存储等核心服务，'
+          '我们可能会在你同意后收集以下信息：\n'
+          '• 账号信息：注册/登录所使用的邮箱地址；\n'
+          '• 设备信息：设备型号、操作系统版本、设备标识、网络状态；\n'
+          '• 功能数据：摄像头画面（仅在你主动开启监控时传输）、设备绑定关系、告警记录。\n'
+          '上述信息仅用于实现产品功能、保障账号与设备安全、改进服务质量。'
+          '我们不会收集与功能无关的个人信息，也不会将你的信息提供给无关第三方。\n\n'
+          '二、信息存储\n'
+          '你的信息将存储于安全的服务器中，保存期限为实现处理目的所必需的最短时间，'
+          '法律法规另有规定的除外。\n\n'
+          '三、你的权利\n'
+          '你可以随时通过本应用内的链接查看完整《隐私政策》，'
+          '并可依法行使查阅、更正、删除等权利。\n\n'
+          '若你不同意上述内容，本应用将无法为你提供服务，请点击「拒绝」退出应用。',
+      'privacyDialogReadFull': '查看完整隐私政策',
+      'privacyDialogAgree': '同意',
+      'privacyDialogDisagree': '拒绝',
       'helpCenterTitle': '帮助中心',
       'helpFeedback': '意见反馈',
       'helpFeedbackHint': '请描述你遇到的问题、期望的功能或改进建议…',
@@ -748,6 +794,11 @@ class AppLocalizations {
   String get aboutPrivacy => _t('aboutPrivacy');
   String get aboutView => _t('aboutView');
   String get aboutVersion => _t('aboutVersion');
+  String get privacyDialogTitle => _t('privacyDialogTitle');
+  String get privacyDialogContent => _t('privacyDialogContent');
+  String get privacyDialogReadFull => _t('privacyDialogReadFull');
+  String get privacyDialogAgree => _t('privacyDialogAgree');
+  String get privacyDialogDisagree => _t('privacyDialogDisagree');
   String get playbackRecordingNotSupported => _t('playbackRecordingNotSupported');
 
   String get helpCenterTitle => _t('helpCenterTitle');
