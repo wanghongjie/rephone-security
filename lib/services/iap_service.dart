@@ -22,6 +22,13 @@ class IapService {
     'rephone_pro', // New subscription model (Single Product + Base Plans)
   };
 
+  /// Android 新模型只依赖 `rephone_pro`（base plans 挂在它下面）。
+  /// `rephone_premium_*` 是 legacy 单商品模型（iOS Strategy 1 / 微信 sku 在用），
+  /// Android 上查询这两个不存在的 SKU 会干扰整个 getSkuDetails 请求
+  /// （Play 可能返回 BILLING_UNAVAILABLE / code=3），因此按平台分流查询集合。
+  Set<String> get _queryProductIds =>
+      Platform.isAndroid ? {'rephone_pro'} : _productIds;
+
   final StreamController<List<PurchaseDetails>> _purchasesController =
       StreamController<List<PurchaseDetails>>.broadcast();
 
@@ -55,7 +62,7 @@ class IapService {
 
     // isAvailable=false 时主动探测一次商品查询错误细节，便于定位配置/账号问题。
     try {
-      final response = await _iap.queryProductDetails(_productIds);
+      final response = await _iap.queryProductDetails(_queryProductIds);
       LogUtils.d(
         _kIapTag,
         'ios diagnostics: probe query done, count=${response.productDetails.length}, '
@@ -161,7 +168,7 @@ class IapService {
     final completer = Completer<void>();
     _queryProductsFuture = completer.future;
     try {
-      LogUtils.d(_kIapTag, 'queryProducts: requesting $_productIds');
+      LogUtils.d(_kIapTag, 'queryProducts: requesting $_queryProductIds');
       // 超时兜底：BillingClient 在查询失败（如 BILLING_UNAVAILABLE/code=3）时
       // 只打日志、不回调 listener，Dart 侧只能靠 timeout 感知失败，因此必须有超时。
       // 若不加超时，_isQueryingProducts 会永久为 true，之后所有查询都会卡在
@@ -196,7 +203,7 @@ class IapService {
   /// 单次商品查询并带超时。BillingClient 在查询失败时只打日志、不回调
   /// listener，因此超时后按空响应处理，让调用方继续走失败流程。
   Future<ProductDetailsResponse> _queryWithTimeout() {
-    return _iap.queryProductDetails(_productIds).timeout(
+    return _iap.queryProductDetails(_queryProductIds).timeout(
           const Duration(seconds: 5),
           onTimeout: () {
             LogUtils.w(
