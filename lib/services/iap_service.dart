@@ -259,7 +259,6 @@ class IapService {
             final past = await addition.queryPastPurchases();
             for (final p in past.pastPurchases) {
               if (p.productID != 'rephone_pro') continue;
-              if (p is! GooglePlayPurchaseDetails) continue;
 
               // Prefer the current active subscription to feed into ChangeSubscriptionParam.
               // If there's a pending purchase update, Play may reject the replacement.
