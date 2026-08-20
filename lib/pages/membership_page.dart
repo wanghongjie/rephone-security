@@ -187,7 +187,8 @@ class _MembershipPageState extends State<MembershipPage> {
     if (id == 'rephone_premium_yearly') return 'yearly';
     if (id == 'rephone_pro') {
       final bp = _pendingAndroidBasePlanId;
-      if (bp == 'monthly' || bp == 'yearly') return bp;
+      if (bp == 'monthly-global') return 'monthly';
+      if (bp == 'yearly-global') return 'yearly';
     }
     return null;
   }
@@ -288,7 +289,7 @@ class _MembershipPageState extends State<MembershipPage> {
         isRecommended: false,
         isCurrentPlan: false,
         productId: 'rephone_premium_monthly',
-        basePlanId: 'monthly', // New
+        basePlanId: 'monthly-global', // New, matches non-legacy base plan in Play Console
         displayPrice: null,
       ),
       MembershipPlan(
@@ -298,7 +299,7 @@ class _MembershipPageState extends State<MembershipPage> {
         isRecommended: true,
         isCurrentPlan: false,
         productId: 'rephone_premium_yearly',
-        basePlanId: 'yearly', // New
+        basePlanId: 'yearly-global', // New, matches non-legacy base plan in Play Console
         displayPrice: null,
       ),
     ];
