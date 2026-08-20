@@ -346,17 +346,28 @@ case "${OS}" in
     ;;
   ios)
     if [[ "${ARTIFACT}" != "ios" ]]; then die "iOS artifact 只允许 ios，当前：${ARTIFACT}"; fi
+    # --------------------------------------------------------------------------
+    # iOS 不传 --flavor（与 Android 不同，勿照搬 android 分支）：
+    #   Flutter 的 iOS --flavor 要求 Xcode 项目存在同名 shared scheme
+    #   （xcshareddata/xcschemes/Global.xcscheme / China.xcscheme），且 scheme
+    #   引用的 build configuration（如 Release-Global）必须存在于 project.pbxproj，
+    #   否则直接报 "The Xcode project does not define custom schemes"。
+    #   本项目 iOS 原生层（bundle id / Info.plist / Podfile / xcconfig）对
+    #   global / china 没有任何差异化配置（Runner 的 Debug/Release/Profile 三个
+    #   配置 bundle id 均为 com.rephone.security），--flavor 不产生任何行为差异。
+    #   市场区分完全由 Dart 层完成：入口文件（-t）+ --dart-define=MARKET=xxx。
+    #   将来若 iOS 需要区分 bundle id / 原生配置，请先在 Xcode 中为各市场创建
+    #   shared scheme 与对应 build configuration，再恢复 --flavor 参数。
+    # --------------------------------------------------------------------------
     case "${MARKET}" in
       global)
         FLUTTER_ARGS+=(
-          "--flavor" "Global"
           "-t" "lib/main.dart"
           "--dart-define=MARKET=global"
         )
         ;;
       china)
         FLUTTER_ARGS+=(
-          "--flavor" "China"
           "-t" "lib/main_china.dart"
           "--dart-define=MARKET=china"
         )
