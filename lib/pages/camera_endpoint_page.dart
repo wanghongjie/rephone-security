@@ -981,16 +981,18 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       try {
         // 给抓帧加超时：WebRTC 建连期间 video track 被 monitor 占用时，
         // captureFrame() 可能永久挂起。超时后跳过本次检测并复位 _isDetecting。
+        // 注意：不要用 timeout(onTimeout:) 返回 null —— 其回调类型为
+        // FutureOr<ByteBuffer> Function()，返回 null 会触发运行时 TypeError。
+        // 改为捕获 TimeoutException，语义等价且类型安全。
         await (track as dynamic).captureFrame().timeout(
           const Duration(seconds: 5),
-          onTimeout: () {
-            LogUtils.w(
-              'CameraEndpoint',
-              'TFLite detection: captureFrame() timed out after 5s (video track busy?)',
-            );
-            return null;
-          },
         );
+      } on TimeoutException {
+        LogUtils.w(
+          'CameraEndpoint',
+          'TFLite detection: captureFrame() timed out after 5s (video track busy?)',
+        );
+        return false;
       } catch (e) {
         LogUtils.w('CameraEndpoint', 'TFLite detection: captureFrame() failed: $e');
         return false;
