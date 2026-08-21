@@ -13,6 +13,12 @@ enum LogLevel {
 class LogUtils {
   static File? _logFile;
   static bool _initialized = false;
+
+  /// 当前日志文件对应的日期（yyyy-MM-dd），用于跨天自动切换文件
+  static String? _logFileDateStr;
+
+  /// logs 目录路径，跨天切换文件时复用
+  static String? _logDir;
   
   // 私有构造函数，防止实例化
   LogUtils._();
@@ -33,6 +39,8 @@ class LogUtils {
 
       // 按日期生成日志文件
       final String dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      _logDir = logDir;
+      _logFileDateStr = dateStr;
       _logFile = File('$logDir/log_$dateStr.txt');
       
       _initialized = true;
@@ -45,7 +53,28 @@ class LogUtils {
   /// 获取当前日志文件路径
   static Future<String?> getLogFilePath() async {
     if (!_initialized) await init();
+    // 确保返回的是当天对应的日志文件
+    _ensureLogFileForDate();
     return _logFile?.path;
+  }
+
+  /// 跨天自动切换日志文件：
+  /// 应用长期驻留不退出时，若当前日期与日志文件日期不一致，
+  /// 则将 _logFile 切换到当天的新文件，避免所有日志写进同一个文件。
+  static void _ensureLogFileForDate() {
+    if (!_initialized || _logDir == null) return;
+    final String todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    if (_logFileDateStr == todayStr) return;
+
+    try {
+      final String oldDate = _logFileDateStr ?? 'unknown';
+      _logFileDateStr = todayStr;
+      _logFile = File('$_logDir/log_$todayStr.txt');
+      // 走 i() 记录切换事件，此时 _logFileDateStr 已更新，不会递归触发切换
+      i('LogUtils', 'Date changed ($oldDate -> $todayStr), switching log file to ${_logFile?.path}');
+    } catch (e) {
+      print('LogUtils switch log file failed: $e');
+    }
   }
 
   /// 获取所有日志文件列表
@@ -93,7 +122,7 @@ class LogUtils {
 
   static void _log(LogLevel level, String tag, String message) {
     final DateTime now = DateTime.now();
-    final String timeStr = DateFormat('HH:mm:ss.SSS').format(now);
+    final String timeStr = DateFormat('yyyy-MM-dd HH:mm:ss.SSS').format(now);
     final String levelStr = _getLevelString(level);
     final String logContent = '$timeStr $levelStr/$tag: $message';
 
@@ -116,6 +145,10 @@ class LogUtils {
 
   static void _writeToFile(LogLevel level, String content) {
     if (!_initialized || _logFile == null) return;
+
+    // 写入前校验日期，跨天时自动切换到当天的新日志文件
+    _ensureLogFileForDate();
+    if (_logFile == null) return;
 
     // 判断是否需要写入文件
     bool shouldWrite = false;

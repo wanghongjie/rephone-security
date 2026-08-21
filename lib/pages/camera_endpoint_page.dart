@@ -43,6 +43,10 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   bool _isDetecting = false;
   bool _isRecording = false;
   Timer? _detectTimer;
+  /// Used to recover from "detection stuck": when captureFrame() hangs
+  /// (e.g. a monitor's WebRTC session is occupying the video track),
+  /// _isDetecting stays true and every subsequent tick silently returns.
+  int? _detectionStartedAtMs;
   /// Detection cooldown: recording 结束后，短时间内跳过人行检测。
   /// 避免频繁触发录制，同时也避免依赖“冷却结束回调”在后台被暂停导致检测永久停止。
   DateTime? _detectionCooldownUntil;
@@ -337,6 +341,20 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       // Some platforms throttle/suspend timers in background; ensure detection timer is still running.
       _startDetectionTimer();
 
+      // If detection got stuck while backgrounding (captureFrame hung), recover.
+      if (_isDetecting && _detectionStartedAtMs != null) {
+        final elapsedMs =
+            DateTime.now().millisecondsSinceEpoch - _detectionStartedAtMs!;
+        if (elapsedMs > 15000) {
+          _isDetecting = false;
+          _detectionStartedAtMs = null;
+          LogUtils.w(
+            'CameraEndpoint',
+            'Detection state recovered after background throttling (elapsedMs=$elapsedMs)',
+          );
+        }
+      }
+
       // If recording got stuck while backgrounding (delayed callbacks didn't run), recover.
       if (_isRecording && _recordingStartedAtMs != null) {
         final elapsedMs =
@@ -453,6 +471,16 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         case CallState.CallStateBye:
           LogUtils.i('CameraEndpoint', '监控端已断开');
           _remoteMonitorRenderer.srcObject = null;
+          // 监控端断开后强制复位检测标志，避免 WebRTC 会话释放期间
+          // captureFrame() 挂起导致检测永久停止。
+          if (_isDetecting) {
+            LogUtils.w(
+              'CameraEndpoint',
+              'Monitor disconnected, resetting stuck _isDetecting',
+            );
+            _isDetecting = false;
+            _detectionStartedAtMs = null;
+          }
           break;
         default:
           break;
@@ -836,12 +864,27 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   }
 
   Future<void> _performDetection() async {
+    // 检测卡死自愈：captureFrame() 挂起（如 WebRTC 建连占用 video track）时，
+    // _isDetecting 会一直为 true，导致后续 tick 静默跳过。超过阈值则强制复位。
+    if (_isDetecting && _detectionStartedAtMs != null) {
+      final elapsedMs =
+          DateTime.now().millisecondsSinceEpoch - _detectionStartedAtMs!;
+      if (elapsedMs > 15000) {
+        LogUtils.w(
+          'CameraEndpoint',
+          'Detection stuck (elapsedMs=$elapsedMs), resetting _isDetecting',
+        );
+        _isDetecting = false;
+        _detectionStartedAtMs = null;
+      }
+    }
     if (_isRecording || _isDetecting) return;
     final cooldownUntil = _detectionCooldownUntil;
     if (cooldownUntil != null && DateTime.now().isBefore(cooldownUntil)) return;
     if (!_isVideoActive) return;
 
     _isDetecting = true;
+    _detectionStartedAtMs = DateTime.now().millisecondsSinceEpoch;
     try {
       LogUtils.d('CameraEndpoint', 'Detection tick: start TFLite person detection');
       final bool isDetected = await _detectPersonWithTflite();
@@ -867,6 +910,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       LogUtils.e('CameraEndpoint', 'Error in detection loop', e);
     } finally {
       _isDetecting = false;
+      _detectionStartedAtMs = null;
     }
   }
 
@@ -934,7 +978,23 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       }
 
       final track = videoTracks.first;
-      await (track as dynamic).captureFrame();
+      try {
+        // 给抓帧加超时：WebRTC 建连期间 video track 被 monitor 占用时，
+        // captureFrame() 可能永久挂起。超时后跳过本次检测并复位 _isDetecting。
+        await (track as dynamic).captureFrame().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            LogUtils.w(
+              'CameraEndpoint',
+              'TFLite detection: captureFrame() timed out after 5s (video track busy?)',
+            );
+            return null;
+          },
+        );
+      } catch (e) {
+        LogUtils.w('CameraEndpoint', 'TFLite detection: captureFrame() failed: $e');
+        return false;
+      }
 
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/captureFrame.png');
