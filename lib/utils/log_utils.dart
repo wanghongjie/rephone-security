@@ -14,6 +14,12 @@ class LogUtils {
   static File? _logFile;
   static bool _initialized = false;
 
+  /// 串行写入链：多个日志并发写文件时（writeAsString 是异步的），
+  /// 若不做排队会导致底层文件写操作交错执行，行内容互相覆盖/穿插，
+  /// 关键日志（如 Reuse existing local stream）会被吞掉。
+  /// 所有日志追加到该 Future 链上排队，保证同一时刻只有一个写操作。
+  static Future<void> _writeChain = Future.value();
+
   /// 当前日志文件对应的日期（yyyy-MM-dd），用于跨天自动切换文件
   static String? _logFileDateStr;
 
@@ -164,8 +170,14 @@ class LogUtils {
     }
 
     if (shouldWrite) {
-      // 异步写入文件，避免阻塞 UI
-      _logFile!.writeAsString('$content\n', mode: FileMode.append).catchError((e) {
+      // 异步写入文件，避免阻塞 UI。
+      // 必须排队串行：writeAsString 是异步的，若并发调用多个，
+      // 底层文件写操作会交错执行，导致行内容互相覆盖/穿插（日志丢失）。
+      final file = _logFile;
+      if (file == null) return;
+      _writeChain = _writeChain.then((_) async {
+        await file.writeAsString('$content\n', mode: FileMode.append);
+      }).catchError((e) {
         print('Write log failed: $e');
       });
     }
