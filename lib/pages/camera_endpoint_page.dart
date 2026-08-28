@@ -833,8 +833,10 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   }
 
   void _initDetector() {
-    _initPersonDetector();
-    _startDetectionTimer();
+    // 检测已停用：不再加载 TFLite 模型（模型加载会占用大量 native 内存），
+    // 也不启动检测定时器。如需恢复检测，取消下面两行注释。
+    // _initPersonDetector();
+    // _startDetectionTimer();
   }
 
   Future<void> _initPersonDetector() async {

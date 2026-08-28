@@ -557,15 +557,18 @@ class Signaling {
 
   Future<void> restartVideo() async {
     LogUtils.i('Signaling', 'Restarting video stream...');
-    // 1. Stop old video track to release resources
+    // 1. Stop ALL tracks (video + audio) to release native capture resources.
+    //    之前只停 video track 且不 dispose stream，导致 audio track / native 句柄泄漏。
+    MediaStream? oldStream;
     if (_localStream != null) {
-      _localStream!.getVideoTracks().forEach((track) {
+      oldStream = _localStream;
+      for (final track in oldStream!.getTracks()) {
         try {
-          track.stop();
+          await track.stop();
         } catch (e) {
           LogUtils.e('Signaling', 'Error stopping track', e);
         }
-      });
+      }
       // Give the camera hardware some time to release resources
       await Future.delayed(const Duration(milliseconds: 500));
     }
@@ -584,6 +587,15 @@ class Signaling {
             LogUtils.i('Signaling', 'Replacing video track for sender');
             await sender.replaceTrack(newVideoTrack);
           }
+        }
+      }
+      // 4. Dispose old stream now that renderer has been re-bound to the new stream.
+      //    必须在 renderer 切换到新流之后再释放旧流，避免渲染器引用已释放的流。
+      if (oldStream != null) {
+        try {
+          await oldStream.dispose();
+        } catch (e) {
+          LogUtils.e('Signaling', 'Error disposing old stream', e);
         }
       }
       LogUtils.i('Signaling', 'Video stream restarted successfully');
@@ -620,9 +632,11 @@ class Signaling {
     required String media,
   }) async {
     var newSession = session ?? Session(sid: sessionId, pid: peerId);
-    if (media != 'data' && useLocalMedia)
-      _localStream =
-          await createStream(media, context: _context);
+    // 复用已有本地流：多次会话/监控端接入时不再重复 getUserMedia，
+    // 否则旧流被覆盖且从不释放，native 相机/音频/纹理句柄会持续泄漏导致 OOM。
+    if (media != 'data' && useLocalMedia && _localStream == null) {
+      _localStream = await createStream(media, context: _context);
+    }
     LogUtils.d('Signaling', 'ICE Servers: $_iceServers');
     RTCPeerConnection pc = await createPeerConnection({
       ..._iceServers,
@@ -872,11 +886,16 @@ class Signaling {
       await _localStream!.dispose();
       _localStream = null;
     }
-    _sessions.forEach((key, sess) async {
-      await sess.pc?.close();
+    for (final sess in _sessions.values) {
       await sess.dc?.close();
-    });
+      await sess.pc?.close();
+      // 关键：只 close() 不 dispose() 会泄漏 native PeerConnection，
+      // 每次 P2P 连接/断开都残留 native 对象（网络线程/编解码器/纹理），
+      // 多次连接后内存线性增长直至 OOM。
+      await sess.pc?.dispose();
+    }
     _sessions.clear();
+    _senders.clear();
   }
 
   void _closeSessionByPeerId(String peerId) {
@@ -899,8 +918,10 @@ class Signaling {
     // await _localStream?.dispose();
     // _localStream = null;
 
-    await session.pc?.close();
     await session.dc?.close();
+    await session.pc?.close();
+    // 只 close() 不 dispose() 会泄漏 native PeerConnection（见 _cleanSessions 注释）
+    await session.pc?.dispose();
     _senders.clear();
     _videoSource = VideoSource.Camera;
     if (!useLocalMedia) {
