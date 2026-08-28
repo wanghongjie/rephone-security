@@ -853,9 +853,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   void _startDetectionTimer() {
     _detectTimer?.cancel();
     // 每10秒检测一次
-    _detectTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      _performDetection();
-    });
+    // _detectTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+    //   _performDetection();
+    // });
   }
 
   void _stopDetectionTimer() {
