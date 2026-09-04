@@ -6,6 +6,7 @@ import '../services/auth_api.dart';
 import '../l10n/app_localizations.dart';
 import 'app_permissions_page.dart';
 import 'delete_account_page.dart';
+import 'privacy_settings_page.dart';
 import 'reset_password_page.dart';
 
 class GeneralSettingsPage extends StatefulWidget {
@@ -48,6 +49,17 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const AppPermissionsPage()),
+              );
+            },
+          ),
+          _buildSettingItem(
+            icon: Icons.privacy_tip_outlined,
+            title: l.settingsPrivacy,
+            subtitle: l.settingsPrivacySubtitle,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PrivacySettingsPage()),
               );
             },
           ),

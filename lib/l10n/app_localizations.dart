@@ -56,6 +56,17 @@ class AppLocalizations {
       'authTermsPrefix': 'By continuing you agree to',
       'authTermsLink': 'Terms of Service',
       'authPrivacyLink': 'Privacy Policy',
+      'authCheckAgreePrefix': 'I have read and agree to ',
+      'authCheckAgreeAnd': ' and ',
+      'authCheckAgreeHint': 'Please read and agree to the Terms of Service and Privacy Policy first',
+      'settingsPrivacy': 'Privacy settings',
+      'settingsPrivacySubtitle': 'Manage personalized recommendations and other privacy options',
+      'privacyPersonalizedRecTitle': 'Personalized recommendations',
+      'privacyPersonalizedRecSubtitle':
+          'Whether we may recommend content based on your preferences, such as ads and feature suggestions. You can change this at any time.',
+      'privacyPersonalizedRecPageDesc':
+          'This switch only controls whether personalized recommendation content is provided to you. Turning it off will not affect the basic features of the app.',
+      'privacySettingSaved': 'Settings saved',
       'welcomeTitle': 'Welcome to RePhone Security',
       'welcomeDesc': 'Turn old phones into home security cameras easily.',
       'welcomeButton': 'Start now',
@@ -425,6 +436,15 @@ class AppLocalizations {
       'authTermsPrefix': '继续操作即表示你同意',
       'authTermsLink': '服务条款',
       'authPrivacyLink': '隐私协议',
+      'authCheckAgreePrefix': '我已阅读并同意',
+      'authCheckAgreeAnd': '和',
+      'authCheckAgreeHint': '请先阅读并勾选同意《服务条款》和《隐私协议》',
+      'settingsPrivacy': '隐私设置',
+      'settingsPrivacySubtitle': '管理个性化推荐等隐私选项',
+      'privacyPersonalizedRecTitle': '个性化推荐',
+      'privacyPersonalizedRecSubtitle': '是否允许根据你的偏好向你推荐内容（如广告与功能推荐）；你可随时更改',
+      'privacyPersonalizedRecPageDesc': '个性化推荐开关仅用于控制是否向你提供个性化推荐内容，关闭不会影响远程监控、告警通知等基础功能。',
+      'privacySettingSaved': '设置已保存',
       'welcomeTitle': '欢迎使用 RePhone 安全',
       'welcomeDesc': '将闲置旧手机轻松变为家庭安防摄像头。',
       'welcomeButton': '立即开始',
@@ -785,6 +805,16 @@ class AppLocalizations {
   String get authTermsPrefix => _t('authTermsPrefix');
   String get authTermsLink => _t('authTermsLink');
   String get authPrivacyLink => _t('authPrivacyLink');
+  String get authCheckAgreePrefix => _t('authCheckAgreePrefix');
+  String get authCheckAgreeAnd => _t('authCheckAgreeAnd');
+  String get authCheckAgreeHint => _t('authCheckAgreeHint');
+
+  String get settingsPrivacy => _t('settingsPrivacy');
+  String get settingsPrivacySubtitle => _t('settingsPrivacySubtitle');
+  String get privacyPersonalizedRecTitle => _t('privacyPersonalizedRecTitle');
+  String get privacyPersonalizedRecSubtitle => _t('privacyPersonalizedRecSubtitle');
+  String get privacyPersonalizedRecPageDesc => _t('privacyPersonalizedRecPageDesc');
+  String get privacySettingSaved => _t('privacySettingSaved');
 
   String get welcomeTitle => _t('welcomeTitle');
   String get welcomeDesc => _t('welcomeDesc');

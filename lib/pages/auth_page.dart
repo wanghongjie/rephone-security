@@ -1,13 +1,47 @@
 import 'package:flutter/material.dart';
-import '../flavors/app_env.dart';
-import '../flavors/env_config.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/agreement_checkbox.dart';
 import 'email_auth_flow.dart';
 import 'qr_code_scanner_page.dart';
-import 'webview_page.dart';
 
-class AuthPage extends StatelessWidget {
+class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
+
+  @override
+  State<AuthPage> createState() => _AuthPageState();
+}
+
+class _AuthPageState extends State<AuthPage> {
+  bool _agreed = false;
+
+  bool _ensureAgreed() {
+    if (_agreed) return true;
+    final l = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l.authCheckAgreeHint)),
+    );
+    return false;
+  }
+
+  void _openEmail() {
+    if (!_ensureAgreed()) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const EmailInputPage(),
+      ),
+    );
+  }
+
+  void _openScan() {
+    if (!_ensureAgreed()) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const QRCodeScannerPage(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,14 +79,7 @@ class AuthPage extends StatelessWidget {
                 icon: Icons.alternate_email,
                 background: theme.colorScheme.primary,
                 foreground: Colors.white,
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const EmailInputPage(),
-                    ),
-                  );
-                },
+                onPressed: _openEmail,
               ),
               const SizedBox(height: 12),
               _AuthButton(
@@ -60,99 +87,15 @@ class AuthPage extends StatelessWidget {
                 icon: Icons.qr_code_scanner,
                 background: Colors.white,
                 foreground: theme.colorScheme.primary,
-                borderColor: theme.colorScheme.primary.withOpacity(0.4),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const QRCodeScannerPage(),
-                    ),
-                  );
-                },
+                borderColor: theme.colorScheme.primary.withValues(alpha: 0.4),
+                onPressed: _openScan,
               ),
-              const SizedBox(height: 16),
-              Center(
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 4,
-                  runSpacing: 2,
-                  children: [
-                    Text(
-                      l.authTermsPrefix,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      onPressed: () {
-                        final isChina = AppEnv.config.market == Market.china;
-                        final lang = Localizations.localeOf(context).languageCode;
-                        final url = isChina
-                            ? 'https://rephone.top/terms_china.html'
-                            : (lang == 'en'
-                                ? 'https://rephone.top/terms_us.html'
-                                : 'https://rephone.top/terms.html');
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => WebViewPage(
-                              title: l.authTermsLink,
-                              url: url,
-                            ),
-                          ),
-                        );
-                      },
-                      child: Text(l.authTermsLink),
-                    ),
-                    Text(
-                      '和',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      onPressed: () {
-                        final isChina = AppEnv.config.market == Market.china;
-                        final lang = Localizations.localeOf(context).languageCode;
-                        final url = isChina
-                            ? 'https://rephone.top/privacy_china.html'
-                            : (lang == 'en'
-                                ? 'https://rephone.top/privacy_us.html'
-                                : 'https://rephone.top/privacy.html');
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => WebViewPage(
-                              title: l.authPrivacyLink,
-                              url: url,
-                            ),
-                          ),
-                        );
-                      },
-                      child: Text(l.authPrivacyLink),
-                    ),
-                    Text(
-                      '。',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 20),
+              AgreementCheckbox(
+                value: _agreed,
+                onChanged: (v) => setState(() => _agreed = v),
               ),
+              const Spacer(),
             ],
           ),
         ),
