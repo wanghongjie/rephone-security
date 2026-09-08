@@ -12,16 +12,24 @@ import com.bytedance.sdk.openadsdk.TTAdNative
 import com.bytedance.sdk.openadsdk.TTAdSdk
 import com.bytedance.sdk.openadsdk.TTNativeExpressAd
 import com.rephone.security.MediationSdkInitializer
+import io.flutter.plugin.common.BinaryMessenger
+import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.platform.PlatformView
 
 class PangleBannerPlatformView(
     context: Context,
+    private val viewId: Int,
+    messenger: BinaryMessenger,
     params: Map<String, Any?>?,
 ) : PlatformView {
     private val tag = "PangleBannerView"
     private val container = FrameLayout(context)
     private var bannerAd: TTNativeExpressAd? = null
     private val activity = findActivity(context)
+
+    /// 与 Flutter 侧 `_CollapsiblePangleBanner` 通信的通道：
+    /// 广告被用户关闭时通知 Flutter 收起占位区域。
+    private val channel = MethodChannel(messenger, "rephone/pangle_banner_$viewId")
 
     init {
         val codeId = params?.get("codeId") as? String ?: "104032066"
@@ -191,7 +199,7 @@ class PangleBannerPlatformView(
 
                 override fun onSelected(position: Int, value: String?, enforce: Boolean) {
                     Log.i(tag, "Dislike selected: position=$position, value=$value, enforce=$enforce")
-                    container.removeAllViews()
+                    closeAd()
                 }
 
                 override fun onCancel() {}
@@ -202,6 +210,27 @@ class PangleBannerPlatformView(
             ad.render()
         } catch (e: Exception) {
             Log.w(tag, "Banner render() failed: ${e.message}")
+        }
+    }
+
+    /// 用户通过“关闭/不喜欢”关闭广告：清理原生视图与资源，
+    /// 并通知 Flutter 侧把外层占位整体收起，释放被广告占据的布局空间。
+    private fun closeAd() {
+        try {
+            container.removeAllViews()
+            bannerAd?.destroy()
+            bannerAd = null
+            notifyAdClosed()
+        } catch (e: Exception) {
+            Log.w(tag, "closeAd failed: ${e.message}")
+        }
+    }
+
+    private fun notifyAdClosed() {
+        try {
+            channel.invokeMethod("onAdClosed", null)
+        } catch (e: Exception) {
+            Log.w(tag, "notifyAdClosed failed: ${e.message}")
         }
     }
 }

@@ -13,6 +13,6 @@ class PangleBannerViewFactory(
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
         @Suppress("UNCHECKED_CAST")
         val params = args as? Map<String, Any?>
-        return PangleBannerPlatformView(context, params)
+        return PangleBannerPlatformView(context, viewId, messenger, params)
     }
 }

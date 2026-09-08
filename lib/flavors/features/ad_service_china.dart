@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../widgets/pangle_banner_view.dart';
 import '../service_facades.dart';
@@ -107,16 +108,84 @@ class ChinaPangleAdService implements AdService {
                     .clamp(1, 600),
             heightDp: _kBannerDefaultHeightDp,
           );
+    return _CollapsiblePangleBanner(
+      codeId: codeId,
+      widthDp: size.widthDp,
+      widthPx: size.widthPx,
+      heightPx: size.heightPx,
+      heightDp: size.heightDp,
+    );
+  }
+}
+
+/// 可整体收起的 Pangle Banner 容器。
+///
+/// 背景：穿山甲 Banner 上的“关闭/不喜欢”操作结束后，原生端只清掉了广告内容，
+/// 但 Flutter 外层用于占位的固定高度 `SizedBox`/`SafeArea` 仍然保留，
+/// 导致“广告消失了、空白区域还在”。
+///
+/// 处理：原生端通过 `rephone/pangle_banner_<viewId>` MethodChannel 推送
+/// `onAdClosed` 事件；收到后本组件把自己的子树整体收缩为 `SizedBox.shrink`，
+/// 释放被广告占据的布局空间。
+class _CollapsiblePangleBanner extends StatefulWidget {
+  const _CollapsiblePangleBanner({
+    required this.codeId,
+    required this.widthDp,
+    required this.widthPx,
+    required this.heightPx,
+    required this.heightDp,
+  });
+
+  final String codeId;
+  final double widthDp;
+  final int widthPx;
+  final int heightPx;
+  final double heightDp;
+
+  @override
+  State<_CollapsiblePangleBanner> createState() =>
+      _CollapsiblePangleBannerState();
+}
+
+class _CollapsiblePangleBannerState extends State<_CollapsiblePangleBanner> {
+  static const String _channelPrefix = 'rephone/pangle_banner_';
+
+  MethodChannel? _channel;
+  bool _closed = false;
+
+  @override
+  void dispose() {
+    _channel?.setMethodCallHandler(null);
+    _channel = null;
+    super.dispose();
+  }
+
+  void _onPlatformViewCreated(int viewId) {
+    _channel = MethodChannel('$_channelPrefix$viewId');
+    _channel?.setMethodCallHandler(_onNativeMessage);
+  }
+
+  Future<void> _onNativeMessage(MethodCall call) async {
+    if (call.method != 'onAdClosed') return;
+    if (_closed || !mounted) return;
+    setState(() => _closed = true);
+    _channel?.setMethodCallHandler(null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_closed) return const SizedBox.shrink();
     return SafeArea(
       top: false,
       child: SizedBox(
-        height: size.heightDp,
+        height: widget.heightDp,
         child: PangleBannerView(
-          codeId: codeId,
-          widthDp: size.widthDp,
-          widthPx: size.widthPx,
-          heightPx: size.heightPx,
-          heightDp: size.heightDp,
+          codeId: widget.codeId,
+          widthDp: widget.widthDp,
+          widthPx: widget.widthPx,
+          heightPx: widget.heightPx,
+          heightDp: widget.heightDp,
+          onPlatformViewCreated: _onPlatformViewCreated,
         ),
       ),
     );

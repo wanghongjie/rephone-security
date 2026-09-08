@@ -123,7 +123,7 @@ FeatureToggles chinaFeatureToggles() => const FeatureToggles(
       enableWechatPay: false,
       enableFirebase: false,
       enableGoogleMobileAds: false,
-      enablePangleAds: false,
+      enablePangleAds: true,
       enableCrashReporting: true,
       enableClientPush: true,
     );
