@@ -23,11 +23,14 @@ class ChinaPangleAdService implements AdService {
 
   /// Pangle Banner 广告位 ID 默认值（国内）；与 Android src/china
   /// `PangleBannerPlatformView` 兜底默认值保持一致。
-  static const String _kDefaultPangleCodeId = '104032066';
+  static const String _kDefaultPangleCodeId = '104502550';
 
-  /// Banner 常规尺寸：兜底值，当无法获取到 MediaQuery 时使用（一般不会触发）。
-  static const double _kBannerDefaultWidthDp = 320;
-  static const double _kBannerDefaultHeightDp = 160; // 2:1，与 _computePangleBannerSize 对齐
+  /// Banner 固定宽度（dp）：广告位按 320dp 宽 × 50dp 高的扁条渲染；
+  /// 屏幕可用宽度不足 320dp 时收缩，防止窄屏溢出。
+  static const double _kBannerWidthDp = 320;
+
+  /// Banner 固定高度（dp），与 [_kBannerWidthDp] 构成 320:50。
+  static const double _kBannerHeightDp = 50;
 
   /// 按 placement 拆分的 Pangle codeId 映射。
   ///
@@ -37,9 +40,9 @@ class ChinaPangleAdService implements AdService {
   /// - 为避免回退逻辑被错误覆盖，**未配置新 ID 前请保持为 null**，
   ///   实现会自动使用 [_kDefaultPangleCodeId]。
   static const Map<String, String?> _placementCodeId = <String, String?>{
-    AdPlacement.profile: null,
-    AdPlacement.cameraList: '104032066',
-    AdPlacement.cameraEndpoint: null,
+    AdPlacement.profile: '104504322',
+    AdPlacement.cameraList: '104502550',
+    AdPlacement.cameraEndpoint: '104503038',
   };
 
   /// 构造：传 [FeatureToggles.enablePangleAds]。
@@ -65,19 +68,15 @@ class ChinaPangleAdService implements AdService {
   /// 按 Pangle 原生 Banner 约束计算真实渲染尺寸（像素 + dp 对齐）。
   ///
   /// 原算法来自 `camera_list_page.dart`，收拢到这里避免业务页面散写像素换算逻辑：
-  /// - 宽度：扣除左右 padding，再减 32dp 外间距，上限 300dp，最小 0
-  /// - 高度：按 2:1（宽度一半）保证 Banner 比例，防止穿山甲因比例异常不填充
+  /// - 宽度：固定为 [_kBannerWidthDp]（320dp），可用宽度不足时收缩防溢出
+  /// - 高度：固定为 [_kBannerHeightDp]（50dp），宽高比 320:50
   /// - 像素：按 devicePixelRatio 换算后，限制在 [1, 1200] / [1, 600]，避免大屏越界
   ({double widthDp, int widthPx, int heightPx, double heightDp})
       _computePangleBannerSize(MediaQueryData media) {
     final usableWidthDp =
         media.size.width - media.padding.left - media.padding.right;
-    final bannerWidthDp =
-        (usableWidthDp - 32).clamp(0.0, 300.0).toDouble();
-    final widthDp = bannerWidthDp > 0
-        ? bannerWidthDp
-        : usableWidthDp.clamp(0.0, 300.0).toDouble();
-    final heightDp = widthDp / 2;
+    final widthDp = usableWidthDp.clamp(0.0, _kBannerWidthDp).toDouble();
+    final heightDp = _kBannerHeightDp;
     final widthPx = (widthDp * media.devicePixelRatio).round().clamp(1, 1200);
     final heightPx = (heightDp * media.devicePixelRatio).round().clamp(1, 600);
     return (
@@ -97,16 +96,16 @@ class ChinaPangleAdService implements AdService {
     final size = media != null
         ? _computePangleBannerSize(media)
         : (
-            widthDp: _kBannerDefaultWidthDp,
-            widthPx: (_kBannerDefaultWidthDp * WidgetsBinding
+            widthDp: _kBannerWidthDp,
+            widthPx: (_kBannerWidthDp * WidgetsBinding
                         .instance.platformDispatcher.views.first.devicePixelRatio)
                     .round()
                     .clamp(1, 1200),
-            heightPx: (_kBannerDefaultHeightDp * WidgetsBinding
+            heightPx: (_kBannerHeightDp * WidgetsBinding
                         .instance.platformDispatcher.views.first.devicePixelRatio)
                     .round()
                     .clamp(1, 600),
-            heightDp: _kBannerDefaultHeightDp,
+            heightDp: _kBannerHeightDp,
           );
     return _CollapsiblePangleBanner(
       codeId: codeId,

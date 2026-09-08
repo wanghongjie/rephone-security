@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 object MediationSdkInitializer {
     private const val TAG = "MediationSdkInitializer"
-    private const val APP_ID = "5819967"
+    private const val APP_ID = "5879949" //"5819967" 测试
     private const val APP_NAME = "RePhone Security"
     private val initialized = AtomicBoolean(false)
     private val initStarted = AtomicBoolean(false)
