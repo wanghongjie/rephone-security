@@ -1,54 +1,106 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en-US">
 <head>
   <meta charset="UTF-8" />
-  <title>RePhone Security · 应用市场宣传图</title>
+  <title>RePhone Security · App Store Screenshots (iOS 1242×2688 · English Rectangular Edition)</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: #f1f5f9;
-      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
-      padding: 40px 20px 80px;
+      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      padding: 0 0 0 0;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 40px;
+      gap: 0;
+      width: 621px;
+      margin: 0 auto;
     }
     .tip {
-      max-width: 720px;
+      width: 621px;
       text-align: center;
-      color: #475569;
-      line-height: 1.8;
-      background: #fff;
-      padding: 14px 22px;
-      border-radius: 14px;
-      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
-      font-size: 0.95rem;
+      color: #fff;
+      line-height: 1.9;
+      background: #0ea5e9;
+      padding: 20px 26px;
+      font-size: 0.9rem;
+      border-bottom: 2px dashed #ef4444;
     }
-    .tip b { color: #0ea5e9; }
+    .tip b { color: #fef08a; }
 
-    /* ========== 宣传图核心容器 ========== */
-    /* 9:16 竖版，约 1080x1920 比例（此处用 540x960 的一半分辨率，截图放大即可） */
+    .crop-guide {
+      width: 621px;
+      height: 28px;
+      background: repeating-linear-gradient(
+        45deg,
+        #ef4444,
+        #ef4444 10px,
+        #fca5a5 10px,
+        #fca5a5 20px
+      );
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+      border-top: 1px solid #fff;
+      border-bottom: 1px solid #fff;
+    }
+
+    /* ---- iOS 6.5" (6.9") required size: 1242 × 2688 px ----
+       Layout canvas uses half-size CSS units (621 × 1344),
+       exported with DPR = 2 → exact 1242 × 2688 PNG.        */
     .shot {
-      width: 540px;
-      height: 960px;
+      width: 621px;
+      height: 1344px;
       position: relative;
       overflow: hidden;
-      border-radius: 36px;
-      box-shadow: 0 30px 60px rgba(15, 23, 42, 0.25);
+      border-radius: 0;
+      box-shadow: none;
       display: flex;
       flex-direction: column;
     }
+    .shot::before,
+    .shot::after {
+      content: "";
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      border: 2px solid rgba(255,255,255,0.55);
+      z-index: 999;
+      pointer-events: none;
+    }
+    .shot::before {
+      top: 10px; left: 10px;
+      border-right: none; border-bottom: none;
+    }
+    .shot::after {
+      bottom: 10px; right: 10px;
+      border-left: none; border-top: none;
+    }
+    .shot__corner-tr,
+    .shot__corner-bl {
+      position: absolute;
+      width: 22px; height: 22px;
+      border: 2px solid rgba(255,255,255,0.55);
+      z-index: 999;
+      pointer-events: none;
+    }
+    .shot__corner-tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+    .shot__corner-bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
     .shot__tag {
       position: absolute;
-      top: 22px;
+      top: 30px;
       left: 50%;
       transform: translateX(-50%);
-      font-size: 13px;
+      font-size: 15px;
       font-weight: 600;
       color: #fff;
       letter-spacing: 0.12em;
-      padding: 6px 18px;
+      padding: 8px 22px;
       border-radius: 999px;
       background: rgba(255,255,255,0.18);
       border: 1px solid rgba(255,255,255,0.25);
@@ -56,53 +108,64 @@
       z-index: 10;
     }
 
-    /* 顶部标题区 */
     .shot__top {
-      padding: 72px 36px 28px;
+      padding: 94px 44px 30px;
       color: #fff;
       position: relative;
       z-index: 2;
     }
     .shot__title {
-      font-size: 38px;
+      font-size: 44px;
       font-weight: 800;
-      line-height: 1.25;
+      line-height: 1.22;
       letter-spacing: 0.02em;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
     .shot__subtitle {
-      font-size: 16px;
+      font-size: 17px;
       line-height: 1.7;
       opacity: 0.9;
     }
     .shot__features {
-      margin-top: 16px;
+      margin-top: 22px;
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 10px;
     }
     .shot__feat {
-      padding: 5px 12px;
-      font-size: 12px;
+      padding: 7px 15px;
+      font-size: 14px;
       border-radius: 999px;
       background: rgba(255,255,255,0.18);
       border: 1px solid rgba(255,255,255,0.25);
       backdrop-filter: blur(4px);
     }
 
-    /* 手机 mockup 区 */
     .shot__phone-wrap {
       flex: 1;
       display: flex;
       justify-content: center;
-      align-items: flex-start;
-      padding: 10px 24px 40px;
+      align-items: center;
+      padding: 0 24px;
       position: relative;
       z-index: 2;
     }
+    /* 320×640 mock scaled by 1.15 → occupies 368×736,
+       keeping the same width ratio as the 540px-canvas design. */
+    .phone-scaler {
+      position: relative;
+      width: 368px;   /* 320 × 1.15 */
+      height: 736px;  /* 640 × 1.15 */
+      flex-shrink: 0;
+    }
     .phone {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 320px;
       height: 640px;
+      transform: scale(1.15);
+      transform-origin: top left;
       background: #0b1220;
       border-radius: 46px;
       padding: 10px;
@@ -110,7 +173,6 @@
         0 0 0 2px rgba(255,255,255,0.15),
         0 22px 50px rgba(0,0,0,0.35),
         inset 0 0 0 1px rgba(255,255,255,0.08);
-      position: relative;
     }
     .phone__screen {
       width: 100%;
@@ -121,33 +183,27 @@
       position: relative;
     }
 
-    /* ===== 画面 1 背景 ===== */
     .shot--1 {
       background:
         radial-gradient(circle at 15% 10%, rgba(255,255,255,0.18), transparent 55%),
         linear-gradient(160deg, #0ea5e9 0%, #6366f1 60%, #8b5cf6 100%);
     }
-    /* ===== 画面 2 背景 ===== */
     .shot--2 {
       background:
         radial-gradient(circle at 85% 15%, rgba(255,255,255,0.16), transparent 55%),
         linear-gradient(160deg, #0891b2 0%, #2563eb 60%, #4f46e5 100%);
     }
-    /* ===== 画面 3 背景 ===== */
     .shot--3 {
       background:
         radial-gradient(circle at 15% 85%, rgba(255,255,255,0.14), transparent 55%),
         linear-gradient(160deg, #f59e0b 0%, #ef4444 55%, #be123c 100%);
     }
-    /* ===== 画面 4 背景 ===== */
     .shot--4 {
       background:
         radial-gradient(circle at 85% 90%, rgba(255,255,255,0.14), transparent 55%),
         linear-gradient(160deg, #10b981 0%, #0891b2 55%, #3b82f6 100%);
     }
 
-    /* ========== 模拟各截图 UI ========== */
-    /* 图1：设备列表页 */
     .ui1__ad {
       height: 56px;
       background: linear-gradient(90deg, #dbeafe, #fef3c7);
@@ -268,7 +324,6 @@
       box-shadow: 0 10px 24px rgba(59,130,246,0.25);
     }
 
-    /* 图2：实时监控全屏 */
     .ui2__bar {
       height: 44px;
       background: linear-gradient(90deg, #22c55e, #16a34a);
@@ -286,7 +341,6 @@
         linear-gradient(180deg, #1e293b 0%, #1e293b 18%, #fafaf9 18%, #fafaf9 100%);
       overflow: hidden;
     }
-    /* 天花板 */
     .ui2__ceil {
       position: absolute;
       top: 0; left: 0; right: 0;
@@ -318,7 +372,6 @@
       background: radial-gradient(circle, #a8a29e 20%, #57534e 70%);
       box-shadow: inset 0 2px 4px rgba(0,0,0,0.35);
     }
-    /* 墙壁下方 */
     .ui2__wall {
       position: absolute;
       bottom: 0; left: 0; right: 0;
@@ -354,17 +407,6 @@
       height: 76%;
       background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
       border-radius: 6px 6px 2px 2px;
-    }
-    .ui2__fu {
-      position: absolute;
-      top: 18%; left: 50%;
-      transform: translateX(-50%) rotate(6deg);
-      width: 28px; height: 30px;
-      background: #dc2626;
-      color: #fde047;
-      font-size: 14px;
-      font-weight: 900;
-      display: flex; align-items: center; justify-content: center;
     }
     .ui2__coat {
       position: absolute;
@@ -404,7 +446,6 @@
       border-radius: 4px;
     }
 
-    /* 图3：智能检测录像列表 */
     .ui3__list {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -499,7 +540,6 @@
       flex-shrink: 0;
     }
 
-    /* 图4：人像检测特写（监控界面 + 红色告警框） */
     .ui4__scene {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -580,7 +620,6 @@
       background: #0f172a;
       border-radius: 115px 115px 20px 20px;
     }
-    /* 告警检测框 */
     .ui4__bbox {
       position: absolute;
       bottom: 2%;
@@ -603,7 +642,6 @@
       border-radius: 4px 4px 4px 0;
       letter-spacing: 0.02em;
     }
-    /* 顶部告警条 */
     .ui4__alert {
       position: absolute;
       top: 14px; left: 14px; right: 14px;
@@ -624,7 +662,6 @@
     @keyframes blink {
       50% { opacity: 0.3; }
     }
-    /* 底部控制按钮 */
     .ui4__controls {
       position: absolute;
       left: 14px; right: 14px; bottom: 16px;
@@ -669,116 +706,124 @@
 <body>
 
   <div class="tip">
-    <b>使用方法：</b>浏览器打开本页 → 按 F12 切换开发者工具 → 设置设备尺寸为 <b>1080×1920</b> 或 <b>540×960</b>（9:16 比例） → 分别滚动定位到每一张卡片 → 使用截图工具保存为 PNG 图片，即可上传到应用市场。<br/>
-    <span style="color:#64748b; font-size:13px;">共 4 张：①设备管理 ②实时监控 ③智能告警列表 ④AI人体检测</span>
+    <b>Export Instructions (Please first crop out this blue top tip bar + all red guide lines below):</b><br/>
+    1. Press F12 to open DevTools → 2. In Device Mode, set custom size <b>621 × 6000</b> (DPR=2, final exported PNG ≈ 1242 × 11340) → 3. Cmd/Ctrl+Shift+P → select "Capture full size screenshot" → 4. Use Preview.app to crop along the red stripes into 4 separate images, each exactly <b>1242 × 2688 px</b> (iOS 6.5" / 6.9" required size).
   </div>
 
-  <!-- ============ 第 1 张：设备管理 / 闲置复用 ============ -->
+  <div class="crop-guide">▼ CROP ABOVE THIS LINE · IMAGE 1 · iOS 1242×2688 ▼</div>
+
   <section class="shot shot--1">
-    <div class="shot__tag">FEATURE 01 · 智能设备管理</div>
+    <div class="shot__corner-tr"></div>
+    <div class="shot__corner-bl"></div>
+    <div class="shot__tag">FEATURE 01 · Smart Device Management</div>
     <div class="shot__top">
-      <div class="shot__title">闲置手机<br/>秒变专业摄像头</div>
-      <div class="shot__subtitle">旧手机别扔掉，安装 RePhone Security 立刻化身高清监控摄像头。<br/>一机一号，多设备统一管理，实时在线状态一目了然。</div>
+      <div class="shot__title">Turn Old Phones<br/>Into Pro Cameras</div>
+      <div class="shot__subtitle">Don't throw away your old phone. Install RePhone Security and instantly turn it into an HD security camera.<br/>One device per account, unified multi-device management, real-time online status at a glance.</div>
       <div class="shot__features">
-        <span class="shot__feat">📱 支持 iOS / Android</span>
-        <span class="shot__feat">✅ 实时在线状态</span>
-        <span class="shot__feat">🖥️ 多设备管理</span>
+        <span class="shot__feat">📱 iOS / Android Supported</span>
+        <span class="shot__feat">✅ Real-Time Online Status</span>
+        <span class="shot__feat">🖥️ Multi-Device Management</span>
       </div>
     </div>
     <div class="shot__phone-wrap">
-      <div class="phone">
-        <div class="phone__screen">
-          <div class="ui1__ad">
-            <div class="ui1__ad-dot"></div>
-            <div><b>Avanti24</b><br/><span style="opacity:.75;">广告位占位 · Advertisement</span></div>
-          </div>
-          <div class="ui1__card">
-            <div class="ui1__card-head">
-              <div class="ui1__device">
-                <div class="ui1__dot"></div>
-                <div style="flex:0 0 auto;">
-                  <div style="display:flex;align-items:baseline;gap:6px;white-space:nowrap;">
-                    <span class="ui1__device-name">手机1</span>
-                    <span class="ui1__device-room">(Living room)</span>
+      <div class="phone-scaler">
+        <div class="phone">
+          <div class="phone__screen">
+            <div class="ui1__ad">
+              <div class="ui1__ad-dot"></div>
+              <div><b>Avanti24</b><br/><span style="opacity:.75;">Advertisement Placeholder</span></div>
+            </div>
+            <div class="ui1__card">
+              <div class="ui1__card-head">
+                <div class="ui1__device">
+                  <div class="ui1__dot"></div>
+                  <div style="flex:0 0 auto;">
+                    <div style="display:flex;align-items:baseline;gap:6px;white-space:nowrap;">
+                      <span class="ui1__device-name">Phone 1</span>
+                      <span class="ui1__device-room">(Living Room)</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div style="text-align:right;">
-                <div class="ui1__status-online">● Online</div>
-                <div class="ui1__status-time">12 hours ago</div>
-              </div>
-            </div>
-            <div class="ui1__thumb">
-              <div class="ui1__thumb-ceil"></div>
-              <div class="ui1__thumb-light"></div>
-              <div class="ui1__play">▶</div>
-            </div>
-            <div class="ui1__actions">
-              <div class="ui1__btn">↻ Playback</div>
-              <div class="ui1__btn">⚙ Settings</div>
-            </div>
-          </div>
-          <div class="ui1__card" style="opacity:.55; transform:scale(.96); margin-top:-6px;">
-            <div class="ui1__card-head">
-              <div class="ui1__device">
-                <div class="ui1__dot" style="background:#f59e0b; box-shadow:0 0 0 4px rgba(245,158,11,.18);"></div>
-                <div style="flex:0 0 auto;">
-                  <div style="display:flex;align-items:baseline;gap:6px;white-space:nowrap;">
-                    <span class="ui1__device-name">手机2</span>
-                    <span class="ui1__device-room">(Bedroom)</span>
-                  </div>
+                <div style="text-align:right;">
+                  <div class="ui1__status-online">● Online</div>
+                  <div class="ui1__status-time">12 hours ago</div>
                 </div>
               </div>
-              <div style="text-align:right;">
-                <div class="ui1__status-online" style="color:#f59e0b;">● Standby</div>
-                <div class="ui1__status-time">1 day ago</div>
+              <div class="ui1__thumb">
+                <div class="ui1__thumb-ceil"></div>
+                <div class="ui1__thumb-light"></div>
+                <div class="ui1__play">▶</div>
+              </div>
+              <div class="ui1__actions">
+                <div class="ui1__btn">↻ Playback</div>
+                <div class="ui1__btn">⚙ Settings</div>
               </div>
             </div>
-            <div class="ui1__thumb" style="height:100px; opacity:.6;"></div>
+            <div class="ui1__card" style="opacity:.55; transform:scale(.96); margin-top:-6px;">
+              <div class="ui1__card-head">
+                <div class="ui1__device">
+                  <div class="ui1__dot" style="background:#f59e0b; box-shadow:0 0 0 4px rgba(245,158,11,.18);"></div>
+                  <div style="flex:0 0 auto;">
+                    <div style="display:flex;align-items:baseline;gap:6px;white-space:nowrap;">
+                      <span class="ui1__device-name">Phone 2</span>
+                      <span class="ui1__device-room">(Bedroom)</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="text-align:right;">
+                  <div class="ui1__status-online" style="color:#f59e0b;">● Standby</div>
+                  <div class="ui1__status-time">1 day ago</div>
+                </div>
+              </div>
+              <div class="ui1__thumb" style="height:100px; opacity:.6;"></div>
+            </div>
+            <div class="ui1__fab">+</div>
           </div>
-          <div class="ui1__fab">+</div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ============ 第 2 张：实时监控 ============ -->
+  <div class="crop-guide">▲ IMAGE 1 CROP BELOW · · · IMAGE 2 · iOS 1242×2688 CROP ABOVE ▼</div>
+
   <section class="shot shot--2">
-    <div class="shot__tag">FEATURE 02 · 高清实时监控</div>
+    <div class="shot__corner-tr"></div>
+    <div class="shot__corner-bl"></div>
+    <div class="shot__tag">FEATURE 02 · HD Real-Time Monitoring</div>
     <div class="shot__top">
-      <div class="shot__title">随时随地<br/>查看家中实时画面</div>
-      <div class="shot__subtitle">基于 WebRTC 低延迟点对点传输，毫秒级响应。<br/>出门在外也能第一时间看到家人、宠物、店铺的最新情况。</div>
+      <div class="shot__title">Watch Live Video<br/>Anytime, Anywhere</div>
+      <div class="shot__subtitle">Powered by WebRTC low-latency peer-to-peer transmission with millisecond-level response.<br/>Check on your family, pets, or store instantly — no matter where you are.</div>
       <div class="shot__features">
-        <span class="shot__feat">⚡ WebRTC 极速连接</span>
-        <span class="shot__feat">📹 高清实时画面</span>
-        <span class="shot__feat">🎤 双向语音对讲</span>
+        <span class="shot__feat">⚡ WebRTC Ultra-Fast Connection</span>
+        <span class="shot__feat">📹 HD Real-Time Video</span>
+        <span class="shot__feat">🎤 Two-Way Audio Talk</span>
       </div>
     </div>
     <div class="shot__phone-wrap">
-      <div class="phone">
-        <div class="phone__screen" style="background:#0f172a;">
-          <div class="ui2__bar">
-            🔗 Connected to server (ID: 68775900_monitor)
-          </div>
-          <div class="ui2__scene">
-            <div class="ui2__ceil">
-              <div class="ui2__beam"></div>
-              <div class="ui2__beam"></div>
-              <div class="ui2__speaker"></div>
-              <div class="ui2__light"></div>
+      <div class="phone-scaler">
+        <div class="phone">
+          <div class="phone__screen" style="background:#0f172a;">
+            <div class="ui2__bar">
+              🔗 Connected to server (ID: 68775900_monitor)
             </div>
-            <div class="ui2__wall">
-              <div class="ui2__bookshelf">
-                <span></span><span></span><span></span><span></span><span></span><span></span>
-                <span></span><span></span><span></span><span></span><span></span><span></span>
+            <div class="ui2__scene">
+              <div class="ui2__ceil">
+                <div class="ui2__beam"></div>
+                <div class="ui2__beam"></div>
+                <div class="ui2__speaker"></div>
+                <div class="ui2__light"></div>
               </div>
-              <div class="ui2__coat ui2__coat--yellow"></div>
-              <div class="ui2__coat"></div>
-              <div class="ui2__coat ui2__coat--black"></div>
-              <div class="ui2__door">
-                <div class="ui2__fu">福</div>
+              <div class="ui2__wall">
+                <div class="ui2__bookshelf">
+                  <span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span>
+                </div>
+                <div class="ui2__coat ui2__coat--yellow"></div>
+                <div class="ui2__coat"></div>
+                <div class="ui2__coat ui2__coat--black"></div>
+                <div class="ui2__door"></div>
+                <div class="ui2__water"></div>
               </div>
-              <div class="ui2__water"></div>
             </div>
           </div>
         </div>
@@ -786,75 +831,80 @@
     </div>
   </section>
 
-  <!-- ============ 第 3 张：智能告警 / 录像回看列表 ============ -->
+  <div class="crop-guide">▲ IMAGE 2 CROP BELOW · · · IMAGE 3 · iOS 1242×2688 CROP ABOVE ▼</div>
+
   <section class="shot shot--3">
-    <div class="shot__tag">FEATURE 03 · 智能告警云端回看</div>
+    <div class="shot__corner-tr"></div>
+    <div class="shot__corner-bl"></div>
+    <div class="shot__tag">FEATURE 03 · Smart Alerts & Cloud Playback</div>
     <div class="shot__top">
-      <div class="shot__title">异动秒级告警<br/>录像云端保留</div>
-      <div class="shot__subtitle">AI 自动识别人影与异常声音，第一时间推送告警通知。<br/>云端循环存储检测片段，随时点开回看，不错过任何重要瞬间。</div>
+      <div class="shot__title">Instant Motion Alerts<br/>Cloud Recording Stored</div>
+      <div class="shot__subtitle">AI automatically detects human figures and unusual sounds, pushing alert notifications instantly.<br/>Detected clips are stored in the cloud with loop storage — play back anytime, never miss an important moment.</div>
       <div class="shot__features">
-        <span class="shot__feat">🔔 推送告警通知</span>
-        <span class="shot__feat">☁️ 云端录像回看</span>
-        <span class="shot__feat">🗓️ 7 / 30 天留存</span>
+        <span class="shot__feat">🔔 Push Alert Notifications</span>
+        <span class="shot__feat">☁️ Cloud Recording Playback</span>
+        <span class="shot__feat">🗓️ 7 / 30 Day Retention</span>
       </div>
     </div>
     <div class="shot__phone-wrap">
-      <div class="phone">
-        <div class="phone__screen">
-          <div class="ui3__list">
-            <div class="ui3__item">
-              <div class="ui3__thumb ui3__thumb--2">
-                <div class="ui3__person ui3__person--3"></div>
-              </div>
-              <div class="ui3__meta">
-                <div class="ui3__date">2026-02-22</div>
-                <div class="ui3__time">08:44:44</div>
-                <div class="ui3__tag">
-                  <div class="ui3__tag-icon"></div>
-                  Smart detection clip
+      <div class="phone-scaler">
+        <div class="phone">
+          <div class="phone__screen">
+            <div class="ui3__list">
+              <div class="ui3__item">
+                <div class="ui3__thumb ui3__thumb--2">
+                  <div class="ui3__person ui3__person--3"></div>
                 </div>
-              </div>
-              <div class="ui3__play">▶</div>
-            </div>
-            <div class="ui3__item">
-              <div class="ui3__thumb ui3__thumb--2">
-                <div class="ui3__person ui3__person"></div>
-              </div>
-              <div class="ui3__meta">
-                <div class="ui3__date">2026-02-22</div>
-                <div class="ui3__time">08:43:34</div>
-                <div class="ui3__tag">
-                  <div class="ui3__tag-icon"></div>
-                  Smart detection clip
+                <div class="ui3__meta">
+                  <div class="ui3__date">2026-02-22</div>
+                  <div class="ui3__time">08:44:44</div>
+                  <div class="ui3__tag">
+                    <div class="ui3__tag-icon"></div>
+                    Smart Detection Clip
+                  </div>
                 </div>
+                <div class="ui3__play">▶</div>
               </div>
-              <div class="ui3__play">▶</div>
-            </div>
-            <div class="ui3__item">
-              <div class="ui3__thumb ui3__thumb--2">
-                <div class="ui3__person ui3__person--2"></div>
-              </div>
-              <div class="ui3__meta">
-                <div class="ui3__date">2026-02-22</div>
-                <div class="ui3__time">08:26:43</div>
-                <div class="ui3__tag">
-                  <div class="ui3__tag-icon"></div>
-                  Smart detection clip
+              <div class="ui3__item">
+                <div class="ui3__thumb ui3__thumb--2">
+                  <div class="ui3__person ui3__person"></div>
                 </div>
-              </div>
-              <div class="ui3__play">▶</div>
-            </div>
-            <div class="ui3__item" style="opacity:.75;">
-              <div class="ui3__thumb ui3__thumb--1"></div>
-              <div class="ui3__meta">
-                <div class="ui3__date">2026-02-22</div>
-                <div class="ui3__time">08:20:01</div>
-                <div class="ui3__tag">
-                  <div class="ui3__tag-icon"></div>
-                  Smart detection clip
+                <div class="ui3__meta">
+                  <div class="ui3__date">2026-02-22</div>
+                  <div class="ui3__time">08:43:34</div>
+                  <div class="ui3__tag">
+                    <div class="ui3__tag-icon"></div>
+                    Smart Detection Clip
+                  </div>
                 </div>
+                <div class="ui3__play">▶</div>
               </div>
-              <div class="ui3__play">▶</div>
+              <div class="ui3__item">
+                <div class="ui3__thumb ui3__thumb--2">
+                  <div class="ui3__person ui3__person--2"></div>
+                </div>
+                <div class="ui3__meta">
+                  <div class="ui3__date">2026-02-22</div>
+                  <div class="ui3__time">08:26:43</div>
+                  <div class="ui3__tag">
+                    <div class="ui3__tag-icon"></div>
+                    Smart Detection Clip
+                  </div>
+                </div>
+                <div class="ui3__play">▶</div>
+              </div>
+              <div class="ui3__item" style="opacity:.75;">
+                <div class="ui3__thumb ui3__thumb--1"></div>
+                <div class="ui3__meta">
+                  <div class="ui3__date">2026-02-22</div>
+                  <div class="ui3__time">08:20:01</div>
+                  <div class="ui3__tag">
+                    <div class="ui3__tag-icon"></div>
+                    Smart Detection Clip
+                  </div>
+                </div>
+                <div class="ui3__play">▶</div>
+              </div>
             </div>
           </div>
         </div>
@@ -862,52 +912,59 @@
     </div>
   </section>
 
-  <!-- ============ 第 4 张：AI 人体检测特写 ============ -->
+  <div class="crop-guide">▲ IMAGE 3 CROP BELOW · · · IMAGE 4 · iOS 1242×2688 CROP ABOVE ▼</div>
+
   <section class="shot shot--4">
-    <div class="shot__tag">FEATURE 04 · AI 智能人体检测</div>
+    <div class="shot__corner-tr"></div>
+    <div class="shot__corner-bl"></div>
+    <div class="shot__tag">FEATURE 04 · AI Human Detection</div>
     <div class="shot__top">
-      <div class="shot__title">AI 人形识别<br/>精准不漏报</div>
-      <div class="shot__subtitle">智能算法实时识别画面中的人体，自动框选并标记置信度。<br/>告别飞虫、光影等误报，只在真正有人出现时给你推送告警。</div>
+      <div class="shot__title">AI Human Recognition<br/>Accurate & Reliable</div>
+      <div class="shot__subtitle">Smart algorithm identifies human figures in real time, automatically drawing bounding boxes with confidence scores.<br/>Eliminate false alarms from bugs, light/shadow changes — only alert you when a real person is detected.</div>
       <div class="shot__features">
-        <span class="shot__feat">🧍 人体精准识别</span>
-        <span class="shot__feat">🎯 98% 识别准确率</span>
-        <span class="shot__feat">📉 低误报率</span>
+        <span class="shot__feat">🧍 Precise Human Recognition</span>
+        <span class="shot__feat">🎯 98% Recognition Accuracy</span>
+        <span class="shot__feat">📉 Low False Alarm Rate</span>
       </div>
     </div>
     <div class="shot__phone-wrap">
-      <div class="phone">
-        <div class="phone__screen" style="background:#0f172a;">
-          <div class="ui4__scene">
-            <div class="ui4__ceil-light"></div>
-            <div class="ui4__ac"></div>
-            <div class="ui4__door-frame">
-              <div class="ui4__door-glass"></div>
-            </div>
-            <div class="ui4__person-big">
-              <div class="ui4__hair"></div>
-              <div class="ui4__head"></div>
-              <div class="ui4__body"></div>
-            </div>
-            <div class="ui4__bbox"></div>
-            <div class="ui4__alert">
-              <div class="ui4__alert-dot"></div>
-              检测到人体移动 · MOTION DETECTED
-            </div>
-            <div class="ui4__live">
-              <div class="ui4__live-dot"></div>
-              LIVE · REC
-            </div>
-            <div class="ui4__controls">
-              <div class="ui4__ctrl">🎤</div>
-              <div class="ui4__ctrl ui4__ctrl--rec">●</div>
-              <div class="ui4__ctrl">🔊</div>
-              <div class="ui4__ctrl">⚙</div>
+      <div class="phone-scaler">
+        <div class="phone">
+          <div class="phone__screen" style="background:#0f172a;">
+            <div class="ui4__scene">
+              <div class="ui4__ceil-light"></div>
+              <div class="ui4__ac"></div>
+              <div class="ui4__door-frame">
+                <div class="ui4__door-glass"></div>
+              </div>
+              <div class="ui4__person-big">
+                <div class="ui4__hair"></div>
+                <div class="ui4__head"></div>
+                <div class="ui4__body"></div>
+              </div>
+              <div class="ui4__bbox"></div>
+              <div class="ui4__alert">
+                <div class="ui4__alert-dot"></div>
+                Human Motion Detected · MOTION DETECTED
+              </div>
+              <div class="ui4__live">
+                <div class="ui4__live-dot"></div>
+                LIVE · REC
+              </div>
+              <div class="ui4__controls">
+                <div class="ui4__ctrl">🎤</div>
+                <div class="ui4__ctrl ui4__ctrl--rec">●</div>
+                <div class="ui4__ctrl">🔊</div>
+                <div class="ui4__ctrl">⚙</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
   </section>
+
+  <div class="crop-guide">▲ IMAGE 4 CROP BELOW · ALL IMAGES EXPORTED ▲</div>
 
 </body>
 </html>

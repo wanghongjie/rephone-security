@@ -159,18 +159,6 @@
         inset 0 0 0 1px rgba(255,255,255,0.08);
       position: relative;
     }
-    .phone::before {
-      content: "";
-      position: absolute;
-      top: 18px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 92px;
-      height: 26px;
-      border-radius: 0 0 18px 18px;
-      background: #0b1220;
-      z-index: 20;
-    }
     .phone__screen {
       width: 100%;
       height: 100%;
@@ -178,39 +166,6 @@
       border-radius: 36px;
       overflow: hidden;
       position: relative;
-    }
-
-    .shot__bottom {
-      position: absolute;
-      bottom: 26px;
-      left: 0;
-      right: 0;
-      text-align: center;
-      color: #fff;
-      z-index: 10;
-    }
-    .shot__logo {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: 0.03em;
-      padding: 8px 18px;
-      background: rgba(255,255,255,0.14);
-      border: 1px solid rgba(255,255,255,0.22);
-      border-radius: 999px;
-      backdrop-filter: blur(8px);
-    }
-    .shot__logo-icon {
-      width: 22px;
-      height: 22px;
-      border-radius: 6px;
-      background: #fff;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
     }
 
     .shot--1 {
@@ -248,7 +203,7 @@
       width: 6px; height: 6px; border-radius: 50%; background: #0ea5e9;
     }
     .ui1__card {
-      margin: 16px 14px;
+      margin: 16px 12px;
       background: #fff;
       border-radius: 22px;
       box-shadow: 0 8px 24px rgba(15,23,42,0.08);
@@ -256,31 +211,39 @@
       border: 1px solid #e2e8f0;
     }
     .ui1__card-head {
-      padding: 14px 16px 10px;
+      padding: 14px 12px 10px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 8px;
     }
     .ui1__device {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
+      min-width: 0;
+      white-space: nowrap;
     }
     .ui1__dot {
+      flex: 0 0 12px;
       width: 12px; height: 12px; border-radius: 50%; background: #22c55e;
       box-shadow: 0 0 0 4px rgba(34,197,94,0.18);
     }
     .ui1__device-name {
       font-size: 17px; font-weight: 700; color: #0f172a;
+      white-space: nowrap;
     }
     .ui1__device-room {
-      font-size: 13px; color: #94a3b8; margin-left: 4px;
+      font-size: 12px; color: #94a3b8; margin-left: 2px;
+      white-space: nowrap;
     }
     .ui1__status-online {
-      color: #16a34a; font-weight: 700; font-size: 14px;
+      color: #16a34a; font-weight: 700; font-size: 13px;
+      white-space: nowrap;
     }
     .ui1__status-time {
-      font-size: 11px; color: #94a3b8; text-align: right;
+      font-size: 10.5px; color: #94a3b8; text-align: right;
+      white-space: nowrap;
     }
     .ui1__thumb {
       position: relative;
@@ -758,9 +721,9 @@
             <div class="ui1__card-head">
               <div class="ui1__device">
                 <div class="ui1__dot"></div>
-                <div>
-                  <div style="display:flex;align-items:baseline;gap:6px;">
-                    <span class="ui1__device-name">HUAWEI</span>
+                <div style="flex:0 0 auto;">
+                  <div style="display:flex;align-items:baseline;gap:6px;white-space:nowrap;">
+                    <span class="ui1__device-name">Phone 1</span>
                     <span class="ui1__device-room">(Living Room)</span>
                   </div>
                 </div>
@@ -784,9 +747,9 @@
             <div class="ui1__card-head">
               <div class="ui1__device">
                 <div class="ui1__dot" style="background:#f59e0b; box-shadow:0 0 0 4px rgba(245,158,11,.18);"></div>
-                <div>
-                  <div style="display:flex;align-items:baseline;gap:6px;">
-                    <span class="ui1__device-name">iPhone X</span>
+                <div style="flex:0 0 auto;">
+                  <div style="display:flex;align-items:baseline;gap:6px;white-space:nowrap;">
+                    <span class="ui1__device-name">Phone 2</span>
                     <span class="ui1__device-room">(Bedroom)</span>
                   </div>
                 </div>
@@ -801,12 +764,6 @@
           <div class="ui1__fab">+</div>
         </div>
       </div>
-    </div>
-    <div class="shot__bottom">
-      <span class="shot__logo">
-        <span class="shot__logo-icon">📱</span>
-        RePhone Security
-      </span>
     </div>
   </section>
 
@@ -852,12 +809,6 @@
           </div>
         </div>
       </div>
-    </div>
-    <div class="shot__bottom">
-      <span class="shot__logo">
-        <span class="shot__logo-icon">📱</span>
-        RePhone Security
-      </span>
     </div>
   </section>
 
@@ -938,12 +889,6 @@
         </div>
       </div>
     </div>
-    <div class="shot__bottom">
-      <span class="shot__logo">
-        <span class="shot__logo-icon">📱</span>
-        RePhone Security
-      </span>
-    </div>
   </section>
 
   <div class="crop-guide">▲ IMAGE 3 CROP BELOW · · · IMAGE 4 (9:16) CROP ABOVE ▼</div>
@@ -993,12 +938,6 @@
           </div>
         </div>
       </div>
-    </div>
-    <div class="shot__bottom">
-      <span class="shot__logo">
-        <span class="shot__logo-icon">📱</span>
-        RePhone Security
-      </span>
     </div>
   </section>
 
