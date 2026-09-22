@@ -47,6 +47,17 @@
             </intent-filter>
         </activity>
         <!-- Camera Foreground Service -->
+        <!-- 静默刷新 UsageStats 的透明 Activity。
+             taskAffinity 独立于主 task，避免把相机页面一起带到前台；
+             excludeFromRecents 保证不出现在最近任务列表。 -->
+        <activity
+            android:name=".UsageRefreshActivity"
+            android:theme="@style/UsageRefreshTheme"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity="com.rephone.security.usagerefresh" />
         <service
             android:name=".CameraForegroundService"
             android:enabled="true"

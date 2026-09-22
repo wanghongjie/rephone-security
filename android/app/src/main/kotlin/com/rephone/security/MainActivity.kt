@@ -24,6 +24,8 @@ class MainActivity: FlutterActivity() {
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         Log.i(TAG, "MainActivity.onCreate: " + System.currentTimeMillis())
+        // 只要用户打开过 App 就注册周期刷新任务，不依赖前台服务是否已启动
+        UsageRefreshManager.schedule(this)
     }
 
     override fun onResume() {

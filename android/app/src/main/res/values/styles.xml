@@ -19,4 +19,13 @@
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
     </style>
+
+    <!-- 完全透明、无动画的窗口，用于 UsageRefreshActivity 静默刷新 UsageStats.lastTime -->
+    <style name="UsageRefreshTheme" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
 </resources>

@@ -1,8 +1,10 @@
 package com.rephone.security
 
 import android.app.*
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkRequest
@@ -15,6 +17,7 @@ import com.rephone.security.R
 class CameraForegroundService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var screenOffReceiver: BroadcastReceiver? = null
     private val CHANNEL_ID = "camera_service_channel"
     private val NOTIFICATION_ID = 1
 
@@ -23,6 +26,10 @@ class CameraForegroundService : Service() {
         createNotificationChannel()
         acquireWakeLock()
         registerNetworkCallback()
+        // 息屏瞬间是最可靠的刷新时机，注册为动态广播（ACTION_SCREEN_OFF 不支持静态注册）
+        registerScreenOffReceiver()
+        // WorkManager 周期任务作为兜底，防止广播未命中
+        UsageRefreshManager.schedule(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -45,10 +52,33 @@ class CameraForegroundService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        unregisterScreenOffReceiver()
         unregisterNetworkCallback()
         releaseWakeLock()
     }
     
+    private fun registerScreenOffReceiver() {
+        screenOffReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_SCREEN_OFF) {
+                    UsageRefreshManager.runCheck(context, "screen-off")
+                }
+            }
+        }
+        registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+    }
+
+    private fun unregisterScreenOffReceiver() {
+        screenOffReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (_: IllegalArgumentException) {
+                // 已注销，忽略
+            }
+            screenOffReceiver = null
+        }
+    }
+
     private fun registerNetworkCallback() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager

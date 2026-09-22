@@ -8,6 +8,21 @@
 -keepattributes **
 -keep class * extends io.flutter.embedding.engine.plugins.FlutterPlugin { *; }
 
+# ------------------------------------------------------------------------------
+# 反射入口必须 keep：MainActivity 通过 Class.forName + Class.getMethod 调用它们，
+# R8 看不到静态引用，release 会把方法名混淆 → NoSuchMethodException
+#   · MainActivity.configureFlutterEngine → PangleBannerPlatformViewPlugin.registerWith(...)
+#   · MethodChannel initMediationAdSdk  → MediationSdkInitializer.init(Context)
+# 现象：debug 正常，release 下 Pangle 广告完全不初始化（进程不崩，静默失败）。
+# ------------------------------------------------------------------------------
+-keep class com.rephone.security.MediationSdkInitializer { *; }
+-keep class com.rephone.security.pangle.** { *; }
+
+# WorkManager：Worker 由框架反射实例化，release 混淆需保留其构造器
+-keepclassmembers class * extends androidx.work.Worker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+
 # Google / Firebase / Play billing
 -dontwarn com.google.ads.mediation.admob.**
 -dontwarn com.google.android.gms.ads.**
