@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:gallery_saver_plus/gallery_saver.dart';
@@ -30,6 +33,9 @@ class MonitorViewerPage extends StatefulWidget {
 
 class _MonitorViewerPageState extends State<MonitorViewerPage> {
   final _remoteRenderer = RTCVideoRenderer();
+
+  /// 包裹远端画面的边界，用于按渲染纹理截图（见 [_captureFromTexture]）。
+  final _videoBoundaryKey = GlobalKey();
   Signaling? _signaling;
   String? _selfId;
   List<dynamic> _peers = [];
@@ -609,31 +615,53 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     }
   }
 
+  /// 截图并保存为设备封面：直接取 [RTCVideoView] 所在 [RepaintBoundary] 的渲染纹理。
+  ///
+  /// 相比 `MediaStreamTrack.captureFrame()`（必须等到下一帧才回调、轨道停滞时无超时地
+  /// 挂起，Android 侧旋转分支还会泄漏 Bitmap），纹理路径毫秒级返回且不落盘。
   Future<void> _captureSnapshot() async {
     if (!_inCall || _remoteRenderer.srcObject == null) return;
 
+    Uint8List? bytes;
     try {
-      final stream = _remoteRenderer.srcObject!;
-      final tracks = stream.getVideoTracks();
-      if (tracks.isEmpty) return;
+      final boundaryContext = _videoBoundaryKey.currentContext;
+      final boundary =
+          boundaryContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null || boundary.size.isEmpty) return;
 
-      final track = tracks.first;
-      final buffer = await track.captureFrame();
-      final bytes = buffer.asUint8List();
+      // 等当前帧绘制完成，避免拿到尚未绘制的空白层。
+      await WidgetsBinding.instance.endOfFrame;
 
-      if (bytes.isNotEmpty) {
-        final dir = await getApplicationDocumentsDirectory();
-        final coversDir = Directory('${dir.path}/covers');
-        if (!await coversDir.exists()) {
-          await coversDir.create(recursive: true);
-        }
-
-        final file = File('${coversDir.path}/cover_${widget.cameraDeviceId}.jpg');
-        await file.writeAsBytes(bytes);
-        LogUtils.i('MonitorViewer', 'Snapshot saved to ${file.path}');
+      final image = await boundary.toImage();
+      try {
+        final data = await image.toByteData(format: ui.ImageByteFormat.png);
+        bytes = data?.buffer.asUint8List();
+      } finally {
+        image.dispose();
       }
     } catch (e) {
-      LogUtils.e('MonitorViewer', 'Failed to capture snapshot: $e');
+      LogUtils.e('MonitorViewer', 'Failed to capture snapshot from texture: $e');
+      return;
+    }
+
+    if (bytes == null || bytes.isEmpty) {
+      LogUtils.w('MonitorViewer', 'Snapshot skipped: no image data');
+      return;
+    }
+
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final coversDir = Directory('${dir.path}/covers');
+      if (!await coversDir.exists()) {
+        await coversDir.create(recursive: true);
+      }
+
+      // 文件名沿用 .jpg：camera_list_page 按该路径读取，Image.file 按内容解码。
+      final file = File('${coversDir.path}/cover_${widget.cameraDeviceId}.jpg');
+      await file.writeAsBytes(bytes, flush: true);
+      LogUtils.i('MonitorViewer', 'Snapshot saved to ${file.path}, ${bytes.length} bytes');
+    } catch (e) {
+      LogUtils.e('MonitorViewer', 'Failed to save snapshot: $e');
     }
   }
 
@@ -683,7 +711,10 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
               child: _inCall && _remoteRenderer.srcObject != null
                   ? Stack(
                       children: [
-                        RTCVideoView(_remoteRenderer),
+                        RepaintBoundary(
+                          key: _videoBoundaryKey,
+                          child: RTCVideoView(_remoteRenderer),
+                        ),
                         if (_isRecording)
                           Positioned(
                             top: 12,
