@@ -13,12 +13,17 @@ import 'services/mediation_service.dart';
 import 'utils/app_market.dart';
 import 'utils/log_utils.dart';
 
-/// 国内版入口（上架国内应用市场）。
+/// 国内版入口（**仅 Android**，上架国内应用市场）。
 ///
 /// - 注入 [chinaEnvConfig] / [chinaFeatureToggles]
 /// - 不初始化 Firebase / Crashlytics / Google Mobile Ads
-/// - 崩溃/推送使用 noop 实现；广告优先使用 Pangle；**支付接入微信 APP 支付**
-///   （[ChinaWechatIapService] 封装了服务端下单 + SDK 调起 + 轮询兜底全链路）。
+/// - 崩溃/推送使用 noop 实现；广告优先使用 Pangle
+/// - **支付接入微信 APP 支付**（[ChinaWechatIapService] 封装了服务端下单 +
+///   SDK 调起 + 轮询兜底全链路）
+///
+/// iOS 不走本入口：iOS 不区分国内/海外，统一使用 `lib/main.dart`（global 入口）
+/// 走 Apple 内购（App Store / StoreKit）。构建脚本 `scripts/build_flavors.sh`
+/// 已拒绝 `ios china` 组合。
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 

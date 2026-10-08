@@ -38,6 +38,15 @@ class EnvConfig {
   /// 认证/账号服务是否使用 HTTPS。
   final bool authUseHttps;
 
+  /// 微信开放平台「移动应用」AppID（`wx` 开头）。
+  ///
+  /// 由构建参数 `--dart-define=WECHAT_APP_ID=wx...` 注入，避免硬编码进源码。
+  /// 仅**国内版 Android** 需要；海外版与 iOS 均为空串。
+  ///
+  /// 注意：iOS 不区分国内/海外，统一走 Apple 内购（App Store），
+  /// 因此 iOS 端不注册微信 SDK、也不需要 Universal Link。
+  final String wechatAppId;
+
   /// 构造环境配置。
   const EnvConfig({
     required this.market,
@@ -45,6 +54,7 @@ class EnvConfig {
     required this.authHost,
     required this.authPort,
     required this.authUseHttps,
+    this.wechatAppId = '',
   });
 }
 
@@ -95,6 +105,8 @@ EnvConfig globalEnvConfig() => const EnvConfig(
       authHost: 'rephone.top',
       authPort: 8086,
       authUseHttps: true,
+      // 海外版不需要微信参数，且构建脚本会剔除 fluwx 依赖
+      wechatAppId: '',
     );
 
 /// 预置的 Global（海外）能力开关：默认启用海外 SDK 能力。
@@ -115,12 +127,21 @@ EnvConfig chinaEnvConfig() => const EnvConfig(
       authHost: 'rephone.top',
       authPort: 8086,
       authUseHttps: true,
+      // 由构建参数注入：--dart-define=WECHAT_APP_ID=wx...
+      // String.fromEnvironment 是编译期常量，因此这里仍可保持 const。
+      wechatAppId: String.fromEnvironment('WECHAT_APP_ID'),
     );
 
 /// 预置的 China（国内）能力开关：默认走 Pangle + 微信支付。
+///
+/// 仅 Android 使用：iOS 不区分国内/海外，统一构建 global 入口走 Apple 内购，
+/// 因此 iOS 永远不会读到这组开关。
 FeatureToggles chinaFeatureToggles() => const FeatureToggles(
       enableInAppPurchase: false,
-      enableWechatPay: false,
+      // 国内 Android 会员：走服务端下单 + 微信 SDK 调起链路（ChinaWechatIapService）。
+      // 打开后 MembershipPage 才会在 MainPage 中挂载。
+      // 灰度/紧急下线时把它改回 false 即可隐藏会员入口，无需删代码。
+      enableWechatPay: true,
       enableFirebase: false,
       enableGoogleMobileAds: false,
       enablePangleAds: true,

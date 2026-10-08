@@ -190,6 +190,56 @@ class PaymentApi {
     }
   }
 
+  // —————————— 服务端统一定价 ——————————
+
+  /// 拉取服务端定价，避免客户端硬编码第二份价格。
+  ///
+  /// 后端接口：GET /api/payment/products（无需登录）。
+  ///
+  /// 返回结构（成功时）：
+  /// ```dart
+  /// {
+  ///   'channel': 'wechat',
+  ///   'currency': 'CNY',
+  ///   'products': [
+  ///     {
+  ///       'product_id': 'rephone_premium_monthly',
+  ///       'plan': 'monthly',
+  ///       'amount_fen': 299,
+  ///       'currency': 'CNY',
+  ///       'display_price': '¥2.99',
+  ///       'duration_days': 30,
+  ///     },
+  ///     ...
+  ///   ]
+  /// }
+  /// ```
+  Future<Map<String, dynamic>?> listProducts() async {
+    HttpClient? client;
+    try {
+      client = HttpClient();
+      final req = await client.getUrl(_buildUri('products'));
+      req.headers.set(HttpHeaders.acceptHeader, 'application/json');
+
+      final resp = await req.close();
+      final text = await utf8.decodeStream(resp);
+      LogUtils.d('PaymentApi', 'List products response: ${resp.statusCode} $text');
+
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(text);
+        if (data is Map<String, dynamic> && data['success'] == true) {
+          return data['data'] as Map<String, dynamic>;
+        }
+      }
+      return null;
+    } catch (e, st) {
+      LogUtils.e('PaymentApi', 'List products failed', e, st);
+      return null;
+    } finally {
+      client?.close(force: true);
+    }
+  }
+
   // —————————— 微信支付（国内版） ——————————
 
   /// 创建微信 APP 支付订单 → 返回调起 SDK 所需的参数（含 out_trade_no 和 params Map）。

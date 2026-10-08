@@ -20,8 +20,15 @@
 #   # 调试版：国内版 Android APK（Debug）
 #   ./scripts/build_flavors.sh android china apk debug
 #
-#   # 构建海外版 iOS（Release）
+#   # 构建 iOS（Release）
 #   ./scripts/build_flavors.sh ios global ios
+#
+# 【iOS 不做市场区分】
+#   iOS 只有一套构建（global 入口 lib/main.dart），不区分国内/海外：
+#     · 支付统一走 Apple 内购（App Store / StoreKit），不接入微信支付
+#     · 因此 iOS 包不含 fluwx / WechatOpenSDK，也不需要配置 Universal Link
+#     · android china 才会走微信支付（ChinaWechatIapService）
+#   故 `./scripts/build_flavors.sh ios china ios` 会被本脚本直接拒绝。
 #
 # ------------------------------------------------------------------------------
 # 【关键实现】构建期 pubspec 依赖裁剪：实现国内 / 海外包的原生 SDK 隔离
@@ -31,10 +38,12 @@
 #   · .aar 中的 classes.dex 含 com/jarvan/fluwx 包名
 # Play 自动静态审核会命中后轻则开发者验证或直接拒审。
 #
-# 国内版（安卓各厂商市场 / iOS 国区）不应携带 Google Play Billing / StoreKit 商店支付 SDK：
+# 国内版 Android（安卓各厂商市场）不应携带 Google Play Billing 商店支付 SDK：
 #   · :in_app_purchase_android 原生插件会把 Play BillingClient 链接进国内 APK
-#   · :in_app_purchase_storekit 会把 StoreKit.framework 链接进 iOS 包
 # 厂商市场 SDK 扫描 / Play 依赖申报都会因此产生不必要的合规风险。
+#
+# iOS 不做市场区分：统一走 global 入口 + Apple 内购（in_app_purchase_storekit），
+# 因此 iOS 包必须**保留** StoreKit 并剔除微信 SDK（global patch 即负责移除 fluwx）。
 #
 # Dart 层已通过 DTO（lib/flavors/iap_models.dart）完成代码隔离——业务层不引用任何
 # in_app_purchase 类型；但原生插件仍由 pubspec 依赖注入 GeneratedPluginRegistrant，
@@ -63,6 +72,19 @@ cd "${ROOT_DIR}"
 log()  { printf '[build_flavors] %s\n' "$*"; }
 die()  { printf '[build_flavors][ERROR] %s\n' "$*" >&2; exit 2; }
 
+# ==============================================================================
+# 微信支付参数（仅国内版需要）
+# ------------------------------------------------------------------------------
+# WECHAT_APP_ID：微信开放平台「移动应用」AppID（wx 开头）。
+#   必须与服务端 configs/config.ini 的 [wechat_pay].app_id 完全一致，
+#   并且该 AppID 已在微信商户平台「产品中心 → AppID 账号管理」绑定到商户号，
+#   否则下单会返回 APPID_MCHID_NOT_MATCH。
+#   建议通过环境变量注入，避免把 AppID 硬编码进脚本：
+#     export WECHAT_APP_ID=wx1234567890abcdef
+#     ./scripts/build_flavors.sh android china apk
+# 仅国内版 Android 使用；iOS 走 Apple 内购，不需要该参数。
+WECHAT_APP_ID="${WECHAT_APP_ID:-}"
+
 OS="${1:-}"; MARKET="${2:-}"; ARTIFACT="${3:-}"; BUILD_TYPE="${4:-release}"
 
 case "${OS}" in
@@ -73,6 +95,25 @@ case "${MARKET}" in
   china|global) ;;
   *) die "非法 market='${MARKET}'，可选：china / global";;
 esac
+# iOS 不区分国内/海外：统一走 global 入口 + Apple 内购。
+# china 入口会链接 fluwx 与微信 SDK，且会裁掉 in_app_purchase_storekit
+# （那样 Apple 内购直接不可用），故明确禁止该组合。
+if [[ "${OS}" == "ios" && "${MARKET}" == "china" ]]; then
+  die "iOS 不做国内/海外区分：请改用 './scripts/build_flavors.sh ios global ios'（统一走 Apple 内购）"
+fi
+# 国内版 Android 必须有微信 AppID，否则会静默产出「能打开会员页但调不起微信」的包。
+# 在构建前就拦住，避免问题拖到真机测试才暴露。
+if [[ "${OS}" == "android" && "${MARKET}" == "china" ]]; then
+  if [[ -z "${WECHAT_APP_ID}" ]]; then
+    die "构建国内版 Android 必须提供微信 AppID：
+      export WECHAT_APP_ID=wx26395d47b04e11b5
+      ./scripts/build_flavors.sh android china apk
+    该值必须与服务端 configs/config.ini 的 [wechat_pay].app_id 完全一致。"
+  fi
+  if [[ ! "${WECHAT_APP_ID}" =~ ^wx[0-9a-zA-Z]{16}$ ]]; then
+    die "WECHAT_APP_ID 格式非法（当前：'${WECHAT_APP_ID}'），应为 wx + 16 位字母数字，例如 wx26395d47b04e11b5"
+  fi
+fi
 case "${BUILD_TYPE}" in
   debug|release) ;;
   *) die "非法 build-type='${BUILD_TYPE}'，可选：debug / release";;
@@ -334,6 +375,7 @@ case "${OS}" in
           "--flavor" "china"
           "-t" "lib/main_china.dart"
           "--dart-define=MARKET=china"
+          "--dart-define=WECHAT_APP_ID=${WECHAT_APP_ID}"
         )
         ;;
     esac
@@ -355,24 +397,15 @@ case "${OS}" in
     #   本项目 iOS 原生层（bundle id / Info.plist / Podfile / xcconfig）对
     #   global / china 没有任何差异化配置（Runner 的 Debug/Release/Profile 三个
     #   配置 bundle id 均为 com.rephone.security），--flavor 不产生任何行为差异。
-    #   市场区分完全由 Dart 层完成：入口文件（-t）+ --dart-define=MARKET=xxx。
-    #   将来若 iOS 需要区分 bundle id / 原生配置，请先在 Xcode 中为各市场创建
-    #   shared scheme 与对应 build configuration，再恢复 --flavor 参数。
+    #
+    # iOS 只在 global 入口下构建（china 组合已在参数校验阶段 die）：
+    #   · 支付走 Apple 内购（in_app_purchase_storekit / StoreKit）
+    #   · global 的 pubspec 裁剪会移除 fluwx，因此 iOS 包不含微信 SDK
     # --------------------------------------------------------------------------
-    case "${MARKET}" in
-      global)
-        FLUTTER_ARGS+=(
-          "-t" "lib/main.dart"
-          "--dart-define=MARKET=global"
-        )
-        ;;
-      china)
-        FLUTTER_ARGS+=(
-          "-t" "lib/main_china.dart"
-          "--dart-define=MARKET=china"
-        )
-        ;;
-    esac
+    FLUTTER_ARGS+=(
+      "-t" "lib/main.dart"
+      "--dart-define=MARKET=global"
+    )
     CMD=(flutter "build" "${ARTIFACT}" "${FLUTTER_ARGS[@]}")
     ;;
 esac

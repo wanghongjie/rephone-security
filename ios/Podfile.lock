@@ -65,9 +65,6 @@ PODS:
   - flutter_webrtc (1.6.0):
     - Flutter
     - WebRTC-SDK (= 144.7559.09)
-  - fluwx (2.0.5):
-    - Flutter
-    - WechatOpenSDK-XCFramework (~> 2.0.5)
   - gallery_saver_plus (0.0.1):
     - Flutter
   - Google-Mobile-Ads-SDK (11.13.0):
@@ -163,7 +160,6 @@ PODS:
   - webview_flutter_wkwebview (0.0.1):
     - Flutter
     - FlutterMacOS
-  - WechatOpenSDK-XCFramework (2.0.7)
 
 DEPENDENCIES:
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
@@ -172,7 +168,6 @@ DEPENDENCIES:
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - Flutter (from `Flutter`)
   - flutter_webrtc (from `.symlinks/plugins/flutter_webrtc/ios`)
-  - fluwx (from `.symlinks/plugins/fluwx/ios`)
   - gallery_saver_plus (from `.symlinks/plugins/gallery_saver_plus/ios`)
   - google_mobile_ads (from `.symlinks/plugins/google_mobile_ads/ios`)
   - in_app_purchase_storekit (from `.symlinks/plugins/in_app_purchase_storekit/darwin`)
@@ -211,7 +206,6 @@ SPEC REPOS:
     - TensorFlowLiteC
     - TensorFlowLiteSwift
     - WebRTC-SDK
-    - WechatOpenSDK-XCFramework
 
 EXTERNAL SOURCES:
   device_info_plus:
@@ -226,8 +220,6 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_webrtc:
     :path: ".symlinks/plugins/flutter_webrtc/ios"
-  fluwx:
-    :path: ".symlinks/plugins/fluwx/ios"
   gallery_saver_plus:
     :path: ".symlinks/plugins/gallery_saver_plus/ios"
   google_mobile_ads:
@@ -271,7 +263,6 @@ SPEC CHECKSUMS:
   FirebaseSessions: a2d06fd980431fda934c7a543901aca05fc4edcc
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_webrtc: 19bcbbf93f6ef06ec1c0ef9dbeae6a27b970108b
-  fluwx: 508e8192306f3440bd7a47801446ad7048b28a80
   gallery_saver_plus: c4b59c605df1049a02d036ef81d82972b6dfd606
   Google-Mobile-Ads-SDK: 14f57f2dc33532a24db288897e26494640810407
   google_mobile_ads: fe0e2c1764ad95323dd0e3081d0bb2d58411f957
@@ -296,7 +287,6 @@ SPEC CHECKSUMS:
   wakelock_plus: 76957ab028e12bfa4e66813c99e46637f367fc7e
   WebRTC-SDK: e6006119cd730d6315d875e4a421b6cc8bb88833
   webview_flutter_wkwebview: a4af96a051138e28e29f60101d094683b9f82188
-  WechatOpenSDK-XCFramework: 5df9b250e9839dcc306ad8b00f46822eead1ed47
 
 PODFILE CHECKSUM: c070a408ddf77d529ae683583fecdf4b9823e13d
 

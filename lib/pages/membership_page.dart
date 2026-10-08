@@ -307,28 +307,44 @@ class _MembershipPageState extends State<MembershipPage> {
 
   Future<void> _initIap({bool force = false}) async {
     try {
-      // —— 微信支付模式（国内版本）：不走 IAP 商店查询，直接使用服务端统一定价——
-      // 服务端价格：月卡 2.99 元、年卡 23.99 元（与 `resolveWechatAmount` 保持一致）。
-      // 如需动态改价，可改为调用独立的 /api/payment/products 接口拉取。
+      // —— 微信支付模式（国内版本）：不走 IAP 商店查询，改用服务端统一定价 ——
+      // 价格唯一真源是服务端 config.ini [wechat_pay].price_*_fen，
+      // 通过 GET /api/payment/products 下发，客户端不再硬编码任何金额。
       if (AppEnv.iap.isThirdPartyPaymentEnabled) {
-        await AppEnv.iap.init(); // 仅注册微信 SDK，不会拉取商品
+        await AppEnv.iap.init(); // 仅注册微信 SDK，不会查询商店商品
         if (!mounted) return;
+        final products = await AppEnv.iap.loadProducts();
+        if (!mounted) return;
+        // 服务端未启用微信支付（/products 返回 503 或空）时，
+        // 不展示任何本地兜底价格——避免出现「能下单但支付失败」的假象。
+        if (products.isEmpty) {
+          setState(() {
+            _iapUnavailable = true;
+            _loadingProducts = false;
+          });
+          return;
+        }
         setState(() {
           _loadingProducts = false;
           for (var i = 0; i < _plans.length; i++) {
             final plan = _plans[i];
-            if (plan.planType == MembershipPlanType.monthly) {
-              _plans[i] = plan.copyWith(
-                price: 2.99,
-                displayPrice: '¥2.99 / 月',
-              );
-            } else if (plan.planType == MembershipPlanType.yearly) {
-              _plans[i] = plan.copyWith(
-                price: 23.99,
-                displayPrice: '¥23.99 / 年',
-                isRecommended: true,
-              );
+            final productId = plan.productId;
+            if (productId == null) continue;
+            IapProduct? product;
+            for (final p in products) {
+              if (p.id == productId) {
+                product = p;
+                break;
+              }
             }
+            if (product == null) continue;
+            final suffix =
+                plan.planType == MembershipPlanType.yearly ? ' / 年' : ' / 月';
+            _plans[i] = plan.copyWith(
+              price: product.rawPrice,
+              displayPrice: '${product.price}$suffix',
+              isRecommended: plan.planType == MembershipPlanType.yearly,
+            );
           }
         });
         return;

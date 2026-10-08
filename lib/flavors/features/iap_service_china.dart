@@ -1,11 +1,17 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 // 微信 SDK fluwx 6.x（社区维护版）：仅本文件 import，海外入口 main.dart 永不引用，
 // 从而不会把微信 SDK 代码链接进 Play Store / App Store 包。
+//
+// 【平台边界】微信支付仅用于国内版 **Android**。
+// iOS 不区分国内/海外，统一构建 global 入口（lib/main.dart）走 Apple 内购，
+// 因此本文件与 fluwx 都不会出现在 iOS 包中，也不再需要 Universal Link。
 import 'package:fluwx/fluwx.dart' as fluwx;
 
 import '../../services/payment_api.dart';
+import '../app_env.dart';
 import '../iap_models.dart';
 import '../service_facades.dart';
 
@@ -17,8 +23,9 @@ const String _kTag = 'WechatIAP';
 /// 设计要点（对齐项目架构约束）：
 ///
 /// 1. **文件级隔离**：仅本文件直接 `import 'package:fluwx/fluwx.dart'`，
-///    仅在 `main_china.dart`（国内入口）注入；海外入口 `main.dart` 永不 import
-///    本文件，因此微信 SDK 不会被编译进海外包，满足「海外/国内实现彻底隔离」。
+///    仅在 `main_china.dart`（国内 **Android** 入口）注入；
+///    海外入口 `main.dart` 与 iOS 构建永不 import 本文件，
+///    因此微信 SDK 不会被编译进海外包与 iOS 包，满足「海外/国内实现彻底隔离」。
 ///
 /// 2. **傻瓜式接入**：业务页面（[MembershipPage]）**完全不感知 fluwx**，
 ///    只调用 [IapService] 门面的 [createServerOrder] /
@@ -62,11 +69,19 @@ class ChinaWechatIapService implements IapService {
   /// WeChatResponse 的订阅句柄，用于在 dispose 或超时后安全取消。
   fluwx.FluwxCancelable? _responseCancelable;
 
+  /// 从服务端 `GET /api/payment/products` 拉取到的套餐缓存。
+  List<IapProduct> _cachedProducts = const <IapProduct>[];
+
   /// 构造：国内入口 `main_china.dart` 中由 `toggles.enableWechatPay` 控制。
   ///
   /// [enabled] 为 false 时，所有操作等价于 Noop：
   /// 不初始化 SDK、不访问网络，但不会抛异常，UI 通过 [isEnabled] 隐藏购买按钮。
-  ChinaWechatIapService({bool enabled = true}) : _enabled = enabled;
+  ///
+  /// **运行时平台防护**：iOS 上强制禁用。iOS 不区分国内/海外，统一走
+  /// Apple 内购；即使有人误用 `main_china.dart` 构建 iOS，这里也不会启用
+  /// 微信支付，避免出现「点了微信支付却调不起 SDK」的死路。
+  ChinaWechatIapService({bool enabled = true})
+      : _enabled = enabled && !Platform.isIOS;
 
   // —————————— 基础能力 ——————————
 
@@ -80,35 +95,47 @@ class ChinaWechatIapService implements IapService {
   bool? get iosCanMakePayments => null;
 
   @override
-  List<IapProduct> get products => const <IapProduct>[];
-
-  @override
   Stream<List<IapPurchase>> get purchasesStream => _purchases.stream;
 
-  /// 初始化：注册微信 SDK AppID。
+  /// 初始化：注册微信 SDK AppID（仅 Android）。
   ///
-  /// Flutter 端 `registerApi` 的两个关键参数：
-  ///   - `appId`：微信开放平台「移动应用」AppID（`wx` 开头，需在微信商户平台绑定到商户号）
-  ///   - `universalLink`：iOS 必选；Android 可忽略。取值需与微信开放平台
-  ///     「开发信息 → Universal Links」填写的完全一致。国内云服务器一般配置为
-  ///     `https://<你的域名>/<随便一个路径，比如 wechat/`
+  /// Flutter 端 `registerApi` 的关键参数：
+  ///   - `appId`：微信开放平台「移动应用」AppID（`wx` 开头，需在微信商户平台
+  ///     「产品中心 → AppID 账号管理」中绑定到商户号，否则下单报
+  ///     `APPID_MCHID_NOT_MATCH`）
+  ///   - `doOnIOS`：固定 false。iOS 不接入微信支付，统一走 Apple 内购。
   ///
-  /// 注意：这里 AppID 写死在代码里是**临时方案**，实际可通过 `AppEnv.config`
-  /// 或后端接口下发；为了让当前改造能直接跑通，示例值与 `configs/config.ini`
-  /// 中 `[wechat_pay].app_id` 的占位一致，后续从后端初始化接口拉取更规范。
+  /// AppID 从构建参数注入（`--dart-define=WECHAT_APP_ID=wx...`），
+  /// 经 [AppEnv.config] 读取，源码中不留硬编码。
+  ///
+  /// 若未注入 AppID，这里不会抛异常中断启动，但会置 `_sdkInitialized=false`
+  /// 并打出明确告警；后续购买流程会因 SDK 未注册而失败并提示用户。
   @override
   Future<void> init({bool forceRefresh = false}) async {
     if (!_enabled) return;
-    if (_sdkInitialized) return;
+    if (_sdkInitialized && !forceRefresh) return;
+
+    final appId = AppEnv.config.wechatAppId.trim();
+    if (appId.isEmpty) {
+      _WechatLog.e(
+        _kTag,
+        '微信 AppID 未配置：请在构建时传入 --dart-define=WECHAT_APP_ID=wx... '
+            '（应与服务端 configs/config.ini 的 [wechat_pay].app_id 一致）',
+      );
+      _sdkInitialized = false;
+      return;
+    }
+
     try {
       final ok = await _fluwx.registerApi(
-        appId: 'wx_your_app_id',
+        appId: appId,
         doOnAndroid: true,
-        doOnIOS: true,
-        universalLink: 'https://rephone.top/wechat/',
+        // iOS 不接入微信支付（统一走 Apple 内购），因此不注册 iOS 侧 SDK，
+        // 也不需要配置 Universal Link。
+        doOnIOS: false,
       );
       _sdkInitialized = ok;
-      _WechatLog.d(_kTag, 'fluwx registerApi ok=$ok');
+      _WechatLog.d(_kTag, 'fluwx registerApi ok=$ok appId=$appId');
     } catch (e, st) {
       _WechatLog.e(_kTag, 'fluwx 初始化失败：不影响应用启动，后续支付会报错', e, st);
       // 不抛错：SDK 初始化失败时 UI 通过 isEnabled 仍为 true，
@@ -116,16 +143,55 @@ class ChinaWechatIapService implements IapService {
     }
   }
 
+  /// 微信支付模式下没有「商店商品」概念，价格由服务端统一定价下发。
+  ///
+  /// 这里调用 `GET /api/payment/products` 把服务端定价转成 [IapProduct]，
+  /// 让会员页与海外 IAP 走同一套渲染逻辑，消除客户端硬编码价格。
+  ///
+  /// 拉取失败时返回空列表（调用方回落到既有展示），不抛异常。
   @override
   Future<List<IapProduct>> loadProducts() async {
-    // 微信支付模式下：套餐列表由 MembershipPage 自己硬编码（月卡/年卡），
-    // 或调用独立的后端接口（/api/payment/products）拉取。
-    // 这里返回空列表，不影响现有逻辑。
-    return const <IapProduct>[];
+    if (!_enabled) return const <IapProduct>[];
+
+    final data = await PaymentApi().listProducts();
+    final rawList = data?['products'];
+    if (rawList is! List) return const <IapProduct>[];
+
+    final currency = (data?['currency'] as String?) ?? 'CNY';
+    final products = <IapProduct>[];
+    for (final item in rawList) {
+      if (item is! Map<String, dynamic>) continue;
+      final id = (item['product_id'] as String?) ?? '';
+      final plan = (item['plan'] as String?) ?? '';
+      final amountFen = (item['amount_fen'] as num?)?.toInt() ?? 0;
+      if (id.isEmpty || amountFen <= 0) continue;
+
+      products.add(IapProduct(
+        id: id,
+        title: plan == 'yearly' ? '会员年卡' : '会员月卡',
+        description: '${(item['duration_days'] as num?)?.toInt() ?? 30} 天会员权益',
+        price: (item['display_price'] as String?) ?? _formatFen(amountFen),
+        rawPrice: amountFen / 100.0,
+        currencyCode: currency,
+      ));
+    }
+    _cachedProducts = List.unmodifiable(products);
+    return _cachedProducts;
   }
 
   @override
-  IapProduct? getProduct(String id) => null;
+  List<IapProduct> get products => _cachedProducts;
+
+  @override
+  IapProduct? getProduct(String id) {
+    for (final p in _cachedProducts) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  /// 分 → "¥x.xx" 的本地兜底格式化（服务端未下发 display_price 时使用）。
+  static String _formatFen(int fen) => '¥${(fen / 100).toStringAsFixed(2)}';
 
   // —————————— 商店 IAP 老链路（微信支付不使用，按 noop/报错处理） ——————————
 
