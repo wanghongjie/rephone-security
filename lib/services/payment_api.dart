@@ -218,6 +218,11 @@ class PaymentApi {
     HttpClient? client;
     try {
       client = HttpClient();
+      // 必须与其他接口保持一致：服务端用的是自签证书（configs/certs/cert.pem，
+      // 这也是 curl 要加 -k 才通的原因）。不忽略证书校验会抛 HandshakeException，
+      // 被下方 catch 吞掉后返回 null，表现为「会员页拿到 0 个套餐」而非明显报错，
+      // 极难排查。安全上与其他接口同策略，不做单独放松。
+      client.badCertificateCallback = (cert, h, p) => true;
       final req = await client.getUrl(_buildUri('products'));
       req.headers.set(HttpHeaders.acceptHeader, 'application/json');
 
