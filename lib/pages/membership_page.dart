@@ -310,14 +310,37 @@ class _MembershipPageState extends State<MembershipPage> {
       // —— 微信支付模式（国内版本）：不走 IAP 商店查询，改用服务端统一定价 ——
       // 价格唯一真源是服务端 config.ini [wechat_pay].price_*_fen，
       // 通过 GET /api/payment/products 下发，客户端不再硬编码任何金额。
-      if (AppEnv.iap.isThirdPartyPaymentEnabled) {
+      // 【诊断日志】先打印分支判定依据。
+      // isThirdPartyPaymentEnabled=true 才走国内微信链路；为 false 说明注入的是海外
+      // IapService（最常见误操作：直接 `flutter run` 默认跑 lib/main.dart 入口）。
+      // iapRuntime 直接暴露实际注入的实现类，一眼可看出跑的是哪个入口。
+      final thirdParty = AppEnv.iap.isThirdPartyPaymentEnabled;
+      LogUtils.i(
+        'MembershipPage',
+        '_initIap: market=${AppEnv.config.market.name} '
+            'isThirdPartyPaymentEnabled=$thirdParty '
+            'iapEnabled=${AppEnv.iap.isEnabled} '
+            'iapRuntime=${AppEnv.iap.runtimeType}',
+      );
+      if (thirdParty) {
         await AppEnv.iap.init(); // 仅注册微信 SDK，不会查询商店商品
         if (!mounted) return;
+        LogUtils.d('MembershipPage', '_initIap: 微信链路 init 完成，开始拉取服务端定价');
         final products = await AppEnv.iap.loadProducts();
         if (!mounted) return;
+        LogUtils.i(
+          'MembershipPage',
+          '_initIap: loadProducts 返回 ${products.length} 条'
+              '${products.isEmpty ? '' : ' -> ' + products.map((p) => '${p.id}=${p.price}').join(', ')}',
+        );
         // 服务端未启用微信支付（/products 返回 503 或空）时，
         // 不展示任何本地兜底价格——避免出现「能下单但支付失败」的假象。
         if (products.isEmpty) {
+          LogUtils.w(
+            'MembershipPage',
+            '_initIap: 服务端未返回任何套餐（GET /api/payment/products 返回空或 503），'
+                '会员页置为不可用，不展示本地兜底价格',
+          );
           setState(() {
             _iapUnavailable = true;
             _loadingProducts = false;
@@ -353,6 +376,14 @@ class _MembershipPageState extends State<MembershipPage> {
       if (!mounted) return;
       if (!AppEnv.iap.isEnabled) {
         // init 完成后仍不可用（无商店/无支付能力）才判定为「该地区不可用」。
+        // 国内 Android 真机最常见的成因：跑的是海外入口（GlobalStoreIapService），
+        // 而设备没有 Google Play 商店，BillingClient 不可用 → isEnabled=false。
+        LogUtils.w(
+          'MembershipPage',
+          '_initIap: 商店内购 init 后仍不可用 -> 判定「该地区不可用」。'
+              'iapRuntime=${AppEnv.iap.runtimeType} '
+              'iosCanMakePayments=${AppEnv.iap.iosCanMakePayments}',
+        );
         setState(() {
           _iapUnavailable = true;
           _loadingProducts = false;
@@ -731,13 +762,20 @@ class _MembershipPageState extends State<MembershipPage> {
   Widget build(BuildContext context) {
     if (_iapUnavailable) {
       final l = AppLocalizations.of(context);
+      // 文案要匹配失败原因：
+      //  - 国内版走微信支付，失败原因是「服务未开放/未就绪」，不是地区限制，
+      //    说「当前地区不支持」会误导用户以为自己被屏蔽。
+      //  - 海外版走 Play/StoreKit 商店内购，才是真正的「地区不支持」。
+      final message = AppEnv.iap.isThirdPartyPaymentEnabled
+          ? l.membershipServiceUnavailable
+          : l.membershipUnavailableInRegion;
       return Scaffold(
         appBar: AppBar(title: Text(l.profileMembership)),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              l.membershipUnavailableInRegion,
+              message,
               textAlign: TextAlign.center,
             ),
           ),
