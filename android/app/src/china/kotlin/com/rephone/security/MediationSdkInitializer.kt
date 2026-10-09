@@ -24,6 +24,15 @@ object MediationSdkInitializer {
             callback(true)
             return
         }
+        // 【隐私合规兜底】用户未点击隐私政策「同意」前，绝不初始化 SDK。
+        // 此处不直接失败，而是把初始化动作挂起到闸门打开后重试。
+        if (!PrivacyConsentGate.isGranted()) {
+            Log.i(TAG, "Mediation SDK init deferred: privacy consent not granted yet")
+            PrivacyConsentGate.whenGranted {
+                ensureInitialized(context.applicationContext, callback)
+            }
+            return
+        }
         synchronized(callbackLock) {
             if (initialized.get()) {
                 callback(true)
@@ -38,6 +47,11 @@ object MediationSdkInitializer {
     fun init(context: Context) {
         if (initialized.get()) {
             Log.i(TAG, "Mediation SDK already initialized, skip")
+            return
+        }
+        // 【隐私合规兜底】闸门未打开时直接拒绝，避免读取 OAID / MAC / 传感器列表。
+        if (!PrivacyConsentGate.isGranted()) {
+            Log.i(TAG, "Mediation SDK init skipped: privacy consent not granted yet")
             return
         }
         if (!initStarted.compareAndSet(false, true)) {
@@ -94,14 +108,21 @@ object MediationSdkInitializer {
 
     private fun getTTCustomController(): TTCustomController {
         return object : TTCustomController() {
-            override fun isCanUseLocation(): Boolean = true
+            // 【隐私合规】本应用不提供基于位置/电话状态/WiFi 信息的功能，
+            // 因此明确关闭 SDK 对这三类敏感信息的读取：
+            // - location：不读取定位；
+            // - phoneState：不读取 IMEI/设备电话状态；
+            // - wifiState：不读取 WiFi 信息（含 MAC/BSSID 等网络接口信息）。
+            override fun isCanUseLocation(): Boolean = false
 
-            override fun isCanUsePhoneState(): Boolean = true
+            override fun isCanUsePhoneState(): Boolean = false
 
-            override fun isCanUseWifiState(): Boolean = true
+            override fun isCanUseWifiState(): Boolean = false
 
             override fun isCanUseWriteExternal(): Boolean = true
 
+            // 设备标识（AndroidId / OAID）仅用于广告展示与反作弊，
+            // 已在隐私政策「设备信息」中明确告知。
             override fun isCanUseAndroidId(): Boolean = true
 
             override fun getMediationPrivacyConfig(): IMediationPrivacyConfig {

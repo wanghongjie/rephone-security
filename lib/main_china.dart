@@ -9,7 +9,6 @@ import 'flavors/features/crash_service_noop.dart';
 import 'flavors/features/iap_service_china.dart';
 import 'flavors/features/push_service_noop.dart';
 import 'l10n/app_localizations.dart';
-import 'services/mediation_service.dart';
 import 'utils/app_market.dart';
 import 'utils/log_utils.dart';
 
@@ -53,14 +52,11 @@ Future<void> main() async {
 
   runApp(const RePhoneSecurityApp());
 
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-    if (toggles.enablePangleAds) {
-      await MediationService.initSdkIfNeeded();
-    }
-    await AppEnv.ads.init();
-    await AppEnv.iap.init();
-    await AppEnv.push.init();
-    await AppEnv.push.registerMonitorPushIfNeeded();
-    await AppEnv.crash.setupFlutterErrorHandlers();
-  });
+  // 【隐私合规】第三方 SDK（穿山甲广告 / 微信支付等）**禁止**在此处初始化。
+  //
+  // 上架审核要求：用户在点击隐私政策「同意」按钮前，APP 及集成的任何 SDK
+  // 都不得调用系统隐私敏感接口（如读取 OAID / MAC 地址 / 传感器列表）。
+  //
+  // 因此统一改为：首次（及后续）启动由 StartupPage 确认隐私政策同意状态后，
+  // 再统一触发第三方 SDK 初始化；原生侧另有 PrivacyConsentGate 闸门做二次兜底。
 }

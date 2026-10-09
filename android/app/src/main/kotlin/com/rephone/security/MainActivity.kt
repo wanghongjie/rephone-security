@@ -113,6 +113,22 @@ class MainActivity: FlutterActivity() {
                 "getAppMarket" -> {
                     result.success(BuildConfig.APP_MARKET)
                 }
+                "grantPrivacyConsent" -> {
+                    // 用户在隐私政策弹窗点击「同意」后由 Flutter 侧调用：
+                    // 打开隐私闸门，并恢复此前被挂起的第三方 SDK 初始化。
+                    Log.i(TAG, "MethodChannel grantPrivacyConsent called")
+                    PrivacyConsentGate.grant()
+                    try {
+                        val clazz = Class.forName("com.rephone.security.MediationSdkInitializer")
+                        val method = clazz.getMethod("init", Context::class.java)
+                        method.invoke(null, applicationContext)
+                    } catch (_: ClassNotFoundException) {
+                        // Non-china flavor: no mediation sdk.
+                    } catch (e: Exception) {
+                        Log.w(TAG, "resume mediation sdk init failed", e)
+                    }
+                    result.success(true)
+                }
                 "initMediationAdSdk" -> {
                     try {
                         Log.i(TAG, "MethodChannel initMediationAdSdk called")
