@@ -173,6 +173,17 @@ class _MembershipPageState extends State<MembershipPage> {
     }
   }
 
+  /// 当前客户端的支付渠道标识，必须与服务端 subscriptions.platform 对齐：
+  /// `wechat` | `ios` | `android`。
+  ///
+  /// 国内版走微信支付，服务端返回的 platform 是 `wechat`；
+  /// 若这里仍按 `Platform.isXxx` 判定成 `android`，跨平台互斥判断会把
+  /// 「微信订阅」误判成「来自 iOS 的订阅」，导致订阅按钮被禁用。
+  String get _currentPaymentPlatform {
+    if (AppEnv.iap.isThirdPartyPaymentEnabled) return 'wechat';
+    return Platform.isIOS ? 'ios' : 'android';
+  }
+
   bool get _hasActiveSubscription {
     final expiry = _membershipExpiry;
     if (!_isCurrentlyMember) return false;
@@ -790,8 +801,15 @@ class _MembershipPageState extends State<MembershipPage> {
           children: [
             _buildMembershipStatus(),
             const SizedBox(height: 12),
-            _buildRestoreSection(),
-            const SizedBox(height: 28),
+            // 微信支付没有「恢复历史购买」的概念：
+            // ChinaWechatIapService.restore() 是 noop，权益只由服务端
+            // /api/payment/refresh 同步。国内版展示该入口只会误导用户——
+            // 点了没有任何效果，还要空等 5 秒超时后才提示「未找到可恢复的购买」。
+            if (!AppEnv.iap.isThirdPartyPaymentEnabled) ...[
+              _buildRestoreSection(),
+              const SizedBox(height: 28),
+            ] else
+              const SizedBox(height: 28),
             if (_loadingProducts)
               const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
             else if (_error != null)
@@ -1001,9 +1019,9 @@ class _MembershipPageState extends State<MembershipPage> {
     final l = AppLocalizations.of(context);
     final isYearlySelected = _selectedPremiumPlanId == yearly.id;
     final selectedPlan = isYearlySelected ? yearly : monthly;
-    final currentPlatform = Platform.isIOS ? 'ios' : 'android';
-    final isCrossPlatformActive =
-        _hasActiveSubscription && _activePlatform != null && _activePlatform != currentPlatform;
+    final isCrossPlatformActive = _hasActiveSubscription &&
+        _activePlatform != null &&
+        _activePlatform != _currentPaymentPlatform;
     final isSelectedCurrentPlan = _hasActiveSubscription &&
         ((_activePlan == 'monthly' && selectedPlan.planType == MembershipPlanType.monthly) ||
             (_activePlan == 'yearly' && selectedPlan.planType == MembershipPlanType.yearly));
@@ -1063,7 +1081,7 @@ class _MembershipPageState extends State<MembershipPage> {
                     ),
                     child: Text(
                       isCrossPlatformActive
-                          ? (currentPlatform == 'android'
+                          ? (_activePlatform == 'ios'
                               ? l.membershipCrossPlatformFromIOSShort
                               : l.membershipCrossPlatformFromAndroidShort)
                           : isSelectedCurrentPlan
@@ -1406,11 +1424,13 @@ class _MembershipPageState extends State<MembershipPage> {
     }
 
     // Cross-platform active subscription: do not allow purchasing on the other platform.
-    final currentPlatform = Platform.isIOS ? 'ios' : 'android';
-    final isCrossPlatformActive =
-        _hasActiveSubscription && _activePlatform != null && _activePlatform != currentPlatform;
+    final isCrossPlatformActive = _hasActiveSubscription &&
+        _activePlatform != null &&
+        _activePlatform != _currentPaymentPlatform;
     if (isCrossPlatformActive) {
-      final crossMsg = currentPlatform == 'android'
+      // 文案按「订阅实际所在的平台」选择，而不是按当前设备平台，
+      // 否则微信渠道（_currentPaymentPlatform='wechat'）会选中错误的分支。
+      final crossMsg = _activePlatform == 'ios'
           ? l.membershipCrossPlatformManageOnIOS
           : l.membershipCrossPlatformManageOnAndroid;
       _showSnackBarSafe(SnackBar(content: Text(crossMsg)));
