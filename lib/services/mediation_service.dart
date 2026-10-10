@@ -46,6 +46,11 @@ class MediationService {
   }
 
   /// 用户在隐私政策弹窗点击「同意」后调用：先打开原生闸门，再初始化 SDK。
+  ///
+  /// 【合规】当前**不再有调用方**：广告 SDK 改为懒加载，仅在实际渲染广告位时
+  /// （PangleBannerPlatformView → ensureInitialized）初始化，避免用户刚登录
+  /// 就触发 SDK 读取设备/应用安装列表。保留本方法仅用于未来「开屏广告」等
+  /// 必须在启动时预热的场景，届时需配合自定义告知弹窗一并使用。
   static Future<void> initAfterPrivacyConsent() async {
     await grantPrivacyConsent();
     await initSdkIfNeeded();

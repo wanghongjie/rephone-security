@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../widgets/pangle_banner_view.dart';
+import '../../widgets/pangle_banner_view.dart';
 import '../service_facades.dart';
 
 /// 国内版广告实现：优先 Pangle（穿山甲）PlatformView；否则返回空占位。

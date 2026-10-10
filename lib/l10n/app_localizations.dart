@@ -416,6 +416,36 @@ class AppLocalizations {
       'passwordRequired': 'Password is required',
       'sessionExpiredTitle': 'Session Expired',
       'sessionExpiredContent': 'Your session has expired. Please log in again.',
+      'permissionRationalePurpose': 'Purpose',
+      'permissionRationaleScope': 'What is involved',
+      'permissionRationaleNote': 'RePhone only asks for this permission when you actively use the related feature. '
+          'If you decline, all other features keep working and you can change it at any time in system settings.',
+      'permissionRationaleAllow': 'Allow',
+      'permissionRationaleDeny': 'Not now',
+      'permissionTitleCamera': 'Camera permission',
+      'permissionTitleMicrophone': 'Microphone permission',
+      'permissionTitleCameraMic': 'Camera and microphone permissions',
+      'permissionTitlePhotos': 'Photos / storage permission',
+      'permissionTitleNotification': 'Notification permission',
+      'permissionTitleBattery': 'Battery optimization exemption',
+      'permissionPurposeCamera': 'Only used when you use this device as a camera, to capture live video so you can '
+          'watch it remotely from another device and save clips; or on the monitor side to scan a device QR code to bind it.',
+      'permissionScopeCamera': 'Camera preview and QR viewfinder frames. Used only while you actively start monitoring '
+          'or scanning; it is never turned on in the background.',
+      'permissionPurposeMicrophone': 'Only used for two-way talkback and for recording sound together with video. '
+          'The microphone is off by default and you can mute it at any time.',
+      'permissionScopeMicrophone': 'Ambient audio, transmitted only while talkback or recording is on.',
+      'permissionPurposePhotos': 'Only used when you tap "Save" to export a recording or snapshot to the system gallery.',
+      'permissionScopePhotos': 'The video / image files that you choose to save.',
+      'permissionPurposeNotification': 'Used to show the monitoring status while the app runs in the background and '
+          'to send you alert messages from your cameras.',
+      'permissionScopeNotification': 'Alert messages and the background monitoring status notification.',
+      'permissionPurposeBattery': 'Used to keep the monitoring connection alive after the screen turns off, so the '
+          'system does not stop the background service.',
+      'permissionScopeBattery': 'No personal information is collected. You may keep it on as well - it only affects '
+          'background stability.',
+      'permissionGrantButton': 'Grant permission',
+      'qrScanCameraPermissionRequired': 'Camera permission is required to scan a QR code.',
     },
     'zh': {
       'appTitle': 'RePhone 安全',
@@ -787,6 +817,35 @@ class AppLocalizations {
       'passwordRequired': '请输入密码',
       'sessionExpiredTitle': '登录已过期',
       'sessionExpiredContent': '您的登录已过期，请重新登录。',
+      'permissionRationalePurpose': '使用目的',
+      'permissionRationaleScope': '涉及的信息',
+      'permissionRationaleNote': 'RePhone 仅在您主动使用相关功能时才会申请该权限。'
+          '您拒绝后其他功能仍可正常使用，也可随时在系统设置中重新开启。',
+      'permissionRationaleAllow': '同意并继续',
+      'permissionRationaleDeny': '暂不开启',
+      'permissionTitleCamera': '申请相机权限',
+      'permissionTitleMicrophone': '申请麦克风权限',
+      'permissionTitleCameraMic': '申请相机与麦克风权限',
+      'permissionTitlePhotos': '申请相册/存储权限',
+      'permissionTitleNotification': '申请通知权限',
+      'permissionTitleBattery': '申请关闭电池优化',
+      'permissionPurposeCamera': '当您将本设备用作摄像端时，用于采集实时画面，'
+          '以便您在另一台设备上远程查看并保存录像；在监控端则用于扫描设备二维码完成绑定。',
+      'permissionScopeCamera': '摄像头预览画面与扫码取景画面；仅在您主动开启监控或扫码时使用，'
+          '不会在后台开启。',
+      'permissionPurposeMicrophone': '仅用于双向语音对讲，以及录像时同步录制声音。'
+          '麦克风默认关闭，您可随时静音。',
+      'permissionScopeMicrophone': '环境声音；仅在对讲或录像开启时传输。',
+      'permissionPurposeNotification': '用于在应用后台运行时展示监控状态，'
+          '并向您推送摄像头告警消息。',
+      'permissionScopeNotification': '告警消息与后台监控状态通知。',
+      'permissionPurposePhotos': '仅在您点击保存时，用于将录像或截图导出到系统相册。',
+      'permissionScopePhotos': '您选择保存的录像/图片文件。',
+      'permissionPurposeBattery': '用于在熄屏后保持监控连接不被系统中断，'
+          '避免后台服务被系统回收。',
+      'permissionScopeBattery': '不会收集任何个人信息；您也可以保持开启，仅影响后台稳定性。',
+      'permissionGrantButton': '开启权限',
+      'qrScanCameraPermissionRequired': '扫描二维码需要使用相机权限。',
     },
   };
 
@@ -1152,6 +1211,32 @@ class AppLocalizations {
   String get passwordRequired => _t('passwordRequired');
   String get sessionExpiredTitle => _t('sessionExpiredTitle');
   String get sessionExpiredContent => _t('sessionExpiredContent');
+
+  // ——————————————— 权限申请说明（自定义弹窗）———————————————
+  String get permissionRationalePurpose => _t('permissionRationalePurpose');
+  String get permissionRationaleScope => _t('permissionRationaleScope');
+  String get permissionRationaleNote => _t('permissionRationaleNote');
+  String get permissionRationaleAllow => _t('permissionRationaleAllow');
+  String get permissionRationaleDeny => _t('permissionRationaleDeny');
+  String get permissionTitleCamera => _t('permissionTitleCamera');
+  String get permissionTitleMicrophone => _t('permissionTitleMicrophone');
+  String get permissionTitleCameraMic => _t('permissionTitleCameraMic');
+  String get permissionTitlePhotos => _t('permissionTitlePhotos');
+  String get permissionTitleNotification => _t('permissionTitleNotification');
+  String get permissionTitleBattery => _t('permissionTitleBattery');
+  String get permissionPurposeCamera => _t('permissionPurposeCamera');
+  String get permissionScopeCamera => _t('permissionScopeCamera');
+  String get permissionPurposeMicrophone => _t('permissionPurposeMicrophone');
+  String get permissionScopeMicrophone => _t('permissionScopeMicrophone');
+  String get permissionPurposePhotos => _t('permissionPurposePhotos');
+  String get permissionScopePhotos => _t('permissionScopePhotos');
+  String get permissionPurposeNotification => _t('permissionPurposeNotification');
+  String get permissionScopeNotification => _t('permissionScopeNotification');
+  String get permissionPurposeBattery => _t('permissionPurposeBattery');
+  String get permissionScopeBattery => _t('permissionScopeBattery');
+  String get permissionGrantButton => _t('permissionGrantButton');
+  String get qrScanCameraPermissionRequired =>
+      _t('qrScanCameraPermissionRequired');
 
   String tr(String key) => _t(key);
 }

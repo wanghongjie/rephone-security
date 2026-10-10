@@ -38,8 +38,16 @@ class PushService {
       );
       LogUtils.i('PushService', 'iOS permission: ${settings.authorizationStatus}');
     } else {
-      final settings = await _messaging.requestPermission();
-      LogUtils.i('PushService', 'Android permission: ${settings.authorizationStatus}');
+      // Android（13+ 的 POST_NOTIFICATIONS）：合规要求调起系统权限弹窗前，
+      // 必须先用自定义弹窗同步告知用户索取权限的目的，因此**启动阶段不申请**，
+      // 改为在用户实际使用相关功能（如开启相机监控前台服务）时由
+      // `PermissionManager.ensure(AppPermissionKind.notification)` 触发。
+      // 这里只读取当前状态用于日志与后续逻辑判断。
+      final granted = await hasNotificationPermission();
+      LogUtils.i(
+        'PushService',
+        'Android notification permission granted (no request at startup): $granted',
+      );
     }
 
     await _messaging.setAutoInitEnabled(true);
@@ -57,6 +65,18 @@ class PushService {
     reportTokenForLoggedInMonitor();
 
     _initialized = true;
+  }
+
+  /// 当前是否已获得通知权限（只查询状态，不触发系统弹窗）。
+  static Future<bool> hasNotificationPermission() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      return await _platformChannel
+              .invokeMethod<bool>('checkNotificationPermission') ??
+          false;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<bool> _isGooglePlayServicesAvailable() async {

@@ -75,7 +75,12 @@ class WelcomePage extends StatelessWidget {
                   icon: const Icon(Icons.login),
                   onPressed: () async {
                     // User enters auth flow after acknowledging terms/privacy entry.
-                    await MediationService.initAfterPrivacyConsent();
+                    //
+                    // 【合规】此处原本会立刻初始化穿山甲广告 SDK，导致用户刚点「登录」
+                    // 就触发 SDK 读取设备与「应用安装列表」，MIUI 随即弹出
+                    // 「获取安装应用信息」系统授权弹窗（提前索取权限）。
+                    // 现改为：仅确认隐私闸门已打开，SDK 推迟到首次真正渲染广告位时初始化。
+                    await MediationService.grantPrivacyConsent();
                     if (!context.mounted) return;
                     Navigator.pushNamed(context, '/auth');
                   },

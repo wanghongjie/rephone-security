@@ -4,6 +4,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/permission_kind.dart';
+import '../utils/permission_manager.dart';
 
 class AppPermissionsPage extends StatefulWidget {
   const AppPermissionsPage({super.key});
@@ -82,62 +84,20 @@ class _AppPermissionsPageState extends State<AppPermissionsPage> with WidgetsBin
     }
   }
 
-  /// Request permission first; only offer "Open Settings" after the system dialog was shown and user denied.
-  Future<void> _onPermissionTap(Permission permission, bool isGranted) async {
+  /// 用户主动点击权限开关：
+  /// 已开启 → 跳转系统设置（关闭也需在系统设置中操作）；
+  /// 未开启 → 先弹自定义弹窗说明用途，用户同意后才调起系统权限弹窗。
+  Future<void> _onPermissionTap(AppPermissionKind kind, bool isGranted) async {
     if (isGranted) {
       await openAppSettings();
       return;
     }
-    // Not granted: show system permission request first (do not redirect to Settings before this).
-    PermissionStatus status;
-    if (permission == Permission.photos) {
-      if (Platform.isAndroid) {
-        final sdk = await _getAndroidSdkInt();
-        if (sdk != null && sdk >= 29) {
-          // 无需运行时权限，仅打开设置供用户查看
-          status = PermissionStatus.granted;
-        } else {
-          status = await Permission.storage.request();
-        }
-      } else {
-        final addOnly = await Permission.photosAddOnly.request();
-        if (addOnly.isGranted || addOnly.isLimited) {
-          status = addOnly;
-        } else {
-          status = await Permission.photos.request();
-        }
-      }
-    } else {
-      status = await permission.request();
-    }
-    await _checkPermissions();
-    if (!mounted) return;
-    if (status.isDenied || status.isPermanentlyDenied) {
-      _showDeniedDialog();
-    }
-  }
-
-  void _showDeniedDialog() {
-    final l = AppLocalizations.of(context);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: Text(l.appPermissionsDeniedHint),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l.commonCancel),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              openAppSettings();
-            },
-            child: Text(l.appPermissionsOpenSettings),
-          ),
-        ],
-      ),
+    await PermissionManager.ensure(
+      context,
+      kind,
+      guideToSettingsOnDeny: true,
     );
+    await _checkPermissions();
   }
 
   @override
@@ -156,21 +116,24 @@ class _AppPermissionsPageState extends State<AppPermissionsPage> with WidgetsBin
                   title: l.appPermissionsCamera,
                   subtitle: l.appPermissionsCameraSubtitle,
                   isGranted: _cameraGranted,
-                  onTap: () => _onPermissionTap(Permission.camera, _cameraGranted),
+                  onTap: () => _onPermissionTap(
+                      AppPermissionKind.camera, _cameraGranted),
                 ),
                 _buildPermissionItem(
                   icon: Icons.mic,
                   title: l.appPermissionsMic,
                   subtitle: l.appPermissionsMicSubtitle,
                   isGranted: _microphoneGranted,
-                  onTap: () => _onPermissionTap(Permission.microphone, _microphoneGranted),
+                  onTap: () => _onPermissionTap(
+                      AppPermissionKind.microphone, _microphoneGranted),
                 ),
                 _buildPermissionItem(
                   icon: Icons.photo_library,
                   title: l.appPermissionsPhotos,
                   subtitle: l.appPermissionsPhotosSubtitle,
                   isGranted: _photosGranted,
-                  onTap: () => _onPermissionTap(Permission.photos, _photosGranted),
+                  onTap: () => _onPermissionTap(
+                      AppPermissionKind.photos, _photosGranted),
                 ),
                 Padding(
                   padding: const EdgeInsets.all(16.0),

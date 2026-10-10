@@ -6,16 +6,16 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:gallery_saver_plus/gallery_saver.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../l10n/app_localizations.dart';
 import '../services/signaling.dart';
 import '../services/session_manager.dart';
 import '../config/server_config.dart';
 import '../utils/log_utils.dart';
+import '../utils/permission_kind.dart';
+import '../utils/permission_manager.dart';
 
 class MonitorViewerPage extends StatefulWidget {
   const MonitorViewerPage({
@@ -54,7 +54,6 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
 
   bool get _isRecording => _mediaRecorder != null;
   bool _isSavingToGallery = false;
-  int? _androidSdkInt;
 
   @override
   void initState() {
@@ -363,8 +362,12 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
     }
     final wantOn = !_monitorTalkbackOn;
     if (wantOn) {
-      final status = await Permission.microphone.request();
-      if (!status.isGranted) {
+      // 先弹自定义弹窗告知用途，用户同意后才调起系统权限弹窗。
+      final granted = await PermissionManager.ensure(
+        context,
+        AppPermissionKind.microphone,
+      );
+      if (!granted) {
         if (!mounted) return;
         final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -511,18 +514,20 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
             ) ==
             true;
         if (!ok) {
-          final addOnly = await Permission.photosAddOnly.request();
-          if (!(addOnly.isGranted || addOnly.isLimited)) {
-            final photos = await Permission.photos.request();
-            if (!(photos.isGranted || photos.isLimited)) {
-              if (mounted) {
-                final l = AppLocalizations.of(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l.playbackPhotosPermissionIosHint)),
-                );
-              }
-              return;
+          if (!mounted) return;
+          // 保存失败说明尚未授权：先告知用途再申请，用户拒绝则不再继续。
+          final granted = await PermissionManager.ensure(
+            context,
+            AppPermissionKind.photos,
+          );
+          if (!granted) {
+            if (mounted) {
+              final l = AppLocalizations.of(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(l.playbackPhotosPermissionIosHint)),
+              );
             }
+            return;
           }
           ok = await GallerySaver.saveVideo(
                 path,
@@ -580,39 +585,9 @@ class _MonitorViewerPageState extends State<MonitorViewerPage> {
   }
 
   Future<bool> _requestGalleryPermissionIfNeeded() async {
-    if (Platform.isIOS) {
-      // iOS: request "add only" first if available, fallback to full photos.
-      final addOnly = await Permission.photosAddOnly.request();
-      if (addOnly.isGranted || addOnly.isLimited) return true;
-
-      final photos = await Permission.photos.request();
-      return photos.isGranted || photos.isLimited;
-    }
-
-    if (Platform.isAndroid) {
-      // Android 10+ (API 29+) typically doesn't need runtime permission to save
-      // media to gallery via MediaStore. Android 9 and below needs storage.
-      final sdk = await _getAndroidSdkInt();
-      if (sdk != null && sdk <= 28) {
-        final storage = await Permission.storage.request();
-        return storage.isGranted || storage.isLimited;
-      }
-      return true;
-    }
-
-    return true;
-  }
-
-  Future<int?> _getAndroidSdkInt() async {
-    if (!Platform.isAndroid) return null;
-    if (_androidSdkInt != null) return _androidSdkInt;
-    try {
-      final info = await DeviceInfoPlugin().androidInfo;
-      _androidSdkInt = info.version.sdkInt;
-      return _androidSdkInt;
-    } catch (_) {
-      return null;
-    }
+    if (!mounted) return false;
+    // 统一走 PermissionManager：申请前先用自定义弹窗告知用途。
+    return PermissionManager.ensure(context, AppPermissionKind.photos);
   }
 
   /// 截图并保存为设备封面：直接取 [RTCVideoView] 所在 [RepaintBoundary] 的渲染纹理。

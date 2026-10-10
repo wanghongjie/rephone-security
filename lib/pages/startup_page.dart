@@ -71,12 +71,24 @@ class _StartupPageState extends State<StartupPage> {
   /// 再初始化穿山甲广告 / 微信支付 / 推送等。任一步失败都不影响应用启动。
   Future<void> _initChinaSdksAfterConsent() async {
     try {
-      final features = AppEnv.features;
-      if (features.enablePangleAds) {
-        await MediationService.initAfterPrivacyConsent();
-      }
+      // 【合规】仅打开原生隐私闸门，**不在这里初始化穿山甲广告 SDK**。
+      //
+      // 原实现会在用户同意隐私政策（≈刚登录进入主页）时立刻初始化广告 SDK，
+      // 导致 SDK 在用户尚未接触任何广告时就读取设备与「应用安装列表」，
+      // MIUI 随即弹出系统级「获取安装应用信息」授权弹窗——属于
+      // 「提前索取权限、且未以自定义弹窗同步告知目的」。
+      //
+      // 改为懒加载：只有首次真正渲染广告位时
+      // （PangleBannerPlatformView → MediationSdkInitializer.ensureInitialized）
+      // 才初始化 SDK，届时用户已明确停留在含广告位的页面上。
+      await MediationService.grantPrivacyConsent();
       await AppEnv.ads.init();
-      await AppEnv.iap.init();
+      // 国内微信支付链路：fluwx/微信 SDK 的注册推迟到用户打开会员页时再执行
+      // （会员页自身会调用 AppEnv.iap.init()），避免登录后立刻初始化第三方 SDK。
+      // 海外商店内购链路仍需在启动时建立 BillingClient 连接，以补发未完成的交易。
+      if (!AppEnv.iap.isThirdPartyPaymentEnabled) {
+        await AppEnv.iap.init();
+      }
       await AppEnv.push.init();
       await AppEnv.push.registerMonitorPushIfNeeded();
       await AppEnv.crash.setupFlutterErrorHandlers();

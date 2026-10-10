@@ -22,9 +22,11 @@ class GlobalFcmPushService implements PushService {
 
   @override
   Future<bool> requestNotificationPermission() async {
+    // 只返回当前状态：实际申请必须由业务页面先弹出用途说明弹窗后
+    // 通过 `PermissionManager` 触发，避免「未告知即索取权限」。
     try {
       await init();
-      return true;
+      return legacy.PushService.hasNotificationPermission();
     } catch (_) {
       return false;
     }

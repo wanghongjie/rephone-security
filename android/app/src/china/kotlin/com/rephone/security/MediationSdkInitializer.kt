@@ -125,11 +125,35 @@ object MediationSdkInitializer {
             // 已在隐私政策「设备信息」中明确告知。
             override fun isCanUseAndroidId(): Boolean = true
 
+            // 【隐私合规 · 关键】关闭 SDK 对「已安装应用列表」的采集。
+            //
+            // alist() 是穿山甲 SDK 的**应用列表采集总开关**：
+            // 返回 true（默认）时，SDK 会在初始化/广告请求阶段调用
+            // PackageManager.getInstalledPackages() 采集设备上已安装的应用，
+            // MIUI 随即弹出系统级「获取安装应用信息 / 应用列表」授权弹窗。
+            //
+            // 与 getCustomAppList() 的区别：
+            //   · getCustomAppList() 只覆盖「上报给服务端的应用列表字段」；
+            //   · alist() 覆盖「是否采集」这一行为本身，返回 false 后 SDK 完全不读取。
+            // 因此本开关才是消除 MIUI 弹窗的关键，两者需同时设为「不采集」。
+            override fun alist(): Boolean = false
+
             override fun getMediationPrivacyConfig(): IMediationPrivacyConfig {
                 return object : MediationPrivacyConfig() {
-                    override fun getCustomAppList(): List<String>? = null
+                    // 【隐私合规 · 关键】禁止 SDK 自行读取设备上的「已安装应用列表」。
+                    //
+                    // getCustomAppList() 返回 null 时，SDK 会走默认逻辑自行调用
+                    // PackageManager.getInstalledPackages() 采集应用安装列表，
+                    // 在 MIUI 上会触发系统级「获取安装应用信息 / 应用列表」授权弹窗，
+                    // 属于「未以自定义弹窗同步告知目的即索取权限」的违规项。
+                    //
+                    // 返回**非 null**（此处为空列表）表示由开发者自行提供该数据，
+                    // SDK 不再调用系统接口读取；空列表即代表本应用不提供、也不允许
+                    // SDK 采集任何应用安装列表信息。
+                    override fun getCustomAppList(): List<String>? = emptyList()
 
-                    override fun getCustomDevImeis(): List<String>? = null
+                    // 同理：返回非 null 的空列表，禁止 SDK 自行采集 IMEI。
+                    override fun getCustomDevImeis(): List<String>? = emptyList()
 
                     override fun isCanUseOaid(): Boolean = true
 

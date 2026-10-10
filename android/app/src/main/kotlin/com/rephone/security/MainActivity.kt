@@ -114,19 +114,15 @@ class MainActivity: FlutterActivity() {
                     result.success(BuildConfig.APP_MARKET)
                 }
                 "grantPrivacyConsent" -> {
-                    // 用户在隐私政策弹窗点击「同意」后由 Flutter 侧调用：
-                    // 打开隐私闸门，并恢复此前被挂起的第三方 SDK 初始化。
-                    Log.i(TAG, "MethodChannel grantPrivacyConsent called")
+                    // 用户在隐私政策弹窗点击「同意」后由 Flutter 侧调用：打开隐私闸门，
+                    // 并恢复此前被挂起的第三方 SDK 初始化（waiters 由 PrivacyConsentGate 统一回调）。
+                    //
+                    // 【合规】此处**不再主动触发**穿山甲 SDK 初始化：
+                    // 登录即初始化会让 SDK 在用户尚未接触到任何广告时就读取设备/应用信息，
+                    // 属于「提前索取权限」。改为懒加载——仅在首次真正渲染广告位
+                    // （PangleBannerPlatformView → ensureInitialized）时才初始化。
+                    Log.i(TAG, "MethodChannel grantPrivacyConsent called (lazy SDK init)")
                     PrivacyConsentGate.grant()
-                    try {
-                        val clazz = Class.forName("com.rephone.security.MediationSdkInitializer")
-                        val method = clazz.getMethod("init", Context::class.java)
-                        method.invoke(null, applicationContext)
-                    } catch (_: ClassNotFoundException) {
-                        // Non-china flavor: no mediation sdk.
-                    } catch (e: Exception) {
-                        Log.w(TAG, "resume mediation sdk init failed", e)
-                    }
                     result.success(true)
                 }
                 "initMediationAdSdk" -> {

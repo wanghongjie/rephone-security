@@ -17,8 +17,9 @@ import '../services/session_manager.dart';
 import '../config/server_config.dart';
 import '../utils/log_utils.dart';
 import '../utils/navigation_service.dart';
+import '../utils/permission_kind.dart';
+import '../utils/permission_manager.dart';
 import '../l10n/app_localizations.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:image/image.dart' as img;
 
 class CameraEndpointPage extends StatefulWidget {
@@ -62,6 +63,10 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   bool _isConnected = false;
   String? _currentUserEmail;
   bool _isFakeSleep = false;
+  /// 相机/麦克风权限是否已获得：决定是否可以启动本地视频采集。
+  bool _mediaPermissionsReady = false;
+  /// 信令已连接、但权限尚未就绪时挂起的「启动视频」请求。
+  bool _pendingStartVideo = false;
   /// iOS 熄屏时定期重新 enable wakelock，避免系统释放后自动锁屏
   Timer? _iosFakeSleepWakelockTimer;
 
@@ -122,19 +127,37 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   void _loadUserInfo() async {
     final user = await SessionManager.getUser();
     _currentUserEmail = user?.email;
-    await _checkAndRequestPermissions();
+
+    // 【稳定性】信令连接**不依赖任何运行时权限**，必须先建立连接。
+    //
+    // 权限流程里每一步都可能长时间不返回：自定义说明弹窗要等用户点按钮、
+    // 系统权限弹窗要等用户选择、电池优化还要跳转到系统设置页再切回来。
+    // 若串行等待权限完成再连接，任何一步挂起都会让页面永远停在
+    // 「连接服务器中」（顶部红条 + 中间转圈）。
     _connectSignaling();
+
+    // 等首帧渲染完成后再申请权限，确保自定义用途说明弹窗能正常弹出。
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
+    try {
+      // 兜底超时：极端情况下（系统页面未返回等）不让权限流程无限期挂起，
+      // 超时后页面继续可用，权限流程本身仍在后台跑完。
+      await _checkAndRequestPermissions().timeout(const Duration(minutes: 2));
+    } catch (e, st) {
+      LogUtils.e('CameraEndpoint', 'Permission flow interrupted: $e', e, st);
+    }
   }
   
+  /// 合规要求：每一项权限在调起系统弹窗前，必须先通过自定义弹窗同步告知用途，
+  /// 因此统一走 [PermissionManager]，禁止直接调用 `Permission.xxx.request()`。
   Future<void> _checkAndRequestPermissions() async {
-    // 1. 请求相机和麦克风权限（两端通用）
-    Map<Permission, PermissionStatus> statuses = await [
-      Permission.camera,
-      Permission.microphone,
-    ].request();
+    // 1. 相机 + 麦克风（两端通用）：合并为一次说明弹窗 + 一次系统申请
+    final cameraMicGranted = await PermissionManager.ensure(
+      context,
+      AppPermissionKind.cameraAndMicrophone,
+    );
 
-    if (statuses[Permission.camera] != PermissionStatus.granted ||
-        statuses[Permission.microphone] != PermissionStatus.granted) {
+    if (!cameraMicGranted) {
       if (mounted) {
         final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -143,31 +166,38 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       }
       return;
     }
+    // 相机/麦克风就绪：若信令此时已连接，立即补启动视频采集。
+    _markMediaPermissionsReady();
 
     // 2. Android：忽略电池优化 + 通知权限 + 前台服务，以便切到后台仍能持续视频
     //    iOS：无电池优化概念，无前台服务 API，不调用 MethodChannel
     if (Platform.isAndroid) {
+      if (!mounted) return;
       try {
-        await _serviceChannel.invokeMethod('requestIgnoreBatteryOptimizations');
-        final hasPermission = await _serviceChannel.invokeMethod<bool>('checkNotificationPermission') ?? false;
+        final notificationGranted = await PermissionManager.ensure(
+          context,
+          AppPermissionKind.notification,
+        );
+        if (!mounted) return;
 
-        if (!hasPermission) {
-          await _serviceChannel.invokeMethod('requestNotificationPermission');
-          await Future.delayed(const Duration(seconds: 1));
-          final granted = await _serviceChannel.invokeMethod<bool>('checkNotificationPermission') ?? false;
-          if (granted) {
-            await _startForegroundService();
-            if (mounted) _showAndroidServiceSnackBar();
-          } else if (mounted) {
-            final l = AppLocalizations.of(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l.cameraEndpointNotificationPermissionRequired), duration: const Duration(seconds: 4)),
-            );
-          }
-        } else {
+        if (notificationGranted) {
           await _startForegroundService();
           if (mounted) _showAndroidServiceSnackBar();
+        } else if (mounted) {
+          final l = AppLocalizations.of(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.cameraEndpointNotificationPermissionRequired), duration: const Duration(seconds: 4)),
+          );
         }
+
+        // 电池优化放在**最后**：它会 startActivity 跳到系统设置页并把 App 切到后台，
+        // 放在前面会打断后续的权限申请链（回来后 context/流程状态都可能已变化）。
+        // 它是非必需的增强项，用户同意后才跳转，拒绝后 3 天内不再提示。
+        if (!mounted) return;
+        await PermissionManager.ensure(
+          context,
+          AppPermissionKind.batteryOptimization,
+        );
       } catch (e) {
         LogUtils.e('CameraEndpoint', 'Android permission/service error', e);
         if (mounted) await _startForegroundService();
@@ -402,10 +432,17 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       }
 
       if (state == SignalingState.ConnectionOpen) {
-        _startVideo();
+        // 只有在相机/麦克风权限就绪后才启动采集；否则先挂起，
+        // 等权限流程结束后由 _markMediaPermissionsReady() 补启动。
+        if (_mediaPermissionsReady) {
+          _startVideo();
+        } else {
+          LogUtils.i('CameraEndpoint', '已连接服务器，等待相机/麦克风权限后启动采集');
+          _pendingStartVideo = true;
+        }
          if (mounted) {
            LogUtils.i('CameraEndpoint', '已连接到服务器');
-        }
+         }
       }
     };
 
@@ -726,6 +763,15 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
     // 验证邮箱是否匹配
     return callerEmail == _currentUserEmail;
+  }
+
+  /// 标记相机/麦克风已就绪，并补发此前因权限未就绪而挂起的启动视频请求。
+  void _markMediaPermissionsReady() {
+    _mediaPermissionsReady = true;
+    if (_pendingStartVideo) {
+      _pendingStartVideo = false;
+      _startVideo();
+    }
   }
 
   void _startVideo() async {
