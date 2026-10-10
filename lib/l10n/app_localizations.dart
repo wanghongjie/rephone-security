@@ -393,6 +393,10 @@ class AppLocalizations {
           'Current subscription is from iOS. Please manage it on an iOS device.',
       'membershipCrossPlatformManageOnAndroid':
           'Current subscription is from Android. Please manage it on an Android device.',
+      'membershipCrossPlatformFromWechatShort':
+          'Current subscription from WeChat',
+      'membershipCrossPlatformManageOnWechat':
+          'Current subscription is from WeChat. Please renew it through WeChat Pay.',
       'forgotPasswordLink': 'Forgot password?',
       'forgotPasswordEmailHint': 'Enter your registered email',
       'forgotPasswordCodeHint': 'Enter verification code',
@@ -762,6 +766,8 @@ class AppLocalizations {
       'membershipCrossPlatformManageOnIOS': '当前订阅来自 iOS，请在 iOS 设备上管理订阅',
       'membershipCrossPlatformManageOnAndroid':
           '当前订阅来自 Android，请在 Android 设备上管理订阅',
+      'membershipCrossPlatformFromWechatShort': '当前订阅来自微信',
+      'membershipCrossPlatformManageOnWechat': '当前订阅来自微信，请通过微信支付续费',
       'forgotPasswordLink': '忘记密码？',
       'forgotPasswordEmailHint': '请输入注册邮箱',
       'forgotPasswordCodeHint': '请输入验证码',
@@ -1123,6 +1129,10 @@ class AppLocalizations {
       _t('membershipCrossPlatformManageOnIOS');
   String get membershipCrossPlatformManageOnAndroid =>
       _t('membershipCrossPlatformManageOnAndroid');
+  String get membershipCrossPlatformFromWechatShort =>
+      _t('membershipCrossPlatformFromWechatShort');
+  String get membershipCrossPlatformManageOnWechat =>
+      _t('membershipCrossPlatformManageOnWechat');
 
   String get commonPassword => _t('commonPassword');
   

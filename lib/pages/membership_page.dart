@@ -31,7 +31,7 @@ class _MembershipPageState extends State<MembershipPage> {
   bool _isRestoreButtonLoading = false;
   bool _isPurchasing = false;
   String? _activePlan; // monthly|yearly|unknown (from server)
-  String? _activePlatform; // ios|android (from server)
+  String? _activePlatform; // wechat|ios|android（服务端 subscriptions.platform）
   String? _pendingAndroidBasePlanId; // for verify after purchase (rephone_pro base plan)
   String? _error;
   StreamSubscription<List<IapPurchase>>? _purchaseSubscription;
@@ -157,6 +157,17 @@ class _MembershipPageState extends State<MembershipPage> {
               _syncSelectedPlanWithActivePlan();
             });
 
+            // 【诊断】订阅来源与「本端渠道」是否一致，直接决定按钮是否被判为跨平台禁用。
+            // 国内版若出现 platform=ios/android，说明服务端选中了非微信的订阅记录
+            // （同一账号在 iOS/Play 买过，且它的 expire_time 更长），需查 subscriptions 表。
+            LogUtils.i(
+              'MembershipPage',
+              'refresh: serverPlatform=$activePlatform plan=$activePlan vip=$vipLevel '
+                  'currentPlatform=${_currentPaymentPlatform} '
+                  'market=${AppEnv.config.market.name} '
+                  'thirdParty=${AppEnv.iap.isThirdPartyPaymentEnabled} '
+                  'iapRuntime=${AppEnv.iap.runtimeType}',
+            );
             LogUtils.d('MembershipPage', 'Status refreshed: vip=$vipLevel');
             if (shouldShowExpired) {
               showedExpiredSnack = true;
@@ -182,8 +193,41 @@ class _MembershipPageState extends State<MembershipPage> {
   /// 若这里仍按 `Platform.isXxx` 判定成 `android`，跨平台互斥判断会把
   /// 「微信订阅」误判成「来自 iOS 的订阅」，导致订阅按钮被禁用。
   String get _currentPaymentPlatform {
+    // 国内版只有「微信支付」一个会员渠道：即使支付开关被灰度关闭
+    // （enableWechatPay=false，isThirdPartyPaymentEnabled 随之变 false），
+    // 当前渠道依然是 wechat。若此时退化成 Platform.isIOS/isAndroid，
+    // 服务端的 wechat 订阅就会被判成「跨平台订阅」：按钮禁用 + 提示
+    // 「当前订阅来自 Android/iOS」。
+    if (AppEnv.config.market == Market.china) return 'wechat';
     if (AppEnv.iap.isThirdPartyPaymentEnabled) return 'wechat';
     return Platform.isIOS ? 'ios' : 'android';
+  }
+
+  /// 跨平台互斥提示（按钮上的短文案）。
+  ///
+  /// 必须按「订阅实际所在平台」选择：只有 ios/android/wechat 三种来源，
+  /// 不能写成 `== 'ios' ? iOS : Android`，否则微信订阅会落到 Android 分支。
+  String _crossPlatformShortMessage(AppLocalizations l) {
+    switch (_activePlatform) {
+      case 'ios':
+        return l.membershipCrossPlatformFromIOSShort;
+      case 'wechat':
+        return l.membershipCrossPlatformFromWechatShort;
+      default:
+        return l.membershipCrossPlatformFromAndroidShort;
+    }
+  }
+
+  /// 跨平台互斥提示（SnackBar 长文案），同样按订阅实际所在平台选择。
+  String _crossPlatformManageMessage(AppLocalizations l) {
+    switch (_activePlatform) {
+      case 'ios':
+        return l.membershipCrossPlatformManageOnIOS;
+      case 'wechat':
+        return l.membershipCrossPlatformManageOnWechat;
+      default:
+        return l.membershipCrossPlatformManageOnAndroid;
+    }
   }
 
   bool get _hasActiveSubscription {
@@ -1083,9 +1127,7 @@ class _MembershipPageState extends State<MembershipPage> {
                     ),
                     child: Text(
                       isCrossPlatformActive
-                          ? (_activePlatform == 'ios'
-                              ? l.membershipCrossPlatformFromIOSShort
-                              : l.membershipCrossPlatformFromAndroidShort)
+                          ? _crossPlatformShortMessage(l)
                           : isSelectedCurrentPlan
                               ? l.membershipPlanCurrent
                               : '${l.membershipActionSubscribe} ${selectedPlan.displayPrice ?? ""}',
@@ -1462,11 +1504,7 @@ class _MembershipPageState extends State<MembershipPage> {
         _activePlatform != null &&
         _activePlatform != _currentPaymentPlatform;
     if (isCrossPlatformActive) {
-      // 文案按「订阅实际所在的平台」选择，而不是按当前设备平台，
-      // 否则微信渠道（_currentPaymentPlatform='wechat'）会选中错误的分支。
-      final crossMsg = _activePlatform == 'ios'
-          ? l.membershipCrossPlatformManageOnIOS
-          : l.membershipCrossPlatformManageOnAndroid;
+      final crossMsg = _crossPlatformManageMessage(l);
       _showSnackBarSafe(SnackBar(content: Text(crossMsg)));
       return;
     }
@@ -1633,10 +1671,8 @@ class _MembershipPageState extends State<MembershipPage> {
     if (_hasActiveSubscription &&
         _activePlatform != null &&
         _activePlatform != 'wechat') {
-      final crossMsg = _activePlatform == 'ios'
-          ? l.membershipCrossPlatformManageOnIOS
-          : l.membershipCrossPlatformManageOnAndroid;
-      _showSnackBarSafe(SnackBar(content: Text(crossMsg)));
+      _showSnackBarSafe(
+          SnackBar(content: Text(_crossPlatformManageMessage(l))));
       return;
     }
 
