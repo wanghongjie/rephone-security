@@ -4,11 +4,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../flavors/app_env.dart';
+import '../flavors/env_config.dart';
 import '../flavors/iap_models.dart';
 import '../l10n/app_localizations.dart';
 import '../services/payment_api.dart';
 import '../services/session_manager.dart';
 import '../utils/log_utils.dart';
+import 'webview_page.dart';
 
 class MembershipPage extends StatefulWidget {
   const MembershipPage({super.key});
@@ -1240,32 +1242,64 @@ class _MembershipPageState extends State<MembershipPage> {
               ),
         ),
         const SizedBox(height: 12),
-        ExpansionTile(
-          title: Text(l.membershipFaqCancelTitle),
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                l.membershipFaqCancelContent,
-                style: TextStyle(color: Colors.grey[600]),
+        Card(
+          child: Column(
+            children: [
+              _buildFaqDocTile(
+                icon: Icons.workspace_premium_outlined,
+                title: l.membershipFaqDocMembershipTitle,
+                doc: 'membership',
               ),
-            ),
-          ],
-        ),
-        ExpansionTile(
-          title: Text(l.membershipFaqEffectTitle),
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                l.membershipFaqEffectContent,
-                style: TextStyle(color: Colors.grey[600]),
+              const Divider(height: 1),
+              _buildFaqDocTile(
+                icon: Icons.menu_book_outlined,
+                title: l.membershipFaqDocGuideTitle,
+                doc: 'guide',
               ),
-            ),
-          ],
+              const Divider(height: 1),
+              _buildFaqDocTile(
+                icon: Icons.battery_saver_outlined,
+                title: l.membershipFaqDocKeepaliveTitle,
+                doc: 'faq_keepalive',
+              ),
+            ],
+          ),
         ),
       ],
     );
+  }
+
+  /// 「常见问题」直达在线文档条目：内容以网页为准，避免 App 内与网页两处维护。
+  Widget _buildFaqDocTile({
+    required IconData icon,
+    required String title,
+    required String doc,
+  }) {
+    final l = AppLocalizations.of(context);
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(l.aboutView),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WebViewPage(
+            title: title,
+            url: _docUrl(doc),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 按市场 / 语言解析文档地址：国内版 _china.html；英文 _us.html；其余默认。
+  String _docUrl(String doc) {
+    final isChina = AppEnv.config.market == Market.china;
+    final lang = Localizations.localeOf(context).languageCode;
+    if (isChina) return 'https://rephone.top/${doc}_china.html';
+    if (lang == 'en') return 'https://rephone.top/${doc}_us.html';
+    return 'https://rephone.top/$doc.html';
   }
 
   String _formatDate(DateTime date) {

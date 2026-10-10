@@ -241,12 +241,11 @@ class AppLocalizations {
       'membershipRestoreSyncedNoMembership':
           'Store purchases synced. No active membership found for this account.',
       'membershipFaqTitle': 'FAQ',
-      'membershipFaqCancelTitle': 'How to cancel subscription?',
-      'membershipFaqCancelContent':
-          'You can cancel anytime in the App Store or Play Store subscription management. Cancellation takes effect at the end of the current billing period.',
-      'membershipFaqEffectTitle': 'When does membership take effect?',
-      'membershipFaqEffectContent':
-          'After successful subscription, your membership takes effect immediately and you can use all premium features.',
+      // 「常见问题」区改为直达在线文档（内容以网页为准，App 内不再内联重复文案）。
+      'membershipFaqDocMembershipTitle': 'Membership benefits & cancellation',
+      'membershipFaqDocGuideTitle': 'User guide: sign up & bind a camera',
+      'membershipFaqDocKeepaliveTitle':
+          'How to keep the camera device from going offline',
       'membershipSwitchAppliedNow': 'Your subscription has been switched to {plan}.',
       'membershipSwitchQueued':
           'Your subscription change has been submitted and may take effect at the end of the current billing period. Please check your system subscription settings for the actual status.',
@@ -628,12 +627,10 @@ class AppLocalizations {
       'membershipRestoreNoPurchases': '没有可恢复的购买记录',
       'membershipRestoreSyncedNoMembership': '已同步商店记录，当前账号暂无有效会员。',
       'membershipFaqTitle': '常见问题',
-      'membershipFaqCancelTitle': '如何取消订阅？',
-      'membershipFaqCancelContent':
-          '您可以随时在应用商店的订阅管理中取消订阅，取消后将在当前计费周期结束时生效。',
-      'membershipFaqEffectTitle': '会员权益何时生效？',
-      'membershipFaqEffectContent':
-          '订阅成功后，会员权益将立即生效，您可以马上享受所有高级功能。',
+      // 「常见问题」区改为直达在线文档（内容以网页为准，App 内不再内联重复文案）。
+      'membershipFaqDocMembershipTitle': '会员权益与取消订阅',
+      'membershipFaqDocGuideTitle': '使用手册：注册登录与绑定相机',
+      'membershipFaqDocKeepaliveTitle': '如何保持相机端不掉线',
       'membershipSwitchAppliedNow': '已切换为{plan}订阅。',
       'membershipSwitchQueued': '订阅变更已提交，可能会在当前计费周期结束后生效，请在系统订阅管理中查看实际状态。',
       'membershipPurchaseSuccess': '购买成功，会员权益已生效。',
@@ -975,10 +972,11 @@ class AppLocalizations {
   String get membershipRestoreSyncedNoMembership =>
       _t('membershipRestoreSyncedNoMembership');
   String get membershipFaqTitle => _t('membershipFaqTitle');
-  String get membershipFaqCancelTitle => _t('membershipFaqCancelTitle');
-  String get membershipFaqCancelContent => _t('membershipFaqCancelContent');
-  String get membershipFaqEffectTitle => _t('membershipFaqEffectTitle');
-  String get membershipFaqEffectContent => _t('membershipFaqEffectContent');
+  String get membershipFaqDocMembershipTitle =>
+      _t('membershipFaqDocMembershipTitle');
+  String get membershipFaqDocGuideTitle => _t('membershipFaqDocGuideTitle');
+  String get membershipFaqDocKeepaliveTitle =>
+      _t('membershipFaqDocKeepaliveTitle');
   String get membershipSwitchAppliedNow => _t('membershipSwitchAppliedNow');
   String get membershipSwitchQueued => _t('membershipSwitchQueued');
   String get membershipPurchaseSuccess => _t('membershipPurchaseSuccess');
