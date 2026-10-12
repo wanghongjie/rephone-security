@@ -66,6 +66,11 @@ class AppLocalizations {
           'Whether we may recommend content based on your preferences, such as ads and feature suggestions. You can change this at any time.',
       'privacyPersonalizedRecPageDesc':
           'This switch only controls whether personalized recommendation content is provided to you. Turning it off will not affect the basic features of the app.',
+      'privacyAutoStartTitle': 'Background keep-alive self-start',
+      'privacyAutoStartSubtitle':
+          'Whether the app may start its own process in the background to keep the guarding service alive. You can change this at any time.',
+      'privacyAutoStartPageDesc':
+          'This behavior only refreshes the system-recorded "last time used" value to prevent the guarding service from being force-stopped by the system. It collects and uploads no personal information and never starts any third-party app. Turning it off takes effect immediately; on some devices this may reduce the online rate of the guarding service, but all features still work normally while the app is open. See §1.8 of the Privacy Policy.',
       'privacySettingSaved': 'Settings saved',
       'welcomeTitle': 'Welcome to RePhone Security',
       'welcomeDesc': 'Turn old phones into home security cameras easily.',
@@ -105,7 +110,18 @@ class AppLocalizations {
           '3. Data Storage\n'
           'Your information is stored on secure servers for the shortest period necessary to '
           'fulfill the purposes of processing, unless otherwise required by law.\n\n'
-          '4. Your Rights\n'
+          '4. App Self-Start / Associated Start\n'
+          'After you tap "Agree", and only to keep device guarding, alert push and remote '
+          'monitoring available, this app may start its own process while it is closed or in the '
+          'background, using a periodic system task (checked every 12 hours). Only when the screen '
+          'is off and more than 2 days have passed since your last foreground use will a fully '
+          'transparent page be shown for about 0.3 seconds and then closed automatically, solely to '
+          'refresh the system-recorded "last time used" value so that the guarding service is not '
+          'auto-cleaned by customized Android systems (e.g. Huawei EMUI).\n'
+          'This behavior collects and uploads no personal information, never starts any third-party '
+          'app, and will not happen before you tap "Agree". You can turn it off at any time in '
+          'Settings -> Privacy -> Background keep-alive self-start.\n\n'
+          '5. Your Rights\n'
           'You can read the full Privacy Policy at any time via the in-app link below, and you '
           'may exercise your rights to access, correct and delete your personal information.\n\n'
           'If you do not agree with the above, we cannot provide the services. Please tap '
@@ -493,6 +509,9 @@ class AppLocalizations {
       'privacyPersonalizedRecTitle': '个性化推荐',
       'privacyPersonalizedRecSubtitle': '是否允许根据你的偏好向你推荐内容（如广告与功能推荐）；你可随时更改',
       'privacyPersonalizedRecPageDesc': '个性化推荐开关仅用于控制是否向你提供个性化推荐内容，关闭不会影响远程监控、告警通知等基础功能。',
+      'privacyAutoStartTitle': '后台保活自启动',
+      'privacyAutoStartSubtitle': '是否允许本应用在退出或后台状态下自行启动自身进程以维持守护服务在线；你可随时更改',
+      'privacyAutoStartPageDesc': '该行为仅用于刷新系统记录的「应用最后使用时间」，避免守护服务被系统强制停止；不收集、不上传任何个人信息，也不会关联启动任何第三方应用，且仅在您同意隐私政策后才会发生。关闭后立即生效，部分机型上可能降低守护服务的持续在线率，但手动打开应用后全部功能不受影响。详见《隐私政策》§1.8。',
       'privacySettingSaved': '设置已保存',
       'welcomeTitle': '欢迎使用 RePhone 安全',
       'welcomeDesc': '将闲置旧手机轻松变为家庭安防摄像头。',
@@ -527,7 +546,15 @@ class AppLocalizations {
           '三、信息存储\n'
           '你的信息将存储于安全的服务器中，保存期限为实现处理目的所必需的最短时间，'
           '法律法规另有规定的除外。\n\n'
-          '四、你的权利\n'
+          '四、应用自启动与关联启动\n'
+          '在你点击「同意」之后，为保障设备守护、告警推送、远程监控等功能的持续可用，'
+          '本应用在已退出或处于后台时，可能会通过系统周期任务（每 12 小时检查一次）'
+          '自行启动本应用自身的进程；仅当设备处于息屏状态且距你上次前台使用已超过 2 天时，'
+          '会显示一个完全透明的页面约 0.3 秒后自动关闭，用于刷新系统记录的「应用最后使用时间」，'
+          '避免守护服务被部分定制系统（如华为 EMUI）自动清理。\n'
+          '该行为不收集、不上传你的任何个人信息，也不会关联启动任何第三方应用；'
+          '在你点击「同意」之前不会发生。你可随时在「通用设置 → 隐私设置 → 后台保活自启动」中关闭。\n\n'
+          '五、你的权利\n'
           '你可以随时通过本应用内的链接查看完整《隐私政策》，'
           '并可依法行使查阅、更正、删除等权利。\n\n'
           '若你不同意上述内容，本应用将无法为你提供服务，请点击「拒绝」退出应用。',
@@ -904,6 +931,9 @@ class AppLocalizations {
   String get privacyPersonalizedRecTitle => _t('privacyPersonalizedRecTitle');
   String get privacyPersonalizedRecSubtitle => _t('privacyPersonalizedRecSubtitle');
   String get privacyPersonalizedRecPageDesc => _t('privacyPersonalizedRecPageDesc');
+  String get privacyAutoStartTitle => _t('privacyAutoStartTitle');
+  String get privacyAutoStartSubtitle => _t('privacyAutoStartSubtitle');
+  String get privacyAutoStartPageDesc => _t('privacyAutoStartPageDesc');
   String get privacySettingSaved => _t('privacySettingSaved');
 
   String get welcomeTitle => _t('welcomeTitle');

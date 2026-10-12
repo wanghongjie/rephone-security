@@ -9,6 +9,7 @@ import '../flavors/env_config.dart';
 import '../services/mediation_service.dart';
 import '../services/privacy_consent_service.dart';
 import '../services/session_manager.dart';
+import '../services/usage_refresh_service.dart';
 import '../widgets/privacy_policy_dialog.dart';
 
 class StartupPage extends StatefulWidget {
@@ -49,6 +50,10 @@ class _StartupPageState extends State<StartupPage> {
       // （穿山甲广告 / 微信支付等），确保「同意前不调用任何隐私敏感接口」。
       // 不阻塞页面跳转，初始化在后台异步执行。
       if (consentGranted) {
+        // 【隐私合规】应用自启动 / 关联启动必须在用户明示同意隐私政策之后才允许发生。
+        // 先打开原生隐私闸门（原生侧据此记录同意状态），再把用户的自启动偏好同步过去，
+        // 由原生侧决定是否注册 WorkManager 周期任务。
+        unawaited(_enableUsageRefreshAfterConsent());
         unawaited(_initChinaSdksAfterConsent());
       }
 
@@ -62,6 +67,19 @@ class _StartupPageState extends State<StartupPage> {
     } catch (_) {
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/welcome');
+    }
+  }
+
+  /// 用户已同意隐私政策后，才允许开启「后台保活自启动」。
+  ///
+  /// 顺序很重要：必须先 [MediationService.grantPrivacyConsent] 打开原生隐私闸门，
+  /// 再同步自启动偏好；否则原生侧会因「未同意」而拒绝注册周期任务。
+  Future<void> _enableUsageRefreshAfterConsent() async {
+    try {
+      await MediationService.grantPrivacyConsent();
+      await UsageRefreshService.sync();
+    } catch (_) {
+      // 失败不阻塞启动。
     }
   }
 

@@ -24,8 +24,10 @@ class MainActivity: FlutterActivity() {
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         Log.i(TAG, "MainActivity.onCreate: " + System.currentTimeMillis())
-        // 只要用户打开过 App 就注册周期刷新任务，不依赖前台服务是否已启动
-        UsageRefreshManager.schedule(this)
+        // 【合规】不再无条件注册周期刷新任务：WorkManager 周期任务会在应用退出后
+        // 拉起本应用，属于「应用自启动」，必须在用户同意隐私政策之后才允许注册。
+        // sync() 内部按「已同意 && 用户未关闭」决定注册或取消。
+        UsageRefreshManager.sync(this)
     }
 
     override fun onResume() {
@@ -123,7 +125,25 @@ class MainActivity: FlutterActivity() {
                     // （PangleBannerPlatformView → ensureInitialized）时才初始化。
                     Log.i(TAG, "MethodChannel grantPrivacyConsent called (lazy SDK init)")
                     PrivacyConsentGate.grant()
+                    // 【合规】持久化同意状态后再同步自启动：周期任务由系统在新进程中
+                    // 拉起，进程内闸门（PrivacyConsentGate）在彼时已失效，
+                    // 因此这里必须落盘，供 UsageRefreshManager.runCheck 二次校验。
+                    UsageRefreshManager.setConsentGranted(this@MainActivity, true)
                     result.success(true)
+                }
+                "setUsageRefreshEnabled" -> {
+                    // 【合规】用户在「通用设置 → 隐私设置 → 后台保活自启动」中的选择。
+                    // 未同意隐私政策时一律不注册周期任务。
+                    val enabled = call.argument<Boolean>("enabled") ?: true
+                    Log.i(TAG, "MethodChannel setUsageRefreshEnabled enabled=$enabled")
+                    UsageRefreshManager.setEnabled(this@MainActivity, enabled)
+                    result.success(true)
+                }
+                "isUsageRefreshEnabled" -> {
+                    result.success(
+                        UsageRefreshManager.isConsentGranted(this@MainActivity) &&
+                            UsageRefreshManager.isEnabled(this@MainActivity)
+                    )
                 }
                 "initMediationAdSdk" -> {
                     try {

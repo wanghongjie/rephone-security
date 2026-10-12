@@ -28,8 +28,9 @@ class CameraForegroundService : Service() {
         registerNetworkCallback()
         // 息屏瞬间是最可靠的刷新时机，注册为动态广播（ACTION_SCREEN_OFF 不支持静态注册）
         registerScreenOffReceiver()
-        // WorkManager 周期任务作为兜底，防止广播未命中
-        UsageRefreshManager.schedule(this)
+        // WorkManager 周期任务作为兜底，防止广播未命中。
+        // 【合规】用户同意隐私政策且未关闭开关时才会真正注册。
+        UsageRefreshManager.sync(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
