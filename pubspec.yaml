@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.8+19
+version: 1.0.9+20
 
 environment:
   sdk: ^3.5.0
@@ -37,6 +37,14 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: 1.0.8
+  # 1.6.1 起 iOS podspec 依赖 WebRTC-SDK 150.7871.01；该版本已在 cdn.cocoapods.org
+  # 发布（trunk 索引可查），Podfile 又以 CDN 为首选 source，故 `pod install` 可直接
+  # 解析，无需等待本地 spec repo / 镜像同步。
+  # 1.6.2+hotfix.4 相对 1.6.0 带来两处本项目会踩到的修复：
+  #   #2190 [Darwin] dispose renderer 时首帧回调不再解引用野指针（EXC_BAD_ACCESS 崩溃）
+  #   #2192 [Android] 插件 detach 时释放 video renderer（泄漏）
+  # ⚠️ 升级后 android/app/build.gradle 的 io.github.webrtc-sdk:android 必须同步改为
+  #    150.7871.01，否则 APK 会打进两份 libwebrtc。
   flutter_webrtc: ^1.6.0
   shared_preferences: ^2.2.0
   http: ^1.2.2

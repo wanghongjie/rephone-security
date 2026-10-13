@@ -1,5 +1,8 @@
-# CDN 需排在前面，以便解析 flutter_webrtc 依赖的 WebRTC-SDK 144.x（镜像偶发滞后会报版本冲突）
-source 'https://cdn.cocoapods.org/'
+# ⚠️ 只用清华镜像，不使用 cdn.cocoapods.org：
+#    CDN source 的实际后端是 cdn.jsdelivr.net（cdn.cocoapods.org 会 301 过去），
+#    本机网络下 jsdelivr SSL connect error 不可达，pod install 会在解析阶段直接失败。
+#    清华镜像走国内网络可达，且已同步 WebRTC-SDK 150.7871.01
+#    （flutter_webrtc 1.6.2+hotfix.4 的 iOS 依赖）。
 source 'https://mirrors.tuna.tsinghua.edu.cn/git/CocoaPods/Specs.git'
 # Uncomment this line to define a global platform for your project
 platform :ios, '16.0'

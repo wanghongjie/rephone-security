@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import '../db/database_helper.dart';
@@ -14,6 +15,7 @@ import '../flavors/app_env.dart';
 import '../flavors/service_facades.dart';
 import '../services/signaling.dart';
 import '../services/session_manager.dart';
+import '../services/frame_tap.dart';
 import '../config/server_config.dart';
 import '../utils/log_utils.dart';
 import '../utils/navigation_service.dart';
@@ -41,6 +43,13 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   final GlobalKey _videoKey = GlobalKey();
   Interpreter? _personInterpreter;
   bool _personModelReady = false;
+  /// TFLite 输入张量的边长（方形输入）。模型加载成功后填充，
+  /// 决定 FrameTap 输出的缩略图尺寸；未加载前用 [_fallbackFrameSize]。
+  int? _modelInputSize;
+  static const int _fallbackFrameSize = 300;
+  /// 最近一次用于检测的帧。检测到人物后直接用它编码快照，
+  /// 不必再向原生侧取一次（`latest()` 取过一次后就把更新标记清掉了）。
+  _DetectionFrame? _lastDetectionFrame;
   bool _isDetecting = false;
   bool _isRecording = false;
   Timer? _detectTimer;
@@ -275,7 +284,9 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     _stopIosFakeSleepWakelockTimer();
     if (Platform.isIOS) _iosScreenWakeDisable();
     WidgetsBinding.instance.removeObserver(this);
-    _detectTimer?.cancel();
+    // 必须显式 close：Interpreter 持有 native 模型内存（约 4MB + arena），
+    // 仅置空引用不会释放反复进出本页面会线性增长直至 OOM。
+    _closeDetector();
 
     // 先断 signaling，再解绑 renderer，避免与 WebRTC 争用相机 / Surface
     if (_signaling != null) {
@@ -333,7 +344,7 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       _stopIosFakeSleepWakelockTimer();
       await _iosScreenWakeDisable();
     }
-    _stopDetectionTimer();
+    _closeDetector();
     if (_signaling != null) {
       _signaling!
         ..onSignalingStateChange = null
@@ -462,6 +473,13 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     _signaling!.onLocalStream = (stream) {
       LogUtils.i('CameraEndpoint', 'Local stream received');
       _localRenderer.srcObject = stream;
+      // 本地流每次变化（含 restartVideo）都要重挂取帧 sink，
+      // 否则拿的是旧轨道的帧 —— 表现为检测静默失效，不报错。
+      final localVideoTracks = stream.getVideoTracks();
+      final localTrackId = localVideoTracks.isEmpty ? null : localVideoTracks.first.id;
+      if (localTrackId != null) {
+        unawaited(_attachFrameTap(localTrackId));
+      }
       if (!mounted) return;
       setState(() {
         _isVideoActive = true;
@@ -784,6 +802,8 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
 
   void _stopVideo() async {
     try {
+      // 摘掉取帧 sink：轨道即将失效，不摘会让原生侧一直持有取样器。
+      await _detachFrameTap();
       _localRenderer.srcObject = null;
       if (!mounted) return;
       setState(() {
@@ -878,19 +898,38 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
     );
   }
 
+  /// 检测已恢复启用。
+  ///
+  /// 取帧不再走 `MediaStreamTrack.captureFrame()`（该 API 每次调用都会在 native
+  /// 新建一个 VideoSink，轨道无帧时既不回调也不注销，是此前内存泄漏的根因），
+  /// 改为 `rephone_frame_tap` 的常驻 sink 取「最新一帧」。
+  /// 模型占用的 native 内存在 [_closeDetector] 里显式释放。
   void _initDetector() {
-    // 检测已停用：不再加载 TFLite 模型（模型加载会占用大量 native 内存），
-    // 也不启动检测定时器。如需恢复检测，取消下面两行注释。
-    // _initPersonDetector();
-    // _startDetectionTimer();
+    unawaited(_initPersonDetector().then((_) => _startDetectionTimer()));
   }
 
   Future<void> _initPersonDetector() async {
     if (_personInterpreter != null) return;
     try {
       // 需要你在 assets/ml/ 下放置 person_detection.tflite 模型
-      _personInterpreter = await Interpreter.fromAsset('assets/ml/person_detection.tflite');
+      final interpreter =
+          await Interpreter.fromAsset('assets/ml/person_detection.tflite');
+      _personInterpreter = interpreter;
       _personModelReady = true;
+
+      // 记录输入边长，供 FrameTap 决定输出缩略图尺寸。
+      final shape = interpreter.getInputTensors().first.shape;
+      if (shape.length >= 4 && shape[1] == shape[2]) {
+        _modelInputSize = shape[1];
+        LogUtils.i('CameraEndpoint', 'TFLite input size: $_modelInputSize');
+        // 尺寸确认后重挂一次，让原生侧输出与模型匹配的缩略图
+        // （此前可能已用 _fallbackFrameSize 挂上）。
+        final tracks = _localRenderer.srcObject?.getVideoTracks();
+        final trackId = (tracks == null || tracks.isEmpty) ? null : tracks.first.id;
+        if (trackId != null) {
+          await _attachFrameTap(trackId);
+        }
+      }
       LogUtils.i('CameraEndpoint', 'TFLite person detector initialized');
     } catch (e) {
       LogUtils.e('CameraEndpoint', 'Failed to init TFLite person detector', e);
@@ -901,14 +940,54 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
   void _startDetectionTimer() {
     _detectTimer?.cancel();
     // 每10秒检测一次
-    // _detectTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-    //   _performDetection();
-    // });
+    _detectTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _performDetection();
+    });
+  }
+
+  /// 把 FrameTap 挂到当前本地视频轨道上。
+  ///
+  /// 必须在每次本地流变化时调用：`Signaling.restartVideo()` 会换掉 track，
+  /// 不重挂就再也拿不到帧（表现为检测静默失效，不报错）。
+  Future<void> _attachFrameTap(String trackId) async {
+    final size = _modelInputSize ?? _fallbackFrameSize;
+    final ok = await FrameTap.instance.attach(trackId, size, size);
+    LogUtils.i(
+      'CameraEndpoint',
+      'FrameTap attach($trackId, ${size}x$size) -> $ok',
+    );
+  }
+
+  /// 摘掉 FrameTap。忘记调用会让原生 VideoTrack 一直强引用取样器。
+  Future<void> _detachFrameTap() async {
+    await FrameTap.instance.detach();
   }
 
   void _stopDetectionTimer() {
     _detectTimer?.cancel();
     _detectTimer = null;
+  }
+
+  /// 停表 + 释放 TFLite 模型占用的 native 内存。
+  ///
+  /// [Interpreter] 没有 finalizer，只把引用置空不会释放 native 侧的
+  /// 模型 buffer / arena，反复进出本页面会线性增长直至 OOM。
+  /// 可重复调用（[dispose] 与 [_releaseResources] 都会走这里）。
+  void _closeDetector() {
+    _stopDetectionTimer();
+    // 必须先摘 sink：原生 VideoTrack 会强引用取样器，
+    // 只把 Dart 侧引用置空不会释放 native 侧。
+    unawaited(_detachFrameTap());
+    final interpreter = _personInterpreter;
+    _personInterpreter = null;
+    _personModelReady = false;
+    if (interpreter == null) return;
+    try {
+      interpreter.close();
+      LogUtils.i('CameraEndpoint', 'TFLite person detector closed');
+    } catch (e) {
+      LogUtils.w('CameraEndpoint', 'Failed to close TFLite person detector: $e');
+    }
   }
 
   Future<void> _performDetection() async {
@@ -938,18 +1017,10 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
       final bool isDetected = await _detectPersonWithTflite();
       if (isDetected) {
         LogUtils.i('CameraEndpoint', '检测到人物，准备录制');
-        final tempDir = await getTemporaryDirectory();
-        final file = File('${tempDir.path}/captureFrame.png');
-        if (await file.exists()) {
-          final appDir = await getApplicationDocumentsDirectory();
-          final snapshotDir = Directory('${appDir.path}/snapshots');
-          if (!await snapshotDir.exists()) {
-            await snapshotDir.create(recursive: true);
-          }
-          final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final imagePath = '${snapshotDir.path}/snapshot_$timestamp.png';
-          
-          await file.copy(imagePath);
+        final imagePath = await _saveDetectionSnapshot();
+        if (imagePath == null) {
+          LogUtils.w('CameraEndpoint', 'Snapshot unavailable, skip this event');
+        } else {
           _startTenSecondsRecording(imagePath);
           await _sendAlertWithSnapshot(imagePath);
         }
@@ -1019,149 +1090,142 @@ class _CameraEndpointPageState extends State<CameraEndpointPage> with WidgetsBin
         }
       }
 
-      final videoTracks = _localRenderer.srcObject?.getVideoTracks();
-      if (videoTracks == null || videoTracks.isEmpty) {
-        LogUtils.w('CameraEndpoint', 'TFLite detection: no video tracks');
-        return false;
-      }
+      final frame = await _acquireDetectionFrame();
+      if (frame == null) return false;
 
-      final track = videoTracks.first;
-      try {
-        // 给抓帧加超时：WebRTC 建连期间 video track 被 monitor 占用时，
-        // captureFrame() 可能永久挂起。超时后跳过本次检测并复位 _isDetecting。
-        // 注意：不要用 timeout(onTimeout:) 返回 null —— 其回调类型为
-        // FutureOr<ByteBuffer> Function()，返回 null 会触发运行时 TypeError。
-        // 改为捕获 TimeoutException，语义等价且类型安全。
-        await (track as dynamic).captureFrame().timeout(
-          const Duration(seconds: 5),
-        );
-      } on TimeoutException {
-        LogUtils.w(
-          'CameraEndpoint',
-          'TFLite detection: captureFrame() timed out after 5s (video track busy?)',
-        );
-        return false;
-      } catch (e) {
-        LogUtils.w('CameraEndpoint', 'TFLite detection: captureFrame() failed: $e');
-        return false;
-      }
-
-      final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/captureFrame.png');
-      if (!await file.exists()) {
-        LogUtils.w('CameraEndpoint', 'TFLite detection: captureFrame.png not found');
-        return false;
-      }
-
-      final bytes = await file.readAsBytes();
-      final image = img.decodeImage(bytes);
-      if (image == null) {
-        LogUtils.w('CameraEndpoint', 'TFLite detection: decodeImage failed');
-        return false;
-      }
-
-      final inputTensor = _personInterpreter!.getInputTensors().first;
-      final shape = inputTensor.shape; // [1, height, width, 3]
-      final height = shape[1];
-      final width = shape[2];
-      LogUtils.d('CameraEndpoint',
-          'TFLite input tensor: type=${inputTensor.type}, shape=$shape, image=${image.width}x${image.height}');
-
-      final resized = img.copyResize(image, width: width, height: height);
-
-      // 根据模型输入类型决定是 uint8 还是 float32
-      Object input;
-      if (inputTensor.type == TensorType.uint8) {
-        input = List.generate(
-          1,
-          (_) => List.generate(
-            height,
-            (y) => List.generate(
-              width,
-              (x) {
-                final pixel = resized.getPixel(x, y);
-                return [pixel.r, pixel.g, pixel.b];
-              },
-            ),
-          ),
-        );
-      } else {
-        // 默认按 float32 [0,1] 归一化
-        input = List.generate(
-          1,
-          (_) => List.generate(
-            height,
-            (y) => List.generate(
-              width,
-              (x) {
-                final pixel = resized.getPixel(x, y);
-                final r = pixel.r / 255.0;
-                final g = pixel.g / 255.0;
-                final b = pixel.b / 255.0;
-                return [r, g, b];
-              },
-            ),
-          ),
-        );
-      }
-
-      // 这里假设输出为典型的 SSD MobileNet 结构：
-      // boxes: [1, numDetections, 4]
-      // classes: [1, numDetections]
-      // scores: [1, numDetections]
-      // numDetections: [1]
-      const int maxDetections = 10;
-      final boxes = List.generate(
-        1,
-        (_) => List.generate(maxDetections, (_) => List.filled(4, 0.0)),
-      );
-      final classes = List.generate(
-        1,
-        (_) => List.filled(maxDetections, 0.0),
-      );
-      final scores = List.generate(
-        1,
-        (_) => List.filled(maxDetections, 0.0),
-      );
-      final numDetections = List.filled(1, 0.0);
-
-      final outputs = <int, Object>{
-        0: boxes,
-        1: classes,
-        2: scores,
-        3: numDetections,
-      };
-
-      _personInterpreter!.runForMultipleInputs([input], outputs);
-
-      final int count = numDetections[0].round().clamp(0, maxDetections);
-      const double minScore = 0.6;
-      // 对于官方 detect.tflite，标签文件通常是 0: person, 1: bicycle, ...
-      const int personClassId = 0;
-
-      LogUtils.d(
-        'CameraEndpoint',
-        'TFLite raw detections: count=$count, scores=${scores[0].take(count).toList()}, classes=${classes[0].take(count).toList()}',
-      );
-
-      for (int i = 0; i < count; i++) {
-        final score = scores[0][i];
-        final cls = classes[0][i].round();
-        if (score >= minScore && cls == personClassId) {
-          LogUtils.d(
-            'CameraEndpoint',
-            'TFLite detected person: idx=$i, score=$score, class=$cls',
-          );
-          return true;
-        }
-      }
-      LogUtils.d(
-        'CameraEndpoint',
-        'TFLite: no person detected above threshold (minScore=$minScore, personClassId=$personClassId)',
-      );
+      return _runPersonDetection(frame);
     } catch (e) {
       LogUtils.e('CameraEndpoint', 'TFLite person detection error', e);
     }
+    return false;
+  }
+
+  /// 取「最新一帧」的 RGB 缩略图。
+  ///
+  /// 走 `rephone_frame_tap`：原生侧是一个常驻 sink，帧一直在后台更新，这里只是
+  /// 把缓存取回来，毫秒级返回、不落盘、不新建 native 对象。
+  /// 返回 null 表示「没有帧」或「画面相较上次没有变化」，两种情况下都应跳过推理。
+  Future<_DetectionFrame?> _acquireDetectionFrame() async {
+    final sample = await FrameTap.instance.latest();
+    if (sample == null) return null;
+    if (sample.rgb.length != sample.width * sample.height * 3) {
+      LogUtils.w('CameraEndpoint', 'FrameTap: bad rgb length ${sample.rgb.length}');
+      return null;
+    }
+    final frame = _DetectionFrame(
+      width: sample.width,
+      height: sample.height,
+      rgb: sample.rgb,
+    );
+    _lastDetectionFrame = frame;
+    return frame;
+  }
+
+  /// 把 [_lastDetectionFrame] 编码成 PNG 存入 snapshots 目录，返回文件路径。
+  Future<String?> _saveDetectionSnapshot() async {
+    final frame = _lastDetectionFrame;
+    if (frame == null) return null;
+    try {
+      final image = img.Image.fromBytes(
+        width: frame.width,
+        height: frame.height,
+        bytes: Uint8List.fromList(frame.rgb).buffer,
+        numChannels: 3,
+        order: img.ChannelOrder.rgb,
+      );
+      final appDir = await getApplicationDocumentsDirectory();
+      final snapshotDir = Directory('${appDir.path}/snapshots');
+      if (!await snapshotDir.exists()) {
+        await snapshotDir.create(recursive: true);
+      }
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final imagePath = '${snapshotDir.path}/snapshot_$timestamp.png';
+      await File(imagePath).writeAsBytes(img.encodePng(image), flush: true);
+      return imagePath;
+    } catch (e) {
+      LogUtils.e('CameraEndpoint', 'Failed to save detection snapshot', e);
+      return null;
+    }
+  }
+
+  /// 对一帧已就绪的 RGB 样本跑 TFLite 推理。
+  ///
+  /// 入参用扁平 TypedData，绝不能用嵌套 `List.generate`：300x300 的嵌套写法
+  /// 会产生 9 万+ 个 Dart List 对象，每次推理都在 Dart 堆上刮一层。
+  Future<bool> _runPersonDetection(_DetectionFrame frame) async {
+    final interpreter = _personInterpreter;
+    if (interpreter == null) return false;
+
+    final inputTensor = interpreter.getInputTensors().first;
+
+    // tflite_flutter 对扁平入参只接受 Uint8List / ByteBuffer（见
+    // Tensor.getInputShapeIfDifferent：两者都直接跳过形状推导）。
+    // uint8 模型直接复用 frame.rgb；float32 模型转成 Float32List 后传 .buffer。
+    Object input;
+    if (inputTensor.type == TensorType.uint8) {
+      input = frame.rgb;
+    } else {
+      final floats = Float32List(frame.rgb.length);
+      for (var i = 0; i < frame.rgb.length; i++) {
+        floats[i] = frame.rgb[i] / 255.0; // 默认按 float32 [0,1] 归一化
+      }
+      input = floats.buffer;
+    }
+
+    // 这里假设输出为典型的 SSD MobileNet 结构：
+    // boxes: [1, numDetections, 4]
+    // classes: [1, numDetections]
+    // scores: [1, numDetections]
+    // numDetections: [1]
+    const int maxDetections = 10;
+    final boxes = List.generate(
+      1,
+      (_) => List.generate(maxDetections, (_) => List.filled(4, 0.0)),
+    );
+    final classes = List.generate(
+      1,
+      (_) => List.filled(maxDetections, 0.0),
+    );
+    final scores = List.generate(
+      1,
+      (_) => List.filled(maxDetections, 0.0),
+    );
+    final numDetections = List.filled(1, 0.0);
+
+    final outputs = <int, Object>{
+      0: boxes,
+      1: classes,
+      2: scores,
+      3: numDetections,
+    };
+
+    interpreter.runForMultipleInputs([input], outputs);
+
+    final int count = numDetections[0].round().clamp(0, maxDetections);
+    const double minScore = 0.6;
+    // 对于官方 detect.tflite，标签文件通常是 0: person, 1: bicycle, ...
+    const int personClassId = 0;
+
+    LogUtils.d(
+      'CameraEndpoint',
+      'TFLite raw detections: count=$count, scores=${scores[0].take(count).toList()}, classes=${classes[0].take(count).toList()}',
+    );
+
+    for (int i = 0; i < count; i++) {
+      final score = scores[0][i];
+      final cls = classes[0][i].round();
+      if (score >= minScore && cls == personClassId) {
+        LogUtils.d(
+          'CameraEndpoint',
+          'TFLite detected person: idx=$i, score=$score, class=$cls',
+        );
+        return true;
+      }
+    }
+    LogUtils.d(
+      'CameraEndpoint',
+      'TFLite: no person detected above threshold (minScore=$minScore, personClassId=$personClassId)',
+    );
     return false;
   }
 
@@ -1557,4 +1621,20 @@ class _CameraRoleMenu extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 一帧已按 TFLite 模型输入尺寸归一化好的 RGB 样本。
+class _DetectionFrame {
+  const _DetectionFrame({
+    required this.width,
+    required this.height,
+    required this.rgb,
+  });
+
+  final int width;
+  final int height;
+
+  /// 长度恒为 `width * height * 3`，通道顺序 RGB。
+  /// 用扁平 [Uint8List] 而非嵌套 List：后者在 300x300 下会产生 9 万+ 个对象。
+  final Uint8List rgb;
 }

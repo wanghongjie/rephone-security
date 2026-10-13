@@ -111,6 +111,15 @@ dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.2.0'
     // 周期性刷新 UsageStats.lastTime，对抗华为「不常用应用」force-stop
     implementation 'androidx.work:work-runtime-ktx:2.9.1'
+    // FrameTap（人物检测取帧）需要 org.webrtc.VideoSink / VideoFrame。
+    // flutter_webrtc 在 android/build.gradle 里用 `implementation` 声明 webrtc-sdk，
+    // 不会传递给 app 模块，所以这里必须显式声明一份。
+    // ⚠️ 版本号必须与 flutter_webrtc/android/build.gradle 中的
+    //    io.github.webrtc-sdk:android 完全一致（当前 150.7871.01）。
+    //    一致时 Gradle 解析为同一模块，只打包一份 libwebrtc；
+    //    一旦不一致，APK 会打进两份 so（体积翻倍且可能出现重复类）。
+    //    升级 flutter_webrtc 时同步修改此处。
+    implementation 'io.github.webrtc-sdk:android:150.7871.01'
 }
 
 // ==============================================================================
@@ -167,7 +176,11 @@ android.applicationVariants.all { variant ->
     if (variant.flavorName == "global") {
         println("[variant-config]   -> global flavor: exclude wechat-sdk from runtime+compile classpath")
         variant.runtimeConfiguration.exclude group: 'com.tencent.mm.opensdk', module: 'wechat-sdk-android'
-        variant.compileConfiguration.exclude group: 'com.tencent.mm.opensdk', module: 'wechat-sdk-android'
+        // ⚠️ 不能同时排除 compileConfiguration：fluwx 插件的 Java 源码
+        //    （FluwxPlugin 实现 com.tencent.mm.opensdk.openapi.IWXAPIEventHandler）
+        //    在编译期需要该 SDK 的类，排除后 GeneratedPluginRegistrant 会报
+        //    "无法访问 IWXAPIEventHandler / 找不到类文件" 而编译失败。
+        //    只排除 runtime 即可达到 global 版不打包微信 SDK 的目的。
     }
 }
 

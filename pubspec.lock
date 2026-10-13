@@ -273,10 +273,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_webrtc
-      sha256: e997161d7da3adedd3d430691b20931b0b4d96fa48bb60938d9ba0bf6fca98be
+      sha256: ebf5ceef2897caae425ed65a38b2961c29d9d9a626159418ed460e1a65038c00
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "1.6.0"
+    version: "1.6.2+hotfix.4"
   fluwx:
     dependency: "direct main"
     description:

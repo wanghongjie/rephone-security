@@ -11,6 +11,7 @@ import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.rephone.security.platform.FrameTapPlugin
 import com.rephone.security.platform.PlatformFeatures
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -60,6 +61,9 @@ class MainActivity: FlutterActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to register pangle platform view", e)
         }
+        // 人物检测取帧：常驻 VideoSink，替代会泄漏 native sink/Bitmap 的 captureFrame()
+        FrameTapPlugin(flutterEngine).register()
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "checkNotificationPermission" -> {
